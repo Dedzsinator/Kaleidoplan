@@ -49,4 +49,24 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 
-# i want to add a CI pipeline to github for automatic validation (eslint, html lint) 
+## setup on RPI
+
+```bash
+# On the Raspberry Pi
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+sudo apt install -y docker-compose
+
+### create .env file
+
+```bash
+npm install --save-dev \
+  eslint \
+  eslint-plugin-react \
+  eslint-plugin-react-hooks \
+  eslint-plugin-react-native \
+  @typescript-eslint/eslint-plugin \
+  @typescript-eslint/parser
+
+### and the rest with mssql
