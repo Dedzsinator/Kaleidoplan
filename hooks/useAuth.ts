@@ -1,7 +1,8 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/app/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../app/firebase';
+import { createUserInDatabase, getUserById } from '../services/dbService';
+import React from 'react';
 
 export interface User {
   id: string;
@@ -17,12 +18,14 @@ interface AuthContextType {
   error: string | null;
 }
 
-const AuthContext = createContext<AuthContextType>({
+// Create the context with default values
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  error: null,
+  error: null
 });
 
+// Use React.createElement instead of JSX to avoid syntax errors
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,28 +35,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // Get additional user data from Firestore
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          // Get user data from MSSQL
+          let userData = await getUserById(firebaseUser.uid);
           
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              role: userData.role || 'guest',
-              displayName: firebaseUser.displayName || userData.displayName,
-              photoURL: firebaseUser.photoURL || userData.photoURL,
-            });
-          } else {
-            // Basic user info if no additional data exists
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              role: 'guest',
-              displayName: firebaseUser.displayName,
-              photoURL: firebaseUser.photoURL,
-            });
+          if (!userData) {
+            // User exists in Firebase Auth but not in our database
+            // Create the user in our database
+            await createUserInDatabase(
+              firebaseUser.uid,
+              firebaseUser.email || '', 
+              firebaseUser.displayName || 'User',
+              'guest'
+            );
+            
+            userData = await getUserById(firebaseUser.uid);
           }
+          
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            role: userData?.role || 'guest',
+            displayName: firebaseUser.displayName || userData?.displayName,
+            photoURL: firebaseUser.photoURL || userData?.photoURL,
+          });
         } else {
           setUser(null);
         }
@@ -68,13 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, error }}>
-      {children}
-    </AuthContext.Provider>
+  // Use React.createElement instead of JSX syntax
+  return React.createElement(
+    AuthContext.Provider,
+    { value: { user, loading, error } },
+    children
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }

@@ -1,76 +1,73 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { StyleSheet, ScrollView, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { format } from 'date-fns';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/hooks/useAuth';
-import { db } from '@/app/firebase';
+import { getEventById } from '@/services/dbService';
 
 interface Event {
-  id: string;
+  eventId: number;
   name: string;
   description: string;
   location: string;
-  date: string;
-  imageUrl?: string;
+  startDate: string;
+  endDate: string;
+  status: 'upcoming' | 'ongoing' | 'completed';
+  coverImageUrl?: string;
+  creatorName: string;
+  createdBy: string;
 }
 
-export default function EventsScreen() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function EventDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+  
   const isAdmin = user?.role === 'admin';
+  const isCreator = user && event?.createdBy === user.id;
+  const canEdit = isAdmin || isCreator;
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (id) {
+      loadEvent(parseInt(id));
+    }
+  }, [id]);
 
-  const fetchEvents = async () => {
+  const loadEvent = async (eventId: number) => {
     try {
-      const eventsCollection = collection(db, 'events');
-      const eventsQuery = query(eventsCollection, orderBy('date', 'asc'));
-      const querySnapshot = await getDocs(eventsQuery);
-      
-      const fetchedEvents: Event[] = [];
-      querySnapshot.forEach((doc) => {
-        fetchedEvents.push({
-          id: doc.id,
-          ...doc.data() as Omit<Event, 'id'>
-        });
-      });
-      
-      setEvents(fetchedEvents);
+      const eventData = await getEventById(eventId);
+      setEvent(eventData);
     } catch (error) {
-      console.error("Error fetching events:", error);
+      console.error("Error fetching event:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const renderEventItem = ({ item }: { item: Event }) => (
-    <TouchableOpacity 
-      style={styles.eventCard}
-      onPress={() => router.push(`/events/${item.id}`)}
-    >
-      <Image 
-        source={{ uri: item.imageUrl || 'https://via.placeholder.com/400x200?text=No+Image' }}
-        style={styles.eventImage}
-        resizeMode="cover"
-      />
-      <ThemedView style={styles.eventInfo}>
-        <ThemedText type="defaultSemiBold" style={styles.eventTitle}>
-          {item.name}
-        </ThemedText>
-        <ThemedText style={styles.eventDate}>{item.date}</ThemedText>
-        <ThemedText style={styles.eventLocation}>{item.location}</ThemedText>
-        <ThemedText numberOfLines={2} style={styles.eventDescription}>
-          {item.description}
-        </ThemedText>
-      </ThemedView>
-    </TouchableOpacity>
-  );
+  const formatEventDate = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (format(start, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
+      return `${format(start, 'yyyy. MMMM d.')} ${format(start, 'HH:mm')}-${format(end, 'HH:mm')}`;
+    } else {
+      return `${format(start, 'yyyy. MMMM d. HH:mm')} - ${format(end, 'yyyy. MMMM d. HH:mm')}`;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'upcoming': return '#4CAF50';
+      case 'ongoing': return '#2196F3';
+      case 'completed': return '#9E9E9E';
+      default: return '#9E9E9E';
+    }
+  };
 
   if (loading) {
     return (
@@ -80,105 +77,150 @@ export default function EventsScreen() {
     );
   }
 
-  return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Rendezvények</ThemedText>
-      
-      {isAdmin && (
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => router.push('/admin/events/create')}
-        >
-          <ThemedText style={styles.buttonText}>
-            + Új rendezvény létrehozása
-          </ThemedText>
+  if (!event) {
+    return (
+      <ThemedView style={styles.errorContainer}>
+        <ThemedText>A rendezvény nem található</ThemedText>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ThemedText type="link">Vissza a főoldalra</ThemedText>
         </TouchableOpacity>
-      )}
+      </ThemedView>
+    );
+  }
+
+  return (
+    <ScrollView>
+      <Image
+        source={{ uri: event.coverImageUrl || 'https://via.placeholder.com/800x400?text=No+Image' }}
+        style={styles.coverImage}
+      />
       
-      {events.length === 0 ? (
-        <ThemedView style={styles.emptyContainer}>
-          <ThemedText>Nincsenek elérhető rendezvények</ThemedText>
+      <ThemedView style={styles.statusContainer}>
+        <ThemedText style={{...styles.statusText, color: getStatusColor(event.status)}}>
+          {event.status === 'upcoming' ? 'Közelgő' : 
+           event.status === 'ongoing' ? 'Folyamatban' : 'Lezárult'}
+        </ThemedText>
+      </ThemedView>
+      
+      <ThemedView style={styles.contentContainer}>
+        <ThemedText type="title" style={styles.title}>{event.name}</ThemedText>
+        
+        <ThemedView style={styles.infoRow}>
+          <ThemedText style={styles.infoLabel}>Időpont:</ThemedText>
+          <ThemedText style={styles.infoValue}>
+            {formatEventDate(event.startDate, event.endDate)}
+          </ThemedText>
         </ThemedView>
-      ) : (
-        <FlatList
-          data={events}
-          renderItem={renderEventItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-    </ThemedView>
+        
+        <ThemedView style={styles.infoRow}>
+          <ThemedText style={styles.infoLabel}>Helyszín:</ThemedText>
+          <ThemedText style={styles.infoValue}>{event.location}</ThemedText>
+        </ThemedView>
+        
+        <ThemedView style={styles.infoRow}>
+          <ThemedText style={styles.infoLabel}>Szervező:</ThemedText>
+          <ThemedText style={styles.infoValue}>{event.creatorName}</ThemedText>
+        </ThemedView>
+        
+        <ThemedText style={styles.sectionTitle}>Leírás</ThemedText>
+        <ThemedText style={styles.description}>{event.description}</ThemedText>
+
+        {canEdit && (
+          <TouchableOpacity 
+            style={styles.editButton}
+            onPress={() => router.push(`/admin/events/edit/${event.eventId}`)}
+          >
+            <ThemedText style={styles.editButtonText}>Szerkesztés</ThemedText>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <ThemedText style={styles.backButtonText}>Vissza</ThemedText>
+        </TouchableOpacity>
+      </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyContainer: {
+  errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    marginBottom: 20,
-  },
-  listContainer: {
-    paddingBottom: 20,
-  },
-  eventCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  eventImage: {
+  coverImage: {
     width: '100%',
-    height: 180,
-    backgroundColor: '#f0f0f0',
+    height: 250,
   },
-  eventInfo: {
+  statusContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontWeight: 'bold',
+  },
+  contentContainer: {
     padding: 16,
   },
-  eventTitle: {
-    fontSize: 18,
-    marginBottom: 6,
+  title: {
+    marginBottom: 24,
   },
-  eventDate: {
-    fontSize: 14,
-    color: '#0a7ea4',
-    marginBottom: 4,
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
   },
-  eventLocation: {
-    fontSize: 14,
+  infoLabel: {
+    width: 80,
+    fontWeight: 'bold',
     color: '#666',
-    marginBottom: 8,
   },
-  eventDescription: {
-    fontSize: 14,
-    color: '#444',
+  infoValue: {
+    flex: 1,
   },
-  addButton: {
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  description: {
+    lineHeight: 24,
+  },
+  editButton: {
     backgroundColor: '#0a7ea4',
-    padding: 12,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    marginTop: 32,
     alignItems: 'center',
-    marginBottom: 16,
   },
-  buttonText: {
-    color: '#fff',
+  editButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  backButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    marginTop: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  backButtonText: {
     fontWeight: 'bold',
   },
 });

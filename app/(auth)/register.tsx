@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { registerUser } from '@/services/firebase';
+import { register, loginWithGoogle } from '@/services/authService';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -26,10 +26,22 @@ export default function RegisterScreen() {
     
     setLoading(true);
     try {
-      await registerUser(email, password, displayName);
+      await register(email, password, displayName);
       Alert.alert('Sikeres regisztráció', 'A fiókodat sikeresen létrehoztuk!', [
         { text: 'OK', onPress: () => router.replace('/(tabs)') }
       ]);
+    } catch (error: any) {
+      Alert.alert('Hiba', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleGoogleRegister = async () => {
+    try {
+      setLoading(true);
+      await loginWithGoogle();
+      router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Hiba', error.message);
     } finally {
@@ -89,6 +101,20 @@ export default function RegisterScreen() {
           </ThemedText>
         </TouchableOpacity>
         
+        <ThemedText style={styles.orText}>vagy</ThemedText>
+        
+        <TouchableOpacity 
+          style={styles.googleButton}
+          onPress={handleGoogleRegister}
+          disabled={loading}
+        >
+          <Image 
+            source={require('@/assets/images/google-logo.png')} 
+            style={styles.googleIcon}
+          />
+          <ThemedText>Belépés Google fiókkal</ThemedText>
+        </TouchableOpacity>
+        
         <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
           <ThemedText type="link" style={styles.loginLink}>
             Van már fiókod? Jelentkezz be
@@ -146,6 +172,26 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  orText: {
+    marginVertical: 16,
+  },
+  googleButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 16,
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
   },
   loginLink: {
     marginTop: 24,

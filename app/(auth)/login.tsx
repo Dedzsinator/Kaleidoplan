@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { loginUser } from '@/services/firebase';
+import { login, loginWithGoogle } from '@/services/authService';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -19,7 +19,19 @@ export default function LoginScreen() {
     
     setLoading(true);
     try {
-      await loginUser(email, password);
+      await login(email, password);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      Alert.alert('Hiba', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      await loginWithGoogle();
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Hiba', error.message);
@@ -63,6 +75,20 @@ export default function LoginScreen() {
         <ThemedText style={styles.loginButtonText}>
           {loading ? 'Bejelentkezés...' : 'Bejelentkezés'}
         </ThemedText>
+      </TouchableOpacity>
+      
+      <ThemedText style={styles.orText}>vagy</ThemedText>
+      
+      <TouchableOpacity 
+        style={styles.googleButton}
+        onPress={handleGoogleLogin}
+        disabled={loading}
+      >
+        <Image 
+          source={require('@/assets/images/google-logo.png')} 
+          style={styles.googleIcon}
+        />
+        <ThemedText>Belépés Google fiókkal</ThemedText>
       </TouchableOpacity>
       
       <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
@@ -122,6 +148,26 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  orText: {
+    marginVertical: 16,
+  },
+  googleButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 16,
+  },
+  googleIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
   },
   registerLink: {
     marginTop: 24,
