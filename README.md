@@ -49,6 +49,14 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 
+## MongoDB Setup
+
+This application uses MongoDB for data storage. Follow these steps to set up MongoDB:
+
+1. Install MongoDB locally or use a MongoDB Atlas cluster
+
+2. Configure your MongoDB connection in the `.env` file:
+
 ## setup on RPI
 
 ```bash

@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   app:
@@ -14,19 +14,52 @@ services:
       - FIREBASE_MESSAGING_SENDER_ID=${FIREBASE_MESSAGING_SENDER_ID}
       - FIREBASE_APP_ID=${FIREBASE_APP_ID}
       - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
-      - MSSQL_SERVER=${MSSQL_SERVER}
-      - MSSQL_DATABASE=${MSSQL_DATABASE}
-      - MSSQL_USER=${MSSQL_USER}
-      - MSSQL_PASSWORD=${MSSQL_PASSWORD}
-      - MSSQL_PORT=${MSSQL_PORT}
+      - MONGODB_URI=mongodb://mongo:27017/kaleidoplan
+      - MONGODB_DB_NAME=kaleidoplan
     restart: unless-stopped
     volumes:
       - uploads:/app/public/uploads
     networks:
       - kaleidoplan-network
+    depends_on:
+      - mongo
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    ports:
+      - "27017:27017"
+    command: mongod --wiredTigerCacheSizeGB 0.5
+    networks:
+      - kaleidoplan-network
+    restart: unless-stopped
+    environment:
+      # Add authentication in production
+      # MONGO_INITDB_ROOT_USERNAME: admin
+      # MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
 
 volumes:
   uploads:
+  mongo-data:
+  mongo-config:
 
 networks:
   kaleidoplan-network:
+    driver: bridge

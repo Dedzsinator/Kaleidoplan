@@ -25,11 +25,19 @@ RUN npm run build
 FROM base AS production
 COPY --from=dependencies /app/node_modules /app/node_modules
 COPY --from=build /app/dist /app/dist
-COPY --from=build /app/public /app/public
+COPY --from=build /app/scripts /app/scripts
 COPY --from=build /app/package.json /app/
+
+# Set up MongoDB connection
+ENV MONGODB_URI=mongodb://mongo:27017/kaleidoplan
+ENV MONGODB_DB_NAME=kaleidoplan
 
 # Expose the port the app will run on
 EXPOSE 3000
 
-# Start the application
+# Healthcheck to verify app is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/ || exit 1
+
+# Initialize MongoDB and start the application
 CMD ["npm", "run", "start:prod"]

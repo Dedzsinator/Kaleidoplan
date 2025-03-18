@@ -15,5 +15,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ]
+, "scripts/mongoInit.js", "index.js", "services/mongoService.tsx"  ]
 }
