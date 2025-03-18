@@ -1,45 +1,48 @@
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: 'admin' | 'organizer';
-  }
-  
-  export interface TaskLog {
-    id: string;
-    taskId: string;
-    timestamp: Date | string;
-    action: 'created' | 'updated' | 'completed';
-    comment?: string;
-    updatedBy: string;
-    oldStatus?: 'pending' | 'in-progress' | 'completed';
-    newStatus?: 'pending' | 'in-progress' | 'completed';
-  }
-  
-  export interface Task {
-    taskId: string;
-    name: string;
-    description?: string;
-    deadline: Date | string;
-    status: 'pending' | 'in-progress' | 'completed';
-    assignedTo: string;
-    eventId: string;
-    eventName?: string;
-    createdAt: Date | string;
-    updatedAt: Date | string;
-    logs?: TaskLog[];
-  }
-  
-  export interface Event {
-    id: string;
-    name: string;
-    description: string;
-    location: string;
-    startDate: Date | string;
-    endDate: Date | string;
-    status: 'upcoming' | 'ongoing' | 'completed';
-    coverImageUrl?: string;
-    creatorName: string;
-    organizers: string[];
-    tasks?: Task[];
-  }
+// Task status type
+export type TaskStatus = 'pending' | 'in-progress' | 'completed';
+
+// Task action type
+export type TaskAction = 'created' | 'updated' | 'completed';
+
+// Task model
+export interface Task {
+  taskId: string;
+  name: string;
+  description: string;
+  deadline: Date | string;
+  status: TaskStatus;
+  assignedTo: string; // Firebase UID
+  eventId: string;
+  eventName: string;
+  createdBy: string; // Firebase UID
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  updatedBy?: string; // Firebase UID
+}
+
+// Task log model
+export interface TaskLog {
+  id: string;
+  taskId: string;
+  timestamp: Date | string;
+  action: TaskAction;
+  updatedBy: string; // Firebase UID
+  oldStatus?: TaskStatus;
+  newStatus: TaskStatus;
+  comment?: string;
+}
+
+// Event model
+export interface Event {
+  id: string;
+  name: string;
+  description: string;
+  location: string;
+  startDate: Date | string;
+  endDate: Date | string;
+  status: 'upcoming' | 'ongoing' | 'completed';
+  coverImageUrl?: string;
+  creatorName: string;
+  createdBy: string; // Firebase UID
+  organizers: string[]; // Array of Firebase UIDs
+}

@@ -1,45 +1,32 @@
 const { connectToDatabase } = require('./mongoConnection');
 const { ObjectId } = require('mongodb');
+const admin = require('firebase-admin');
+const serviceAccount = require('../serviceAccountKey.json');
+
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 async function seedDatabase() {
   try {
     const { db } = await connectToDatabase();
     
-    // Clear existing data
+    // Clear existing data in MongoDB
     await db.collection('events').deleteMany({});
     await db.collection('tasks').deleteMany({});
-    await db.collection('users').deleteMany({});
     await db.collection('taskLogs').deleteMany({});
     
-    // Create users
-    const users = [
-      {
-        _id: new ObjectId(),
-        name: 'Admin User',
-        email: 'admin@example.com',
-        password: 'hashed_password_here', // In production, use proper hashing
-        role: 'admin'
-      },
-      {
-        _id: new ObjectId(),
-        name: 'John Doe',
-        email: 'john@example.com',
-        password: 'hashed_password_here',
-        role: 'organizer'
-      },
-      {
-        _id: new ObjectId(),
-        name: 'Jane Smith',
-        email: 'jane@example.com',
-        password: 'hashed_password_here',
-        role: 'organizer'
-      }
-    ];
+    // Define Firebase user IDs for reference (these would come from Firebase Authentication)
+    // Note: We're not creating users in Firebase here for safety, just referencing IDs
+    // In a real app, you would create users through the Firebase Admin SDK or UI
+    const firebaseUsers = {
+      admin: "admin_firebase_uid",
+      johnDoe: "john_firebase_uid",
+      janeSmith: "jane_firebase_uid"
+    };
     
-    await db.collection('users').insertMany(users);
-    console.log('Users created');
-    
-    // Create events
+    // Create events - these reference Firebase user IDs
     const events = [
       {
         _id: new ObjectId(),
@@ -51,7 +38,8 @@ async function seedDatabase() {
         status: 'upcoming',
         coverImageUrl: 'https://picsum.photos/800/400?random=1',
         creatorName: 'Event Organizers Inc.',
-        organizers: [users[1]._id.toString(), users[2]._id.toString()]
+        createdBy: firebaseUsers.admin,
+        organizers: [firebaseUsers.johnDoe, firebaseUsers.janeSmith]
       },
       {
         _id: new ObjectId(),
@@ -63,14 +51,15 @@ async function seedDatabase() {
         status: 'upcoming',
         coverImageUrl: 'https://picsum.photos/800/400?random=2',
         creatorName: 'Tech Community',
-        organizers: [users[1]._id.toString()]
+        createdBy: firebaseUsers.admin,
+        organizers: [firebaseUsers.johnDoe]
       }
     ];
     
     await db.collection('events').insertMany(events);
     console.log('Events created');
     
-    // Create tasks
+    // Create tasks - these reference Firebase user IDs
     const tasks = [
       {
         _id: new ObjectId(),
@@ -78,8 +67,9 @@ async function seedDatabase() {
         description: 'Coordinate with the stage setup team to ensure all equipment is properly installed and tested',
         deadline: new Date(2025, 5, 14),
         status: 'pending',
-        assignedTo: users[1]._id.toString(),
+        assignedTo: firebaseUsers.johnDoe,
         eventId: events[0]._id.toString(),
+        createdBy: firebaseUsers.admin,
         createdAt: new Date(2024, 2, 15),
         updatedAt: new Date(2024, 2, 15)
       },
@@ -89,8 +79,9 @@ async function seedDatabase() {
         description: 'Contact all food vendors to confirm their participation and requirements',
         deadline: new Date(2025, 5, 10),
         status: 'in-progress',
-        assignedTo: users[1]._id.toString(),
+        assignedTo: firebaseUsers.johnDoe,
         eventId: events[0]._id.toString(),
+        createdBy: firebaseUsers.admin,
         createdAt: new Date(2024, 2, 15),
         updatedAt: new Date(2024, 2, 18)
       },
@@ -100,8 +91,9 @@ async function seedDatabase() {
         description: 'Manage the registration process for all speakers',
         deadline: new Date(2025, 3, 5),
         status: 'completed',
-        assignedTo: users[1]._id.toString(),
+        assignedTo: firebaseUsers.johnDoe,
         eventId: events[1]._id.toString(),
+        createdBy: firebaseUsers.admin,
         createdAt: new Date(2024, 2, 15),
         updatedAt: new Date(2024, 2, 20)
       },
@@ -111,8 +103,9 @@ async function seedDatabase() {
         description: 'Ensure all conference rooms are properly set up with necessary equipment',
         deadline: new Date(2025, 3, 9),
         status: 'pending',
-        assignedTo: users[1]._id.toString(),
+        assignedTo: firebaseUsers.johnDoe,
         eventId: events[1]._id.toString(),
+        createdBy: firebaseUsers.admin,
         createdAt: new Date(2024, 2, 15),
         updatedAt: new Date(2024, 2, 15)
       }
@@ -121,20 +114,20 @@ async function seedDatabase() {
     await db.collection('tasks').insertMany(tasks);
     console.log('Tasks created');
     
-    // Create initial task logs
+    // Create initial task logs - these reference Firebase user IDs
     const taskLogs = [
       {
         taskId: tasks[0]._id.toString(),
         timestamp: new Date(2024, 2, 15, 9, 30),
         action: 'created',
-        updatedBy: users[0]._id.toString(),
+        updatedBy: firebaseUsers.admin,
         newStatus: 'pending'
       },
       {
         taskId: tasks[1]._id.toString(),
         timestamp: new Date(2024, 2, 15, 9, 45),
         action: 'created',
-        updatedBy: users[0]._id.toString(),
+        updatedBy: firebaseUsers.admin,
         newStatus: 'pending'
       },
       {
@@ -142,7 +135,7 @@ async function seedDatabase() {
         timestamp: new Date(2024, 2, 18, 14, 15),
         action: 'updated',
         comment: 'Started working on vendor coordination',
-        updatedBy: users[1]._id.toString(),
+        updatedBy: firebaseUsers.johnDoe,
         oldStatus: 'pending',
         newStatus: 'in-progress'
       },
@@ -150,7 +143,7 @@ async function seedDatabase() {
         taskId: tasks[2]._id.toString(),
         timestamp: new Date(2024, 2, 15, 10, 0),
         action: 'created',
-        updatedBy: users[0]._id.toString(),
+        updatedBy: firebaseUsers.admin,
         newStatus: 'pending'
       },
       {
@@ -158,7 +151,7 @@ async function seedDatabase() {
         timestamp: new Date(2024, 2, 16, 11, 30),
         action: 'updated',
         comment: 'Started registration process',
-        updatedBy: users[1]._id.toString(),
+        updatedBy: firebaseUsers.johnDoe,
         oldStatus: 'pending',
         newStatus: 'in-progress'
       },
@@ -167,7 +160,7 @@ async function seedDatabase() {
         timestamp: new Date(2024, 2, 20, 15, 45),
         action: 'completed',
         comment: 'All speakers registered and confirmed',
-        updatedBy: users[1]._id.toString(),
+        updatedBy: firebaseUsers.johnDoe,
         oldStatus: 'in-progress',
         newStatus: 'completed'
       },
@@ -175,7 +168,7 @@ async function seedDatabase() {
         taskId: tasks[3]._id.toString(),
         timestamp: new Date(2024, 2, 15, 10, 15),
         action: 'created',
-        updatedBy: users[0]._id.toString(),
+        updatedBy: firebaseUsers.admin,
         newStatus: 'pending'
       }
     ];

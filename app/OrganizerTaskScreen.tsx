@@ -4,7 +4,8 @@ import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { styled } from 'nativewind';
-import { getTasksByOrganizer, updateTaskStatus } from '../services/dataService';
+// Remove MongoDB-related imports
+// import { getTasksByOrganizer, updateTaskStatus } from '../services/dataService';
 import { Task } from '../models/types';
 import {
   Container,
@@ -23,7 +24,7 @@ import {
   BadgeText
 } from '../components/ui/theme';
 
-// Custom styled components for this screen (keep your existing styled components)
+// Custom styled components for this screen
 const TaskCard = styled(Card, 'p-4 mb-3');
 const TaskHeader = styled(View, 'flex-row justify-between items-center mb-2');
 const TaskName = styled(Text, 'text-base font-semibold text-gray-800 flex-1');
@@ -46,57 +47,87 @@ const CompletedBadge = styled(Badge, 'bg-success-light');
 const CompletedBadgeText = styled(BadgeText, 'text-success');
 
 const OrganizerTaskScreen = ({ navigation }) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        if (!user || !user.id) {
-          throw new Error("User not authenticated");
-        }
+        // Mock data instead of MongoDB call
+        const mockTasks = [
+          {
+            taskId: '1',
+            name: 'Set up main stage',
+            description: 'Coordinate with the stage setup team',
+            deadline: new Date(2025, 5, 14),
+            status: 'pending',
+            assignedTo: user?.id || '',
+            eventId: '1',
+            eventName: 'Summer Music Festival',
+            createdAt: new Date(2024, 2, 15),
+            updatedAt: new Date(2024, 2, 15)
+          },
+          {
+            taskId: '2',
+            name: 'Coordinate food vendors',
+            description: 'Contact all food vendors',
+            deadline: new Date(2025, 5, 10),
+            status: 'in-progress',
+            assignedTo: user?.id || '',
+            eventId: '1',
+            eventName: 'Summer Music Festival',
+            createdAt: new Date(2024, 2, 15),
+            updatedAt: new Date(2024, 2, 18)
+          },
+          {
+            taskId: '3',
+            name: 'Speaker registration',
+            description: 'Manage speaker registration',
+            deadline: new Date(2025, 3, 5),
+            status: 'completed',
+            assignedTo: user?.id || '',
+            eventId: '2',
+            eventName: 'Tech Conference 2025',
+            createdAt: new Date(2024, 2, 15),
+            updatedAt: new Date(2024, 2, 20)
+          }
+        ];
         
-        const tasksData = await getTasksByOrganizer(user.id);
-        setTasks(tasksData);
+        setTasks(mockTasks);
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching tasks:', error);
         Alert.alert('Error', 'Failed to load your tasks');
-      } finally {
         setLoading(false);
       }
     };
     
+    setLoading(true);
     fetchTasks();
   }, [user]);
 
-  const formatDeadline = (date: Date | string) => {
+  const formatDeadline = (date) => {
     const deadlineDate = typeof date === 'string' ? new Date(date) : date;
     return format(deadlineDate, 'MMM d, yyyy');
   };
   
-  const isOverdue = (deadline: Date | string, status: string) => {
+  const isOverdue = (deadline, status) => {
     const deadlineDate = typeof deadline === 'string' ? new Date(deadline) : deadline;
     return deadlineDate < new Date() && status !== 'completed';
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: 'pending' | 'in-progress' | 'completed') => {
+  const handleStatusChange = async (taskId, newStatus) => {
     try {
-      // First update locally for instant feedback
+      // Update locally for instant feedback
       setTasks(currentTasks => 
         currentTasks.map(task => 
           task.taskId === taskId ? { ...task, status: newStatus } : task
         )
       );
       
-      // Then update in the database
-      await updateTaskStatus(
-        taskId, 
-        newStatus, 
-        user.id,
-        newStatus === 'completed' ? 'Task completed' : 
-        newStatus === 'in-progress' ? 'Started working on task' : ''
-      );
+      // Mock API call instead of MongoDB
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Navigate to TaskLogScreen to show the status change was logged
       navigation.navigate('TaskLog', { taskId });
@@ -109,7 +140,72 @@ const OrganizerTaskScreen = ({ navigation }) => {
     }
   };
 
-  // Keep your existing renderTaskItem function
+  const renderTaskItem = ({ item }) => (
+    <TaskCard>
+      <TaskHeader>
+        <TaskName>{item.name}</TaskName>
+        {item.status === 'pending' ? (
+          <PendingBadge>
+            <PendingBadgeText>Pending</PendingBadgeText>
+          </PendingBadge>
+        ) : item.status === 'in-progress' ? (
+          <InProgressBadge>
+            <InProgressBadgeText>In Progress</InProgressBadgeText>
+          </InProgressBadge>
+        ) : (
+          <CompletedBadge>
+            <CompletedBadgeText>Completed</CompletedBadgeText>
+          </CompletedBadge>
+        )}
+      </TaskHeader>
+      
+      <TaskEventName>
+        <Ionicons name="calendar-outline" size={14} color="#666" /> {item.eventName}
+      </TaskEventName>
+      
+      <TaskDeadline>
+        <Ionicons name="time-outline" size={14} color="#666" /> Deadline: {formatDeadline(item.deadline)}
+        {isOverdue(item.deadline, item.status) && (
+          <OverdueText> (Overdue)</OverdueText>
+        )}
+      </TaskDeadline>
+      
+      {item.status !== 'completed' && (
+        <ActionButtons>
+          {item.status === 'pending' ? (
+            <PrimaryButton
+              className="flex-1 mr-2"
+              onPress={() => handleStatusChange(item.taskId, 'in-progress')}
+            >
+              <PrimaryButtonText>Start Task</PrimaryButtonText>
+            </PrimaryButton>
+          ) : (
+            <PrimaryButton
+              className="flex-1 mr-2"
+              onPress={() => handleStatusChange(item.taskId, 'completed')}
+            >
+              <PrimaryButtonText>Complete Task</PrimaryButtonText>
+            </PrimaryButton>
+          )}
+          
+          <OutlineButton
+            className="flex-1 ml-2"
+            onPress={() => navigation.navigate('TaskDetail', { taskId: item.taskId })}
+          >
+            <OutlineButtonText>Details</OutlineButtonText>
+          </OutlineButton>
+        </ActionButtons>
+      )}
+      
+      {item.status === 'completed' && (
+        <OutlineButton
+          onPress={() => navigation.navigate('TaskDetail', { taskId: item.taskId })}
+        >
+          <OutlineButtonText>View Details</OutlineButtonText>
+        </OutlineButton>
+      )}
+    </TaskCard>
+  );
 
   const renderTasksByStatus = () => {
     const pending = tasks.filter(task => task.status === 'pending');
@@ -142,7 +238,49 @@ const OrganizerTaskScreen = ({ navigation }) => {
     );
   };
 
-  // Keep your loading and return code the same
+  if (loading) {
+    return (
+      <LoadingContainer>
+        <Spinner size="large" color="#0a7ea4" />
+        <LoadingText>Loading your tasks...</LoadingText>
+      </LoadingContainer>
+    );
+  }
+
+  if (tasks.length === 0) {
+    return (
+      <Container>
+        <Header>
+          <HeaderTitle>My Tasks</HeaderTitle>
+          <HeaderSubtitle>Tasks assigned to you</HeaderSubtitle>
+        </Header>
+        
+        <EmptyContainer>
+          <Ionicons name="checkmark-circle-outline" size={64} color="#ccc" />
+          <EmptyTitle>No Tasks Assigned</EmptyTitle>
+          <EmptyDescription>
+            You don't have any tasks assigned to you yet. Check back later.
+          </EmptyDescription>
+        </EmptyContainer>
+      </Container>
+    );
+  }
+
+  return (
+    <Container>
+      <Header>
+        <HeaderTitle>My Tasks</HeaderTitle>
+        <HeaderSubtitle>Tasks assigned to you</HeaderSubtitle>
+      </Header>
+      
+      <FlatList
+        data={[]} // Empty data as we're using manual rendering
+        renderItem={() => null}
+        ListHeaderComponent={renderTasksByStatus}
+        contentContainerStyle={{ padding: 16 }}
+      />
+    </Container>
+  );
 };
 
 export default OrganizerTaskScreen;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import HomeScreen from './app/HomeScreen';
 import LoginScreen from './app/LoginScreen';
 import RegisterScreen from './app/RegisterScreen';

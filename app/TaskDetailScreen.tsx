@@ -3,7 +3,7 @@ import { ScrollView, Alert, Platform, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
-import { useAuth } from '../contexts/AuthContext.tsx';
+import { useAuth } from '../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import {Container, Card, Title, BodyText, Label, Input, TextArea, PrimaryButton, PrimaryButtonText, DangerButton, DangerButtonText, OutlineButton, OutlineButtonText, LinkText, CaptionText, Row, Spacer, LoadingContainer, Spinner, LoadingText} from '../components/ui/theme';
 import { styled } from 'nativewind';
