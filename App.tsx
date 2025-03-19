@@ -26,7 +26,7 @@ const AppNavigator = () => {
 
   return (
     <Stack.Navigator
-    screenOptions={{
+      screenOptions={{
         headerStyle: {
           backgroundColor: '#0a7ea4', // Use your primary color
         },
@@ -66,8 +66,7 @@ const AppNavigator = () => {
             name="Guest" 
             component={GuestScreen} 
             options={{ 
-              title: 'Events',
-              headerRight: () => null 
+              headerShown: false, // Hide the default header for guest screen
             }} 
           />
           <Stack.Screen name="EventDetail" component={EventDetailScreen} options={{ title: 'Event Details' }} />

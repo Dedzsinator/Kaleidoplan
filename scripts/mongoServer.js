@@ -5,7 +5,35 @@ const admin = require('firebase-admin');
 const serviceAccount = require('../serviceAccountKey.json');
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
+const cron = require('node-cron');
 require('dotenv').config();
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // or any other service
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
+});
+
+const eventInterestSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  userName: { type: String },
+  userEmail: { type: String, required: true },
+  eventId: { type: String, required: true },
+  eventName: { type: String },
+  eventDate: { type: Date },
+  reminderFrequency: { 
+    type: String, 
+    enum: ['daily', 'weekly', 'monthly'],
+    default: 'weekly'
+  },
+  createdAt: { type: Date, default: Date.now },
+  lastReminded: { type: Date }
+});
+
+const EventInterest = mongoose.model('EventInterest', eventInterestSchema);
 
 // Initialize Firebase Admin
 admin.initializeApp({
@@ -266,6 +294,172 @@ app.get('/api/events/:id', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching event:', error);
     res.status(500).json({ error: 'Failed to fetch event' });
+  }
+});
+
+app.post('/api/events/:eventId/subscribe', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { userId, userName, userEmail, reminderFrequency } = req.body;
+    
+    // Find the event first to get details
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    
+    // Create or update interest
+    const interest = await EventInterest.findOneAndUpdate(
+      { userId, eventId },
+      { 
+        userId, 
+        userName,
+        userEmail, 
+        eventId,
+        eventName: event.name,
+        eventDate: event.startDate,
+        reminderFrequency: reminderFrequency || 'weekly'
+      },
+      { upsert: true, new: true }
+    );
+    
+    res.status(200).json({ success: true, interest });
+  } catch (error) {
+    console.error('Error subscribing to event:', error);
+    res.status(500).json({ message: 'Error subscribing to event' });
+  }
+});
+
+app.post('/api/events/:eventId/unsubscribe', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { userId } = req.body;
+    
+    await EventInterest.findOneAndDelete({ userId, eventId });
+    
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error unsubscribing from event:', error);
+    res.status(500).json({ message: 'Error unsubscribing from event' });
+  }
+});
+
+app.get('/api/events/:eventId/check-interest', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    const { userId } = req.query;
+    
+    const interest = await EventInterest.findOne({ userId, eventId });
+    
+    res.status(200).json({ isInterested: !!interest });
+  } catch (error) {
+    console.error('Error checking interest:', error);
+    res.status(500).json({ message: 'Error checking interest' });
+  }
+});
+
+// Function to send reminder email
+const sendReminderEmail = async (interest) => {
+  try {
+    const event = await Event.findById(interest.eventId);
+    if (!event) return;
+    
+    const eventDate = new Date(event.startDate);
+    const now = new Date();
+    const daysRemaining = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+    
+    // Format email content
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Event Reminder: ${event.name}</h2>
+        <p>Hello ${interest.userName || 'there'},</p>
+        <p>This is a reminder about the event you're interested in attending.</p>
+        
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0;">${event.name}</h3>
+          <p><strong>Date:</strong> ${new Date(event.startDate).toLocaleDateString()}</p>
+          <p><strong>Location:</strong> ${event.location}</p>
+          <p><strong>Days remaining:</strong> ${daysRemaining}</p>
+        </div>
+        
+        <p>We look forward to seeing you there!</p>
+        <p>Regards,<br>The Kaleidoplan Team</p>
+      </div>
+    `;
+    
+    await transporter.sendMail({
+      from: '"Kaleidoplan Events" <notifications@kaleidoplan.com>',
+      to: interest.userEmail,
+      subject: `Reminder: ${event.name} is in ${daysRemaining} days`,
+      html: emailContent
+    });
+    
+    // Update last reminded time
+    await EventInterest.findByIdAndUpdate(interest._id, {
+      lastReminded: new Date()
+    });
+    
+    console.log(`Reminder sent to ${interest.userEmail} for event ${event.name}`);
+  } catch (error) {
+    console.error('Error sending reminder:', error);
+  }
+};
+
+// Schedule daily job to send reminders
+cron.schedule('0 9 * * *', async () => {
+  console.log('Running scheduled reminder job...');
+  try {
+    const interests = await EventInterest.find({});
+    
+    for (const interest of interests) {
+      const event = await Event.findById(interest.eventId);
+      if (!event) continue;
+      
+      const eventDate = new Date(event.startDate);
+      const now = new Date();
+      
+      // If event is in the past, delete the interest
+      if (eventDate < now) {
+        await EventInterest.findByIdAndDelete(interest._id);
+        continue;
+      }
+      
+      const daysRemaining = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
+      const lastReminded = interest.lastReminded ? new Date(interest.lastReminded) : null;
+      
+      let shouldSendReminder = false;
+      
+      // Check if we should send based on frequency and last reminded
+      if (!lastReminded) {
+        shouldSendReminder = true;
+      } else {
+        const daysSinceLastReminder = Math.ceil((now - lastReminded) / (1000 * 60 * 60 * 24));
+        
+        switch (interest.reminderFrequency) {
+          case 'daily':
+            shouldSendReminder = daysSinceLastReminder >= 1;
+            break;
+          case 'weekly':
+            shouldSendReminder = daysSinceLastReminder >= 7;
+            break;
+          case 'monthly':
+            shouldSendReminder = daysSinceLastReminder >= 30;
+            break;
+        }
+      }
+      
+      // Send specific reminders 1 day before the event
+      if (daysRemaining === 1 && (!lastReminded || 
+         (now - lastReminded) / (1000 * 60 * 60) >= 12)) { // Only if not reminded in last 12h
+        shouldSendReminder = true;
+      }
+      
+      if (shouldSendReminder) {
+        await sendReminderEmail(interest);
+      }
+    }
+  } catch (error) {
+    console.error('Error in reminder job:', error);
   }
 });
 
