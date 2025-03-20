@@ -264,7 +264,7 @@ The project uses React Native Maps with Expo Location for geolocation services:
 
 ```tsx
 // Example map implementation
-<MapView
+<Map
   style={{ flex: 1 }}
   initialRegion={mapRegion}
   scrollEnabled={true}
@@ -275,7 +275,7 @@ The project uses React Native Maps with Expo Location for geolocation services:
     title={event.name}
     description={event.location}
   />
-</MapView>
+</Map>
 ```
 
 ### Running Tests

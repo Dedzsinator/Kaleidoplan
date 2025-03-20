@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import HomeScreen from './app/HomeScreen';
-import LoginScreen from './app/LoginScreen';
-import RegisterScreen from './app/RegisterScreen';
-import GuestScreen from './app/GuestScreen';
-import EventDetailScreen from './app/EventDetailScreen';
-import AdminPanelScreen from './app/AdminPanelScreen';
-import OrganizerTaskScreen from './app/OrganizerTaskScreen';
-import EventListScreen from './app/EventListScreen';
-import TaskDetailScreen from './app/TaskDetailScreen';
-import TaskLogScreen from './app/TaskLogScreen';
+import { AuthProvider, useAuth } from './app/contexts/AuthContext';
+import HomeScreen from './app/screen/HomeScreen';
+import LoginScreen from './app/screen/LoginScreen';
+import RegisterScreen from './app/screen/RegisterScreen';
+import GuestScreen from './app/screen/GuestScreen';
+import EventDetailScreen from './app/screen/EventDetailScreen';
+import AdminPanelScreen from './app/screen/AdminPanelScreen';
+import OrganizerTaskScreen from './app/screen/OrganizerTaskScreen';
+import EventListScreen from './app/screen/EventListScreen';
+import TaskDetailScreen from './app/screen/TaskDetailScreen';
+import TaskLogScreen from './app/screen/TaskLogScreen';
 import { StatusBar } from 'react-native';
 
 const Stack = createStackNavigator();
