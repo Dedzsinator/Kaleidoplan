@@ -15,6 +15,14 @@ import {
   import { db, storage } from '@/app/firebase';
   import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
   
+  export interface Performer {
+    id?: string;
+    name: string;
+    role?: string;
+    spotifyId?: string;
+    imageUrl?: string;
+  }
+
   // Types
   export interface Event {
     id: string;

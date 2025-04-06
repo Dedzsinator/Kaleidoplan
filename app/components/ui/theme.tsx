@@ -1,7 +1,8 @@
 import React from 'react';
 import { Text, View, TouchableOpacity, TextInput, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { styled } from 'nativewind';
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+export const LinearGradient = styled(ExpoLinearGradient);
 
 const { width } = Dimensions.get('window');
 
@@ -130,8 +131,6 @@ export const DetailText = styled(Text, 'text-base text-gray-700 ml-3');
 export const DescriptionContainer = styled(View, 'mb-8');
 export const SectionTitle = styled(Text, 'text-lg font-bold text-gray-800 mb-3');
 export const DescriptionText = styled(Text, 'text-base text-gray-700 leading-6');
-export const LoginPrompt = styled(TouchableOpacity, 'flex-row items-center p-4 bg-blue-50 rounded-xl mb-6');
-export const LoginPromptText = styled(Text, 'text-base text-blue-600 ml-3 flex-1');
 export const ErrorContainer = styled(View, 'flex-1 justify-center items-center p-6');
 export const ErrorText = styled(Text, 'text-lg text-gray-700 mb-6');
 export const BackText = styled(Text, 'text-base text-blue-500');
@@ -206,3 +205,28 @@ export const ArrowIcon = styled(View, 'mx-2');
 export const PrimaryGradient = createGradient(['#0a7ea4', '#00617f']);
 export const HeaderGradient = createGradient(['#0a7ea4', '#00617f']);
 export const PlaceholderGradient = createGradient(['#848f99', '#a5b3bf']);
+
+// Festival-themed components - properly exported
+export const FestivalContainer = styled(View, 'flex-1');
+export const GradientBackground = styled(ExpoLinearGradient, 'absolute top-0 left-0 right-0 bottom-0');
+export const WavePattern = styled(Image, 'absolute bottom-0 w-full h-48 opacity-40');
+export const FestivalCard = styled(View, 'mx-5 my-auto rounded-3xl bg-white/90 backdrop-blur-lg px-6 py-10 shadow-xl');
+export const FestivalInput = styled(TextInput, 'border-0 bg-white/70 backdrop-blur-sm rounded-xl p-4 text-gray-800 mb-5 shadow-inner');
+export const FestivalButton = styled(TouchableOpacity, 'rounded-xl shadow-lg mb-4');
+export const FestivalButtonText = styled(Text, 'text-white font-bold text-center text-lg');
+export const FestivalTitle = styled(Text, 'text-3xl font-bold text-center mb-8');
+export const FestivalSubtitle = styled(Text, 'text-lg text-center mb-6');
+export const SocialButton = styled(TouchableOpacity, 'flex-row justify-center items-center bg-white/80 rounded-xl p-4 mb-3');
+export const SocialButtonText = styled(Text, 'ml-3 font-semibold text-gray-800');
+
+// Auth-specific components
+export const ForgotPasswordText = styled(Text, 'text-white/80 text-sm text-right mb-5');
+export const OrDivider = styled(View, 'flex-row items-center my-6');
+export const DividerLine = styled(View, 'flex-1 h-0.5 bg-white/20');
+export const DividerText = styled(Text, 'mx-4 text-white/60 text-sm');
+export const RegisterPrompt = styled(TouchableOpacity, 'mt-6 self-center');
+export const RegisterPromptText = styled(Text, 'text-white text-base font-medium');
+export const LoginPrompt = styled(TouchableOpacity, 'mt-6 self-center');
+export const LoginPromptText = styled(Text, 'text-white text-base font-medium');
+export const AuthErrorText = styled(Text, 'text-red-400 text-sm mb-4');
+export const PolicyText = styled(Text, 'text-white/60 text-xs text-center mt-2 mb-5');

@@ -41,3 +41,4 @@ app-example
 scripts/creationScript.sql
 serviceAccountKey.json
 data.csv
+style/eventcon-master/*
