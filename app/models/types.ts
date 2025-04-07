@@ -32,17 +32,50 @@ export interface TaskLog {
   comment?: string;
 }
 
-// Event model
+export interface Track {
+  name: string;
+  artist: string;
+  duration: string;
+  spotifyId: string;
+}
+
+export interface Playlist {
+  _id: string;
+  eventId: string;
+  name: string;
+  description: string;
+  tracks: Record<string, Track>;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Performer {
+  _id: string;
+  id?: string;  // For compatibility
+  name: string;
+  bio: string;
+  image: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Event {
   id: string;
   name: string;
-  description: string;
-  location: string;
-  startDate: Date | string;
-  endDate: Date | string;
-  status: 'upcoming' | 'ongoing' | 'completed';
+  description?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  color: string;
+  location?: string;
   coverImageUrl?: string;
-  creatorName: string;
-  createdBy: string; // Firebase UID
-  organizers: string[]; // Array of Firebase UIDs
+  slideshowImages?: string[]; // Add this line if not already present
+  playlistId?: string;
+  createdBy?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+  status?: string;
+  themeColor?: string;
+  performers?: Performer[];
+  // ...other properties
 }

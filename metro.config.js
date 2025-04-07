@@ -8,7 +8,7 @@ config.resolver.resolverMainFields = ['browser', 'main'];
 
 // Add platform-specific extensions
 config.resolver.sourceExts = process.env.RN_SRC_EXT
-  ? [...process.env.RN_SRC_EXT.split(',').concat(config.resolver.sourceExts), 'web.js', 'web.ts', 'web.tsx']
-  : [...config.resolver.sourceExts, 'web.js', 'web.ts', 'web.tsx'];
+  ? [...process.env.RN_SRC_EXT.split(',').concat(config.resolver.sourceExts), 'web.js', 'web.ts', 'web.tsx', 'css']
+  : [...config.resolver.sourceExts, 'web.js', 'web.ts', 'web.tsx', 'css'];
 
 module.exports = config;

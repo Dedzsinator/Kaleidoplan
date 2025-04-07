@@ -31,7 +31,7 @@ const storage = {
       if (Platform.OS === 'web') {
         localStorage.setItem(key, value);
         return;
-      } 
+      }
       await SecureStore.setItemAsync(key, value);
     } catch (e) {
       console.warn('Storage setItem error:', e);
@@ -65,31 +65,15 @@ const storage = {
 export const setAuthToken = async (token: string | null) => {
   if (token) {
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    await storage.setItem('authToken', token);
-    console.log('Auth token set in headers and storage');
   } else {
     delete apiClient.defaults.headers.common['Authorization'];
-    await storage.removeItem('authToken');
-    console.log('Auth token removed from headers and storage');
   }
 };
 
-// Initialize token from storage
-export const initializeAuth = async () => {
-  try {
-    console.log('Initializing auth from storage...');
-    const token = await storage.getItem('authToken');
-    if (token) {
-      console.log('Found token in storage, setting in headers');
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.log('No token found in storage');
-    }
-  } catch (error) {
-    console.error('Error initializing auth token:', error);
-  }
+// Check if API client is initialized
+export const isApiClientInitialized = () => {
+  return !!apiClient;
 };
-
 // Utility function for generating IDs client-side when needed
 export const generateId = async (): Promise<string> => {
   const randomBytes = await Crypto.digestStringAsync(
@@ -114,7 +98,7 @@ export const mongoApi = {
         throw error;
       }
     },
-    
+
     getEventById: async (eventId: string) => {
       try {
         console.log(`Fetching public event ${eventId} from MongoDB API...`);
@@ -127,7 +111,7 @@ export const mongoApi = {
       }
     }
   },
-  
+
   // Tasks
   getTasks: async (filter: any = {}) => {
     try {
@@ -138,7 +122,7 @@ export const mongoApi = {
       throw error;
     }
   },
-  
+
   getTaskById: async (taskId: string) => {
     try {
       const response = await apiClient.get(`/tasks/${taskId}`);
@@ -148,7 +132,7 @@ export const mongoApi = {
       throw error;
     }
   },
-  
+
   updateTask: async (taskId: string, updateData: any) => {
     try {
       const response = await apiClient.patch(`/tasks/${taskId}`, updateData);
@@ -158,7 +142,7 @@ export const mongoApi = {
       throw error;
     }
   },
-  
+
   // Task Logs
   getTaskLogs: async (taskId: string) => {
     try {
@@ -169,7 +153,7 @@ export const mongoApi = {
       throw error;
     }
   },
-  
+
   createTaskLog: async (logData: any) => {
     try {
       const response = await apiClient.post('/taskLogs', logData);
@@ -179,7 +163,7 @@ export const mongoApi = {
       throw error;
     }
   },
-  
+
   // Events
   getEvents: async (filter: any = {}) => {
     try {
@@ -199,7 +183,7 @@ export const mongoApi = {
       }
     }
   },
-  
+
   getEventById: async (eventId: string) => {
     try {
       const response = await apiClient.get(`/events/${eventId}`);
@@ -213,6 +197,30 @@ export const mongoApi = {
         throw error; // Throw the original error
       }
     }
+  }
+};
+
+export const testConnection = async () => {
+  try {
+    const response = await apiClient.get('/health');
+    console.log('API connection test successful:', response.data);
+    return true;
+  } catch (error) {
+    console.error('API connection test failed:', error);
+    return false;
+  }
+};
+
+// Load auth token on module init
+export const initializeAuth = async () => {
+  try {
+    const token = await storage.getItem('authToken');
+    if (token) {
+      setAuthToken(token);
+      console.log('Auth token loaded from storage');
+    }
+  } catch (error) {
+    console.error('Error loading auth token:', error);
   }
 };
 

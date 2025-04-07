@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
-
+import { format, isValid } from 'date-fns';
 interface EventPrimaryContentProps {
     event: {
         id: string;
@@ -20,8 +19,28 @@ interface EventPrimaryContentProps {
 
 const formatEventDate = (date) => {
     if (!date) return "Date TBD";
-    const eventDate = typeof date === 'string' ? new Date(date) : date;
-    return format(eventDate, 'MMMM d, yyyy');
+
+    try {
+        let eventDate;
+        if (typeof date === 'string') {
+            // Try to parse the string date
+            eventDate = new Date(date);
+        } else {
+            // Assume it's already a Date object
+            eventDate = date;
+        }
+
+        // Check if date is valid
+        if (!eventDate || !isValid(eventDate)) {
+            console.warn(`Invalid date value:`, date);
+            return "Date TBD";
+        }
+
+        return format(eventDate, 'MMMM d, yyyy');
+    } catch (error) {
+        console.error("Error formatting date:", error, date);
+        return "Date TBD";
+    }
 };
 
 const getStatusColor = (status) => {
@@ -34,21 +53,9 @@ const getStatusColor = (status) => {
 };
 
 const EventPrimaryContent = ({ event, navigation, onImageError }: EventPrimaryContentProps) => {
-    const statusColor = getStatusColor(event.status || 'upcoming');
     const hasImage = !!event.coverImageUrl;
     const themeColor = event.themeColor || '#3B82F6';
-    const hasName = !!event?.name;
-    const hasId = !!event?.id;
-
-    // If missing name or ID, this condition was intended to render a placeholder
-    // But there's no return statement outside this condition which is likely the issue
-    if (!hasName || !hasId) {
-        return (
-            <View style={styles.container}>
-                <Text>Invalid or incomplete event data</Text>
-            </View>
-        );
-    }
+    const statusColor = getStatusColor(event.status);
 
     // Add this return statement for the normal rendering case
     return (

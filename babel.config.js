@@ -11,7 +11,6 @@ module.exports = function(api) {
         "safe": false,
         "allowUndefined": true
       }],
-      'nativewind/babel',
       'react-native-reanimated/plugin',
     ],
   };
