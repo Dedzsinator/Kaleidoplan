@@ -32,13 +32,6 @@ export interface TaskLog {
   comment?: string;
 }
 
-export interface Track {
-  name: string;
-  artist: string;
-  duration: string;
-  spotifyId: string;
-}
-
 export interface Playlist {
   _id: string;
   eventId: string;
@@ -58,6 +51,15 @@ export interface Performer {
   image: string;
   createdAt: string;
   updatedAt: string;
+}
+
+interface Track {
+  name: string;
+  artist: string;
+  spotifyId: string;
+  previewUrl?: string;         // From Spotify API
+  fallbackPreviewUrl?: string; // Your own hosted audio file
+  localAudioPath?: string;     // For offline playback
 }
 
 export interface Event {

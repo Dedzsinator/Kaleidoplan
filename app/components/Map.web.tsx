@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 
 interface Marker {
   coordinate: {
@@ -11,7 +11,7 @@ interface Marker {
 }
 
 interface MapProps {
-  location: {
+  region: {  // CHANGED FROM 'location' to 'region' to match other files
     latitude: number;
     longitude: number;
     latitudeDelta?: number;
@@ -21,25 +21,65 @@ interface MapProps {
   style?: any;
 }
 
-const Map = ({ location, markers = [], style }: MapProps) => {
+const Map = ({ region, markers = [], style }: MapProps) => {  // CHANGED FROM 'location' to 'region'
+  // Error handling
+  if (!region) {
+    return (
+      <View style={[styles.container, style]}>
+        <Text style={styles.errorText}>Map unavailable</Text>
+      </View>
+    );
+  }
+
+  // Create OpenStreetMap URL
+  const { latitude, longitude } = region;
+  const openStreetMapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+
   return (
     <View style={[styles.container, style]}>
       <iframe
-        src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1000!2d${location.longitude}!3d${location.latitude}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sus!4v1679809220043!5m2!1sen!2sus`}
+        src={openStreetMapUrl}
         style={{ border: 0, width: '100%', height: '100%' }}
-        allowFullScreen={true}
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
+        title="Location Map"
+        frameBorder="0"
+        scrolling="no"
+        marginHeight={0}
+        marginWidth={0}
       />
+      {markers.length > 0 && markers[0].title && (
+        <Text style={styles.title}>{markers[0].title}</Text>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    height: 200,
     width: '100%',
-    height: 300,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#2a2a2a',
+  },
+  mapFrame: {
+    width: '100%',
+    height: '100%',
+    border: 'none',
+  },
+  errorText: {
+    color: '#aaa',
+    textAlign: 'center',
+    marginTop: 90,
+  },
+  title: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    color: 'white',
+    padding: 5,
+    borderRadius: 4,
+    fontSize: 12,
   },
 });
 

@@ -27,9 +27,20 @@ const setupAudio = async () => {
     }
 };
 
-// Get a valid API client or throw an error
 const getValidApiClient = () => {
     if (!isApiClientInitialized() || !apiClient) {
+        console.error('API client not initialized, attempting to reinitialize...');
+        // Try to reinitialize auth
+        initializeAuth()
+            .then(success => {
+                if (success) {
+                    console.log('Auth reinitialization successful');
+                } else {
+                    console.warn('Auth reinitialization failed');
+                }
+            })
+            .catch(err => console.error('Error reinitializing auth:', err));
+
         throw new Error('API client not initialized');
     }
     return apiClient;
@@ -46,29 +57,28 @@ export const getPlaylistById = async (playlistId: string): Promise<Playlist> => 
         await setupAudio();
 
         try {
-            // Try to get the API client
-            const client = getValidApiClient();
+            // Check if API client is available before proceeding
+            if (!isApiClientInitialized() || !apiClient) {
+                console.log('API client not initialized, using mock data');
+                return getMockPlaylist(playlistId);
+            }
 
-            // Make the API request
-            const response = await client.get(`/playlists/${playlistId}`);
+            // Make the API request with timeout
+            const response = await apiClient.get(`/playlists/${playlistId}`, {
+                timeout: 5000 // 5 second timeout
+            });
             const playlist = response.data;
             console.log('Playlist fetched successfully:', playlist.name);
 
             // Enhance playlist with Spotify data if possible
             return await enhancePlaylistWithSpotifyData(playlist);
         } catch (apiError) {
-            if (apiError.message === 'API client not initialized') {
-                console.error('API client not available, falling back to mock data');
-                return getMockPlaylist(playlistId);
-            }
-
             console.error('API error:', apiError);
-            throw apiError;
+            console.log('Using mock playlist data as fallback');
+            return getMockPlaylist(playlistId);
         }
     } catch (error) {
         console.error('Error fetching playlist:', error);
-        // Fall back to mock data on error
-        console.log('Using mock playlist data');
         return getMockPlaylist(playlistId);
     }
 };
@@ -152,32 +162,54 @@ export const enhancePlaylistWithSpotifyData = async (playlist: Playlist): Promis
 export const playTrack = async (track: Track): Promise<boolean> => {
     try {
         console.log('Attempting to play track:', track.name);
-
-        // Initialize audio system if needed
         await setupAudio();
 
-        // First, stop any currently playing audio
         if (currentSound) {
             await currentSound.stopAsync();
             currentSound = null;
         }
 
-        // First try to play using Spotify API to get preview URL
-        const previewUrl = track.previewUrl || await spotifyService.playTrack(track.spotifyId);
+        // Try various sources in order of preference
+        let audioSource = null;
 
-        if (previewUrl) {
-            console.log('Playing preview URL:', previewUrl);
+        // 1. Try Spotify preview URL if already cached
+        if (track.previewUrl) {
+            console.log('Using cached Spotify preview URL');
+            audioSource = track.previewUrl;
+        }
 
-            // Load and play the new track
+        // 2. Try to get fresh preview URL from Spotify
+        if (!audioSource) {
+            console.log('Attempting to get fresh preview from Spotify');
+            const spotifyPreview = await spotifyService.playTrack(track.spotifyId);
+            if (spotifyPreview) {
+                audioSource = spotifyPreview;
+            }
+        }
+
+        // 3. Try fallback URL if provided
+        if (!audioSource && track.fallbackPreviewUrl) {
+            console.log('Using fallback preview URL');
+            audioSource = track.fallbackPreviewUrl;
+        }
+
+        // 4. Try local audio if available
+        if (!audioSource && track.localAudioPath) {
+            console.log('Using local audio file');
+            audioSource = track.localAudioPath;
+        }
+
+        // If we have a source, play it
+        if (audioSource) {
+            console.log('Playing audio from source:', audioSource);
             const { sound } = await Audio.Sound.createAsync(
-                { uri: previewUrl },
+                { uri: audioSource },
                 { shouldPlay: true, volume: 1.0 }
             );
 
             sound.setOnPlaybackStatusUpdate(status => {
                 if (status.didJustFinish) {
                     console.log('Track finished playing');
-                    // Handle track completion if needed
                 }
             });
 
@@ -185,7 +217,7 @@ export const playTrack = async (track: Track): Promise<boolean> => {
             return true;
         }
 
-        console.log('No playable source available for track:', track.name);
+        console.log('No playable source found for:', track.name);
         return false;
     } catch (error) {
         console.error('Error playing track:', error);

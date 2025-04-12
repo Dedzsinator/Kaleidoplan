@@ -1,7 +1,7 @@
-import { Event } from '../app/models/types';
+import { Event } from '../models/types';
 import { getFirestore, collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getApp } from 'firebase/app';
-import mongoApi from './mongoService';
+import { fetchEventsFromApi, fetchEventByIdFromApi } from './api';
 
 // Get Firestore instance
 const db = getFirestore(getApp());
@@ -10,13 +10,12 @@ const db = getFirestore(getApp());
 export async function getEvents(): Promise<Event[]> {
   try {
     console.log('EventService: getEvents called');
-    
-    // Try MongoDB first
+
+    // Try direct API call first
     try {
-      console.log('EventService: Trying MongoDB API');
-      // For guest view, try the public endpoint first
-      const events = await mongoApi.public.getEvents();
-      console.log('EventService: MongoDB returned:', events?.length || 0, 'events');
+      console.log('EventService: Trying direct API call to MongoDB server');
+      const events = await fetchEventsFromApi();
+
       if (events && events.length > 0) {
         return events.map(event => ({
           ...event,
@@ -25,25 +24,25 @@ export async function getEvents(): Promise<Event[]> {
           endDate: new Date(event.endDate)
         }));
       }
-    } catch (mongoError) {
-      console.log('EventService: MongoDB not available, error:', mongoError);
+    } catch (apiError) {
+      console.log('EventService: Direct API not available:', apiError.message);
       console.log('EventService: Falling back to Firestore');
     }
-    
+
     // Fallback to Firestore
     console.log('EventService: Fetching from Firestore');
     const eventsCollection = collection(db, 'events');
     const eventSnapshot = await getDocs(eventsCollection);
-    
+
     const events = eventSnapshot.docs.map(doc => {
       const data = doc.data() as Omit<Event, 'id'>;
-      
+
       // Parse dates if needed
-      const startDate = data.startDate instanceof Date ? 
+      const startDate = data.startDate instanceof Date ?
         data.startDate : new Date(data.startDate as string);
-      const endDate = data.endDate instanceof Date ? 
+      const endDate = data.endDate instanceof Date ?
         data.endDate : new Date(data.endDate as string);
-      
+
       // Calculate status based on dates
       const now = new Date();
       let status: Event['status'] = 'upcoming';
@@ -52,7 +51,7 @@ export async function getEvents(): Promise<Event[]> {
       } else if (endDate < now) {
         status = 'completed';
       }
-      
+
       return {
         id: doc.id,
         ...data,
@@ -61,7 +60,7 @@ export async function getEvents(): Promise<Event[]> {
         status
       };
     });
-    
+
     console.log('EventService: Firestore returned:', events.length, 'events');
     return events;
   } catch (error) {
@@ -73,33 +72,37 @@ export async function getEvents(): Promise<Event[]> {
 // Get single event by ID
 export async function getEventById(eventId: string): Promise<Event | null> {
   try {
-    // Try MongoDB first
+    // Try direct API first
     try {
-      const event = await mongoApi.getEventById(eventId);
+      const event = await fetchEventByIdFromApi(eventId);
       if (event) {
-        return event;
+        return {
+          ...event,
+          id: event._id || event.id,
+          startDate: new Date(event.startDate),
+          endDate: new Date(event.endDate)
+        };
       }
-    } catch (mongoError) {
+    } catch (apiError) {
       console.log('MongoDB event not available, falling back to Firestore');
     }
-    
-    // Fallback to Firestore
+
+    // Rest of the existing code...
     const eventDoc = doc(db, 'events', eventId);
     const eventSnapshot = await getDoc(eventDoc);
-    
+
     if (!eventSnapshot.exists()) {
       return null;
     }
-    
+
+    // Parse and return event data as before
     const data = eventSnapshot.data() as Omit<Event, 'id'>;
-    
-    // Parse dates if needed
-    const startDate = data.startDate instanceof Date ? 
+    const startDate = data.startDate instanceof Date ?
       data.startDate : new Date(data.startDate as string);
-    const endDate = data.endDate instanceof Date ? 
+    const endDate = data.endDate instanceof Date ?
       data.endDate : new Date(data.endDate as string);
-    
-    // Calculate status based on dates
+
+    // Calculate status
     const now = new Date();
     let status: Event['status'] = 'upcoming';
     if (startDate <= now && endDate >= now) {
@@ -107,7 +110,7 @@ export async function getEventById(eventId: string): Promise<Event | null> {
     } else if (endDate < now) {
       status = 'completed';
     }
-    
+
     return {
       id: eventSnapshot.id,
       ...data,

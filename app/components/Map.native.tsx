@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
-interface MarkerProps {
+interface MapMarker {
   coordinate: {
     latitude: number;
     longitude: number;
@@ -12,58 +12,63 @@ interface MarkerProps {
 }
 
 interface MapProps {
-  location: {
+  region: {
     latitude: number;
     longitude: number;
-    latitudeDelta?: number;
-    longitudeDelta?: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
   };
-  markers?: MarkerProps[];
+  markers?: MapMarker[];
   style?: any;
 }
 
-const Map = ({ location, markers = [], style }: MapProps) => {
-  try {
+// Native implementation of the Map component for iOS/Android
+const Map = ({ region, markers = [], style }: MapProps) => {
+  if (!region) {
     return (
+      <View style={[styles.container, style]}>
+        <Text style={styles.errorText}>Map unavailable</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, style]}>
       <MapView
-        style={[styles.container, style]}
-        initialRegion={{
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: location.latitudeDelta || 0.01,
-          longitudeDelta: location.longitudeDelta || 0.01,
-        }}
+        style={styles.map}
+        region={region}
+        scrollEnabled={false}  // Disable map scrolling so it doesn't interfere
+        zoomEnabled={false}    // Disable zoom gestures
+        rotateEnabled={false}  // Disable rotation gestures
+        pitchEnabled={false}   // Disable pitch gestures
       >
         {markers.map((marker, index) => (
           <Marker
-            key={index}
+            key={`marker-${index}`}
             coordinate={marker.coordinate}
             title={marker.title}
             description={marker.description}
           />
         ))}
       </MapView>
-    );
-  } catch (error) {
-    console.error('Error loading MapView component:', error);
-    return (
-      <View style={[styles.container, style, styles.fallback]}>
-        <Text>Map could not be loaded</Text>
-      </View>
-    );
-  }
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    height: 200,
     width: '100%',
-    height: 300,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  fallback: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  errorText: {
+    color: '#aaa',
+    textAlign: 'center',
+    marginTop: 90,
   },
 });
 

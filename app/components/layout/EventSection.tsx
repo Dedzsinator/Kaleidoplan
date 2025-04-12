@@ -10,7 +10,7 @@ import * as Location from 'expo-location';
 import ImageSlideshow from '../ui/SlideShow';
 
 interface EventSectionProps {
-  event: any;
+  event: any; // Consider creating a proper Event interface
   navigation: any;
   onImageError: (eventId: string) => void;
   index: number;
@@ -38,23 +38,47 @@ const EventSection = ({
   const onLayout = (event: any) => {
     const { height } = event.nativeEvent.layout;
     setSectionHeight(height);
+    console.log(`EventSection ${index} height: ${height}`);
   };
 
-  // Use our visibility hook
-  useSectionVisibility(
-    scrollY,
-    sectionY,
-    sectionHeight,
-    (isVisible) => {
-      if (onVisibilityChange) {
+  // Visibility check
+  useEffect(() => {
+    if (onVisibilityChange && sectionHeight > 0) {
+      // Simple visibility check based on scroll position
+      const checkVisibility = () => {
+        const isVisible = (
+          sectionY > scrollY.__getValue() - sectionHeight &&
+          sectionY < scrollY.__getValue() + Dimensions.get('window').height
+        );
         onVisibilityChange(isVisible, event);
-      }
-    }
-  );
+      };
 
-  // Get location for map
+      // Subscribe to scroll changes
+      const scrollListener = scrollY.addListener(checkVisibility);
+
+      // Initial check
+      checkVisibility();
+
+      return () => scrollY.removeListener(scrollListener);
+    }
+  }, [sectionHeight, sectionY, scrollY, event, onVisibilityChange]);
+
+  // Get location for map - now prioritizes coordinates from the event object
   useEffect(() => {
     const getLocation = async () => {
+      // First check if we already have coordinates in the event object
+      if (event?.latitude && event?.longitude) {
+        setMapRegion({
+          latitude: event.latitude,
+          longitude: event.longitude,
+          latitudeDelta: event.latitudeDelta || 0.01,
+          longitudeDelta: event.longitudeDelta || 0.01,
+        });
+        setLocationError('');
+        return; // Exit early since we have coordinates
+      }
+
+      // Fall back to geocoding if we don't have coordinates
       if (event?.location) {
         try {
           // Request permission first
@@ -74,6 +98,7 @@ const EventSection = ({
               latitudeDelta: 0.01,
               longitudeDelta: 0.01,
             });
+            console.log(`Geocoded ${event.location} to:`, geocodeResult[0].latitude, geocodeResult[0].longitude);
             setLocationError('');
           } else {
             setLocationError('Location not found');
@@ -91,8 +116,8 @@ const EventSection = ({
   // If event is missing, render a placeholder
   if (!event || !event.id) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Invalid event data at position {index}</Text>
+      <View style={newStyles.errorContainer}>
+        <Text style={newStyles.errorText}>Invalid event data at position {index}</Text>
       </View>
     );
   }
@@ -104,15 +129,14 @@ const EventSection = ({
 
   return (
     <View
-      style={styles.container}
+      style={newStyles.container}
       ref={containerRef}
       onLayout={onLayout}
     >
-      <View style={styles.innerContainer}>
-        {/* Top row */}
-        <View style={styles.contentRow}>
-          {/* Top-left section */}
-          <View style={styles.primaryContent}>
+      <View style={newStyles.innerContainer}>
+        <View style={newStyles.contentRow}>
+          {/* Left column */}
+          <View style={newStyles.leftColumn}>
             <AnimatedSection
               scrollY={scrollY}
               sectionY={sectionY}
@@ -124,10 +148,9 @@ const EventSection = ({
                 onImageError={onImageError}
               />
 
-              {/* Add Slideshow component here */}
               {slideshowImages.length > 0 && (
-                <View style={styles.slideshowContainer}>
-                  <Text style={styles.slideshowTitle}>Event Gallery</Text>
+                <View style={newStyles.slideshowContainer}>
+                  <Text style={newStyles.sectionTitle}>Event Gallery</Text>
                   <ImageSlideshow
                     images={slideshowImages}
                     height={200}
@@ -136,126 +159,158 @@ const EventSection = ({
                   />
                 </View>
               )}
-            </AnimatedSection>
-          </View>
 
-          {/* Top-right section */}
-          <View style={styles.secondaryContent}>
-            <AnimatedSection
-              scrollY={scrollY}
-              sectionY={sectionY}
-              delay={delay + 200}
-            >
-              <EventSecondaryContent event={event} />
-            </AnimatedSection>
-          </View>
-        </View>
-
-        {/* Bottom row */}
-        <View style={styles.contentRow}>
-          {/* Bottom-left section - could be for additional event info */}
-          <View style={styles.bottomLeftContent}>
-            <AnimatedSection
-              scrollY={scrollY}
-              sectionY={sectionY}
-              delay={delay + 300}
-            >
-              <View style={styles.infoContainer}>
-                <Text style={styles.infoTitle}>About this event</Text>
-                <Text style={styles.infoText} numberOfLines={4}>
+              <View style={newStyles.descriptionContainer}>
+                <Text style={newStyles.sectionTitle}>About this event</Text>
+                <Text style={newStyles.descriptionText} numberOfLines={4}>
                   {event.description || "No description available"}
                 </Text>
               </View>
             </AnimatedSection>
           </View>
 
-          {/* Bottom-right section - Map */}
-          <View style={styles.bottomRightContent}>
+          {/* Right column */}
+          <View style={newStyles.rightColumn}>
             <AnimatedSection
               scrollY={scrollY}
               sectionY={sectionY}
-              delay={delay + 400}
+              delay={delay + 200}
             >
-              <View style={styles.mapContainer}>
-                <Text style={styles.mapTitle}>Event Location</Text>
-                {mapRegion ? (
-                  <Map
-                    location={mapRegion}
-                    markers={[
-                      {
-                        coordinate: {
-                          latitude: mapRegion.latitude,
-                          longitude: mapRegion.longitude
-                        },
-                        title: event.name,
-                        description: event.location
-                      }
-                    ]}
-                    style={styles.map}
-                  />
-                ) : (
-                  <View style={styles.mapPlaceholder}>
-                    <Text style={styles.mapPlaceholderText}>
-                      {locationError || 'Loading location...'}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.locationText}>{event.location || "Location not specified"}</Text>
+              <View style={newStyles.secondaryContainer}>
+                <EventSecondaryContent event={event} />
+              </View>
+
+              <View style={newStyles.mapWrapper}>
+                <Text style={newStyles.sectionTitle}>Event Location</Text>
+                <View style={newStyles.mapContainer}>
+                  {mapRegion ? (
+                    <Map
+                      region={mapRegion}
+                      markers={[
+                        {
+                          coordinate: {
+                            latitude: mapRegion.latitude,
+                            longitude: mapRegion.longitude
+                          },
+                          title: event.name,
+                          description: event.location
+                        }
+                      ]}
+                      style={newStyles.map}
+                      scrollEnabled={false}
+                    />
+                  ) : (
+                    <View style={newStyles.mapPlaceholder}>
+                      <Text style={newStyles.placeholderText}>
+                        {locationError || 'Loading location...'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={newStyles.locationText}>
+                  {event.location || "Location not specified"}
+                  {event.latitude && event.longitude ? ` (${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)})` : ''}
+                </Text>
               </View>
             </AnimatedSection>
           </View>
         </View>
       </View>
 
-      {/* Section divider */}
-      <View style={styles.divider} />
+      <View style={newStyles.divider} />
     </View>
   );
 };
 
-// Updated styles with the new sections
-const styles = StyleSheet.create({
+const newStyles = StyleSheet.create({
   container: {
-    paddingVertical: 32,
     width: '100%',
+    paddingVertical: 24,
   },
   innerContainer: {
     width: '100%',
-    alignSelf: 'center',
-    paddingHorizontal: 16,
   },
-  contentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  eventTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
     marginBottom: 16,
   },
-  primaryContent: {
-    flex: 1,
-    minWidth: 200,
-    marginRight: 8,
-  },
-  secondaryContent: {
-    flex: 1,
-    minWidth: 200,
-    marginLeft: 8,
-  },
-  bottomLeftContent: {
-    flex: 1,
-    minWidth: 200,
-    marginRight: 8,
-  },
-  bottomRightContent: {
-    flex: 1,
-    minWidth: 200,
-    marginLeft: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  // Content layout
+  contentRow: {
     width: '100%',
-    marginVertical: 16,
-    alignSelf: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
+  leftColumn: {
+    flex: 3,
+    minWidth: 280,
+    marginRight: 16,
+    marginBottom: 16,
+  },
+  rightColumn: {
+    flex: 2,
+    minWidth: 240,
+    marginBottom: 16,
+  },
+
+  // Secondary content
+  secondaryContainer: {
+    marginBottom: 24,
+  },
+
+  // Map section
+  mapWrapper: {
+    marginBottom: 24,
+  },
+  mapContainer: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    height: 350, // Fixed height for map
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  mapPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#2a2a2a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+
+  // Text elements
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 12,
+  },
+  descriptionContainer: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 24,
+  },
+  descriptionText: {
+    color: '#ccc',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  placeholderText: {
+    color: '#aaa',
+    textAlign: 'center',
+  },
+  locationText: {
+    fontSize: 12,
+    color: '#ccc',
+    marginTop: 8,
+  },
+
+  // Error handling
   errorContainer: {
     padding: 16,
     backgroundColor: 'rgba(255,100,100,0.1)',
@@ -266,68 +321,20 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     textAlign: 'center',
   },
-  mapContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 12,
-  },
-  map: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  mapTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#ffffff',
-  },
-  mapPlaceholder: {
-    width: '100%',
-    height: 150,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  mapPlaceholderText: {
-    color: '#555',
-    textAlign: 'center',
-  },
-  locationText: {
-    fontSize: 12,
-    color: '#ccc',
-    marginTop: 8,
-  },
-  infoContainer: {
-    padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    height: '100%',
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#ffffff',
-  },
-  infoText: {
-    color: '#ccc',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  // Add slideshow styles
+
+  // Slideshow
   slideshowContainer: {
-    marginTop: 20,
-    marginBottom: 24,
+    marginTop: 24,
+    marginBottom: 8,
   },
-  slideshowTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginBottom: 12,
+
+  // Divider
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 8,
   },
 });
 

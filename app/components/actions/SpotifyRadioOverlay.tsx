@@ -25,7 +25,7 @@ const SpotifyRadioOverlay = ({
     const [isLoading, setIsLoading] = useState(false);
     const [audioInitialized, setAudioInitialized] = useState(false);
     const [playbackError, setPlaybackError] = useState<string | null>(null);
-    
+
     const { playlist, loading, error } = usePlaylist(currentEvent?.playlistId);
 
     // Initialize Audio 
@@ -44,7 +44,7 @@ const SpotifyRadioOverlay = ({
                 setPlaybackError('Could not initialize audio system');
             }
         };
-        
+
         initAudio();
     }, []);
 
@@ -86,7 +86,7 @@ const SpotifyRadioOverlay = ({
         if (!playlist?.tracks) return;
         const trackIds = Object.keys(playlist.tracks);
         setCurrentTrackIndex((prev) => (prev + 1) % trackIds.length);
-        
+
         // If playing, restart with new track
         if (isPlaying) {
             pauseTrack().then(() => {
@@ -101,7 +101,7 @@ const SpotifyRadioOverlay = ({
         if (!playlist?.tracks) return;
         const trackIds = Object.keys(playlist.tracks);
         setCurrentTrackIndex((prev) => (prev - 1 + trackIds.length) % trackIds.length);
-        
+
         // If playing, restart with new track
         if (isPlaying) {
             pauseTrack().then(() => {
@@ -144,32 +144,34 @@ const SpotifyRadioOverlay = ({
 
     // Render the full player when we have track data
     return expanded ? (
-        <View style={[styles.container, styles.expandedContainer]}>
+        <View style={[styles.container, styles.expandedContainer]}
+            pointerEvents={expanded ? "auto" : "box-none"}
+            hitSlop={{ top: 0, bottom: 0, left: 0, right: 0 }}>
             <TouchableOpacity style={styles.closeButton} onPress={onExpand}>
                 <Text style={styles.closeButtonText}>×</Text>
             </TouchableOpacity>
-            
+
             <View style={styles.expandedPlayer}>
                 <Image
                     source={{ uri: currentTrack.albumArt || currentEvent.coverImageUrl }}
                     style={styles.albumArt}
                     resizeMode="cover"
                 />
-                
+
                 <Text style={styles.playlistName}>{playlist.name}</Text>
                 <Text style={styles.trackTitle}>{currentTrack.name}</Text>
                 <Text style={styles.artistName}>{currentTrack.artist}</Text>
-                
+
                 {playbackError && (
                     <Text style={styles.errorText}>{playbackError}</Text>
                 )}
-                
+
                 <View style={styles.controls}>
                     <TouchableOpacity style={styles.controlButton} onPress={prevTrack}>
                         <Text style={styles.controlButtonIcon}>⏮️</Text>
                     </TouchableOpacity>
-                    
-                    <TouchableOpacity 
+
+                    <TouchableOpacity
                         style={styles.playButton}
                         onPress={handlePlayPauseToggle}
                         disabled={isLoading}
@@ -178,12 +180,12 @@ const SpotifyRadioOverlay = ({
                             {isLoading ? '⏳' : isPlaying ? '⏸' : '▶️'}
                         </Text>
                     </TouchableOpacity>
-                    
+
                     <TouchableOpacity style={styles.controlButton} onPress={nextTrack}>
                         <Text style={styles.controlButtonIcon}>⏭️</Text>
                     </TouchableOpacity>
                 </View>
-                
+
                 <Text style={styles.eventName}>From: {currentEvent.name}</Text>
             </View>
         </View>
@@ -195,14 +197,14 @@ const SpotifyRadioOverlay = ({
                     style={styles.miniImage}
                 />
             </TouchableOpacity>
-            
+
             <View style={styles.miniInfo}>
                 <Text style={styles.miniTitle} numberOfLines={1}>{currentTrack.name}</Text>
                 <Text style={styles.miniArtist} numberOfLines={1}>{currentTrack.artist}</Text>
             </View>
-            
-            <TouchableOpacity 
-                style={styles.miniPlayButton} 
+
+            <TouchableOpacity
+                style={styles.miniPlayButton}
                 onPress={handlePlayPauseToggle}
                 disabled={isLoading}
             >

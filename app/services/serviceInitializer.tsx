@@ -1,4 +1,4 @@
-import { apiClient } from './mongoService';
+import { apiClient, initializeAuth } from './mongoService';
 import spotifyService from './spotify-web-api';
 import { Audio } from 'expo-av';
 
@@ -8,6 +8,10 @@ export const initializeServices = async (setStatus?: (status: string) => void) =
         // Initialize audio for music playback
         if (setStatus) setStatus('Setting up audio...');
         await setupAudio();
+
+        // Initialize auth token
+        if (setStatus) setStatus('Initializing authentication...');
+        await initializeAuth();
 
         // Test API connection - handle potential undefined apiClient
         if (setStatus) setStatus('Connecting to database...');
@@ -20,12 +24,12 @@ export const initializeServices = async (setStatus?: (status: string) => void) =
 
         // Initialize Spotify service
         if (setStatus) setStatus('Connecting to Spotify...');
-        await spotifyService.authenticate();
+        const spotifySuccess = await initializeSpotify();
 
         return {
             apiConnected: apiStatus,
             audioReady: true,
-            spotifyReady: true
+            spotifyReady: spotifySuccess
         };
     } catch (error) {
         console.error('Service initialization error:', error);
@@ -54,6 +58,26 @@ const setupAudio = async () => {
         console.error('Error setting up audio:', error);
         return false;
     }
+};
+
+// Initialize Spotify with retry logic
+const initializeSpotify = async (retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            console.log(`Spotify authentication attempt ${i+1}/${retries}`);
+            await spotifyService.authenticate();
+            console.log('Spotify authenticated successfully');
+            return true;
+        } catch (error) {
+            console.warn(`Spotify authentication failed (attempt ${i+1}/${retries}):`, error);
+            if (i < retries - 1) {
+                // Wait 1 second before retry
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+    }
+    console.error(`Spotify authentication failed after ${retries} attempts`);
+    return false;
 };
 
 // Test the API connection with proper error handling

@@ -1,136 +1,74 @@
 import axios from 'axios';
-import { Task, TaskLog } from '../app/models/types';
-import * as SecureStore from 'expo-secure-store';
-import { getAuth } from 'firebase/auth';
+import { Platform } from 'react-native';
+import { Event } from '../models/types';
 
-// Create API client
-const apiClient = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+// Get the correct API URL based on platform
+const getBaseUrl = () => {
+    // IMPORTANT: Replace this with your actual machine's IP address!
+    const DEV_IP = '192.168.1.1'; // Change this to your actual IP address
+
+    if (Platform.OS === 'web') {
+        return 'http://localhost:3000/api';
+    } else {
+        return __DEV__
+            ? `http://${DEV_IP}:3000/api`
+            : 'https://api.kaleidoplan.com/api';
+    }
+};
+
+// Create direct API client for events with cache busting
+const eventApiClient = axios.create({
+    baseURL: getBaseUrl(),
+    headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+    },
+    timeout: 10000,
 });
 
-// Add request interceptor to add auth token
-apiClient.interceptors.request.use(
-  async (config) => {
-    const auth = getAuth();
-    if (auth.currentUser) {
-      const token = await auth.currentUser.getIdToken();
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Task and TaskLog API calls
-export const taskApi = {
-  /**
-   * Get tasks assigned to a specific organizer
-   */
-  getTasksByOrganizer: async (firebaseUid: string): Promise<Task[]> => {
+export const fetchEventsFromApi = async (): Promise<Event[]> => {
     try {
-      const response = await apiClient.get('/tasks', {
-        params: { assignedTo: firebaseUid }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching tasks by organizer:', error);
-      throw error;
-    }
-  },
+        console.log('EventApiService: Fetching events from server...');
 
-  /**
-   * Get a specific task by ID
-   */
-  getTaskById: async (taskId: string): Promise<Task | null> => {
-    try {
-      const response = await apiClient.get(`/tasks/${taskId}`);
-      return response.data;
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        const response = await eventApiClient.get(`/public/events?_=${timestamp}`);
+        console.log('Raw API response:', JSON.stringify(response.data).substring(0, 200) + '...');
+
+        if (response.data && response.data.events) {
+            // Server returns { events: [...] }
+            console.log(`EventApiService: Found ${response.data.events.length} events in response.data.events`);
+            return response.data.events;
+        } else if (Array.isArray(response.data)) {
+            // Server returns direct array
+            console.log(`EventApiService: Found ${response.data.length} events in array format`);
+            return response.data;
+        } else if (response.data && typeof response.data === 'object') {
+            // If the response is an object but doesn't have an events property
+            console.log('EventApiService: Response is an object without events property');
+            return [response.data]; // Wrap single event in array
+        } else {
+            console.log('EventApiService: No events in response');
+            return [];
+        }
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        console.error('EventApiService Error:', error.response?.status, error.message);
+        throw error;
+    }
+};
+
+/**
+ * Get single event by ID
+ */
+export const fetchEventByIdFromApi = async (eventId: string): Promise<Event | null> => {
+    try {
+        console.log(`EventApiService: Fetching event ${eventId}...`);
+        const response = await eventApiClient.get(`/public/events/${eventId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`EventApiService: Error fetching event ${eventId}:`, error);
         return null;
-      }
-      console.error('Error fetching task by ID:', error);
-      throw error;
     }
-  },
-
-  /**
-   * Update a task's status
-   */
-  updateTaskStatus: async (
-    taskId: string,
-    newStatus: 'pending' | 'in-progress' | 'completed',
-    firebaseUid: string,
-    comment?: string
-  ): Promise<void> => {
-    try {
-      await apiClient.patch(`/tasks/${taskId}`, {
-        status: newStatus,
-        updatedBy: firebaseUid
-      });
-
-      // Create a task log for this status change
-      await taskLogApi.createTaskLog({
-        taskId,
-        action: newStatus === 'completed' ? 'completed' : 'updated',
-        updatedBy: firebaseUid,
-        oldStatus: null, // The server will look up the old status
-        newStatus,
-        comment
-      });
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      throw error;
-    }
-  }
-};
-
-export const taskLogApi = {
-  /**
-   * Get logs for a specific task
-   */
-  getTaskLogs: async (taskId: string): Promise<TaskLog[]> => {
-    try {
-      const response = await apiClient.get('/taskLogs', {
-        params: { taskId }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching task logs:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Create a new task log entry
-   */
-  createTaskLog: async (logData: {
-    taskId: string;
-    action: 'created' | 'updated' | 'completed';
-    updatedBy: string;
-    oldStatus?: 'pending' | 'in-progress' | 'completed' | null;
-    newStatus: 'pending' | 'in-progress' | 'completed';
-    comment?: string;
-  }): Promise<TaskLog> => {
-    try {
-      const response = await apiClient.post('/taskLogs', {
-        ...logData,
-        timestamp: new Date().toISOString()
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating task log:', error);
-      throw error;
-    }
-  }
-};
-
-export default {
-  task: taskApi,
-  taskLog: taskLogApi
 };

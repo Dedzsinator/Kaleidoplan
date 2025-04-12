@@ -11,7 +11,7 @@ interface HeroProps {
     scrollY: Animated.Value;
 }
 
-const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
+const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps): JSX.Element => {
     // Animation refs
     const heroScale = useRef(new Animated.Value(1)).current;
     const heroTitleTranslateY = useRef(new Animated.Value(20)).current;
@@ -66,8 +66,17 @@ const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
     }, []);
 
     return (
-        <View style={{ height: HERO_HEIGHT, width: '100%' }}>
-            <View style={{ position: 'absolute', inset: 0, backgroundColor: 'black' }} />
+        <View
+            style={{ height: HERO_HEIGHT, width: '100%' }}
+            pointerEvents="box-none" // Critical fix: allow touch events to pass through
+        >
+            {/* Background color */}
+            <View
+                style={{ position: 'absolute', inset: 0, backgroundColor: 'black' }}
+                pointerEvents="none" // Don't intercept any touches
+            />
+
+            {/* Hero image with animations */}
             <Animated.View
                 style={{
                     position: 'absolute',
@@ -81,6 +90,7 @@ const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
                     ],
                     opacity: heroOpacity
                 }}
+                pointerEvents="none" // Don't intercept any touches
             >
                 <Animated.Image
                     source={{ uri: heroImageUrl }}
@@ -93,17 +103,22 @@ const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
                     style={{ position: 'absolute', inset: 0 }}
+                    pointerEvents="none" // Don't intercept any touches
                 />
             </Animated.View>
 
-            <View style={{
-                position: 'absolute',
-                inset: 0,
-                justifyContent: 'center',
-                alignItems: 'center',
-                paddingHorizontal: 24,
-                paddingTop: STATUS_BAR_HEIGHT + 60
-            }}>
+            {/* Content container */}
+            <View
+                style={{
+                    position: 'absolute',
+                    inset: 0,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingHorizontal: 24,
+                    paddingTop: STATUS_BAR_HEIGHT + 60
+                }}
+                pointerEvents="box-none" // Only respond to touches on children
+            >
                 <Animated.Text
                     style={{
                         color: 'white',
@@ -122,6 +137,7 @@ const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
                 >
                     Transform Your Events
                 </Animated.Text>
+
                 <Text
                     style={{
                         color: 'rgba(255,255,255,0.9)',
@@ -137,6 +153,7 @@ const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
                     Plan, organize, and execute flawlessly with Kaleidoplan
                 </Text>
 
+                {/* Button - only this should intercept touches */}
                 <TouchableOpacity
                     style={{
                         backgroundColor: 'white',
@@ -150,6 +167,8 @@ const Hero = ({ navigation, heroImageUrl, scrollY }: HeroProps) => {
                         elevation: 5
                     }}
                     onPress={() => navigation.navigate('Login')}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    delayPressIn={300} // Add significant delay to prevent scroll conflicts
                 >
                     <Text style={{
                         color: 'black',

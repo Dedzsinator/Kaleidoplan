@@ -9,23 +9,26 @@ interface NavBarProps {
     opacity?: Animated.AnimatedInterpolation<string | number>;
 }
 
-const NavBar = ({ navigation, opacity = 1 }: NavBarProps) => {
+const NavBar = ({ navigation, opacity = 1 }: NavBarProps): JSX.Element => {
     return (
-        <Animated.View style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 99,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            opacity,
-            paddingTop: STATUS_BAR_HEIGHT + 10,
-            paddingBottom: 15,
-            paddingHorizontal: 16,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-        }}>
+        <Animated.View 
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 99,
+                backgroundColor: 'rgba(0,0,0,0.85)',
+                opacity,
+                paddingTop: STATUS_BAR_HEIGHT + 10,
+                paddingBottom: 15,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+            }}
+            pointerEvents="box-none" // Critical: let touches pass through to ScrollView
+        >
             <Text
                 style={{
                     color: 'white',
@@ -50,6 +53,7 @@ const NavBar = ({ navigation, opacity = 1 }: NavBarProps) => {
                         borderRadius: 24
                     }}
                     onPress={() => navigation.navigate('Login')}
+                    delayPressIn={200} // Add delay to distinguish from scrolling
                 >
                     <Text style={{
                         color: 'white',
@@ -70,6 +74,7 @@ const NavBar = ({ navigation, opacity = 1 }: NavBarProps) => {
                         borderRadius: 24
                     }}
                     onPress={() => navigation.navigate('Register')}
+                    delayPressIn={200} // Add delay to distinguish from scrolling
                 >
                     <Text style={{
                         color: 'black',

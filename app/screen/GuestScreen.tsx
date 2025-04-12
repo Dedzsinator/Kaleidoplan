@@ -5,11 +5,14 @@ import {
   Animated,
   StatusBar,
   Platform,
-  ScrollView,
+  FlatList,
   StyleSheet,
-  Dimensions
+  Dimensions,
+  ActivityIndicator,
+  TouchableWithoutFeedback,
+  TouchableOpacity // Add this for better touch handling
 } from 'react-native';
-import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { getEvents } from '../services/eventService';
 import NavBar from '../components/layout/NavBar';
 import Hero from '../components/layout/Hero';
@@ -22,129 +25,19 @@ import { COLORS } from '../styles/theme';
 // Constants
 const DEFAULT_IMAGE_URL = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
 const HEADER_OFFSET = 100;
-
-// Styles using StyleSheet instead of styled components
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  mainContent: {
-    flexGrow: 1,
-  },
-  contentSection: {
-    backgroundColor: '#121212',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    marginTop: -30,
-  },
-  contentInner: {
-    paddingTop: 64,
-    paddingHorizontal: 24,
-  },
-  contentTitle: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: COLORS.white,
-    letterSpacing: -1,
-  },
-  contentSubtitle: {
-    fontSize: 18,
-    color: '#b3b3b3',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'black',
-  },
-  loadingText: {
-    color: COLORS.white,
-    fontSize: 20,
-    marginTop: 16,
-  },
-  errorMessage: {
-    color: COLORS.danger,
-    fontSize: 18,
-    textAlign: 'center',
-    marginVertical: 16,
-  },
-  eventSectionContainer: {
-    marginBottom: 20,
-    minHeight: 200,
-    backgroundColor: 'rgba(50,50,50,0.5)',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  debugText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  eventTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  scrollButton: {
-    position: 'absolute',
-    bottom: 80,
-    right: 20,
-    backgroundColor: 'rgba(10,126,164,0.8)',
-    padding: 12,
-    borderRadius: 30,
-    zIndex: 1000,
-  },
-  debugOverlay: {
-    position: 'absolute',
-    top: 50,
-    right: 10,
-    backgroundColor: 'rgba(0,0,255,0.7)',
-    padding: 8,
-    borderRadius: 8,
-    zIndex: 9999
-  },
-  footerContainer: {
-    paddingBottom: 40,
-  },
-  spotifyOverlayContainer: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    zIndex: 9999,
-    // Shadow styling
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 20,
-  },
-});
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const GuestScreen = ({ navigation }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [imageLoadErrors, setImageLoadErrors] = useState({});
   const scrollY = useRef(new Animated.Value(0)).current;
+  const flatListRef = useRef(null);
   const sectionPositions = useRef<{ [key: string]: number }>({});
-  const [debugScrollPos, setDebugScrollPos] = useState(0);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const [networkStatus, setNetworkStatus] = useState<string>('Waiting to fetch events...');
 
-  // Standard ScrollView ref (not Animated)
-  const scrollViewRef = useRef(null);
-
-  // New state for Spotify Radio Overlay
+  // Spotify overlay state
   const [isPlaying, setIsPlaying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [currentVisibleEvent, setCurrentVisibleEvent] = useState<Event | null>(null);
@@ -157,17 +50,16 @@ const GuestScreen = ({ navigation }) => {
   });
 
   useEffect(() => {
-    // Setup status bar
+    fetchEvents();
+
+    // Set status bar
     StatusBar.setBarStyle('light-content');
     if (Platform.OS === 'android') {
       StatusBar.setTranslucent(true);
       StatusBar.setBackgroundColor('transparent');
     }
 
-    fetchEvents();
-
     return () => {
-      // Reset status bar when unmounting
       StatusBar.setHidden(false);
     };
   }, []);
@@ -179,10 +71,21 @@ const GuestScreen = ({ navigation }) => {
     }
   }, [events]);
 
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: false,
+      listener: (event) => {
+        const offsetY = event.nativeEvent.contentOffset.y;
+        setScrollPosition(offsetY);
+      }
+    }
+  );
+
   const validateEvent = (event: any, index: number): Event | null => {
-    // Required fields for an event
+    // (Existing validation code)
     if (!event) {
-      console.error(`Invalid event data at position ${index}: Event is null or undefined`);
+      console.error(`Invalid event data at position ${index}`);
       return null;
     }
 
@@ -190,82 +93,58 @@ const GuestScreen = ({ navigation }) => {
       event.playlistId = `pl${event.id || index + 1}`;
     }
 
-    // Make sure it has an ID (use index as fallback)
     if (!event.id) {
       event.id = `temp-id-${index}`;
     }
 
-    // Ensure essential properties exist (add defaults if missing)
     if (!event.name) {
       event.name = "Unnamed Event";
     }
 
-    // Map coverImage to coverImageUrl if it exists (MongoDB field name mapping)
     if (event.coverImage && !event.coverImageUrl) {
       event.coverImageUrl = event.coverImage;
-      console.log(`Mapped coverImage to coverImageUrl for event ${event.name}: ${event.coverImageUrl}`);
     }
 
-    // Fix for coverImageUrl - only use placeholder if it's really missing
     if (!event.coverImageUrl ||
       typeof event.coverImageUrl !== 'string' ||
       event.coverImageUrl.trim() === '') {
       const placeholderImages = [
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=2070&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=2070&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=2070&auto=format&fit=crop'
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1080&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=1080&auto=format&fit=crop',
+        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1080&auto=format&fit=crop'
       ];
-
       event.coverImageUrl = placeholderImages[index % placeholderImages.length];
-      console.log(`Added placeholder image for event ${event.name} (ID: ${event.id})`);
-    } else {
-      console.log(`Using existing coverImageUrl for event ${event.name}: ${event.coverImageUrl}`);
     }
 
-    // Process slideshowImages if available
     if (event.slideshowImages) {
-      // Check if slideshowImages is a string that needs to be parsed
       if (typeof event.slideshowImages === 'string') {
-        // If it's a comma-separated string, split it into an array
         event.slideshowImages = event.slideshowImages
           .split(',')
           .map(url => url.trim())
           .filter(url => url.length > 0);
-
-        console.log(`Processed ${event.slideshowImages.length} slideshow images from string for event ${event.name}`);
-      }
-
-      // If the slideshowImages is an array where the first item is a comma-separated string
-      // (This handles the case where MongoDB returns an array with a single string containing comma-separated URLs)
-      else if (Array.isArray(event.slideshowImages) &&
+      } else if (Array.isArray(event.slideshowImages) &&
         event.slideshowImages.length === 1 &&
         typeof event.slideshowImages[0] === 'string' &&
         event.slideshowImages[0].includes(',')) {
-
         event.slideshowImages = event.slideshowImages[0]
           .split(',')
           .map(url => url.trim())
           .filter(url => url.length > 0);
-
-        console.log(`Processed ${event.slideshowImages.length} slideshow images from array with single string for event ${event.name}`);
       }
 
-      // Make sure all entries in the array are valid
       if (Array.isArray(event.slideshowImages)) {
         event.slideshowImages = event.slideshowImages
           .filter(url => typeof url === 'string' && url.trim().length > 0)
           .map(url => url.trim());
-
-        console.log(`Final slideshow has ${event.slideshowImages.length} valid images for event ${event.name}`);
       }
     }
 
-    // If we have no valid slideshow images, include at least the cover image
-    if (!event.slideshowImages || !Array.isArray(event.slideshowImages) || event.slideshowImages.length === 0) {
+    if (!event.slideshowImages ||
+      !Array.isArray(event.slideshowImages) ||
+      event.slideshowImages.length === 0) {
       if (event.coverImageUrl) {
         event.slideshowImages = [event.coverImageUrl];
-        console.log(`Using coverImageUrl as slideshow for event ${event.name}`);
       }
     }
 
@@ -275,41 +154,38 @@ const GuestScreen = ({ navigation }) => {
   const fetchEvents = async () => {
     try {
       setError(null);
-      const eventsData = await getEvents();
+      setNetworkStatus('Connecting to server...');
 
-      // Validate and filter out invalid events
+      const eventsData = await getEvents();
+      setNetworkStatus(`Successfully fetched ${eventsData.length} events`);
+
       const validEvents = eventsData
         .map((event, index) => validateEvent(event, index))
         .filter(event => event !== null) as Event[];
 
-      console.log(`Processed ${validEvents.length} of ${eventsData.length} events`);
       setEvents(validEvents);
-      setLoading(false);
+      if (validEvents.length === 0) {
+        setError('No valid events found');
+      }
     } catch (error) {
       console.error('Error fetching events:', error);
+      setNetworkStatus(`Error: ${error.message}`);
       setError('Failed to load events. Please try again later.');
+    } finally {
       setLoading(false);
     }
   };
 
   const handleSectionVisibility = (isVisible, eventData) => {
-    console.log(`Event ${eventData.name} (ID: ${eventData.id}) visibility: ${isVisible}`);
     if (isVisible) {
       setCurrentVisibleEvent(eventData);
     }
   };
 
-  const handleImageError = (eventId: string) => {
-    setImageLoadErrors(prev => ({ ...prev, [eventId]: true }));
-  };
-
-  // For measuring section positions
   const onSectionLayout = (key: string, event: any) => {
     const { y } = event.nativeEvent.layout;
     sectionPositions.current[key] = y;
   };
-
-  // Handler functions for SpotifyRadioOverlay
   const handleTogglePlay = () => {
     setIsPlaying(prev => !prev);
   };
@@ -318,28 +194,12 @@ const GuestScreen = ({ navigation }) => {
     setExpanded(prev => !prev);
   };
 
-  const handleScroll = (event) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    scrollY.setValue(offsetY);
-    setDebugScrollPos(offsetY);
-    console.log("SCROLL POSITION:", offsetY);
-  };
-
-  const scrollDown = () => {
-    scrollViewRef.current?.scrollTo({ y: 500, animated: true });
-    console.log('Manual scroll triggered');
-  };
-
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={rootStyles.loadingContainer}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-        <Animated.Image
-          source={require('../../assets/images/logo.png')}
-          style={{ width: 100, height: 100 }}
-          resizeMode="contain"
-        />
-        <Text style={styles.loadingText}>Discovering extraordinary events...</Text>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={rootStyles.loadingText}>Discovering extraordinary events...</Text>
       </View>
     );
   }
@@ -348,118 +208,236 @@ const GuestScreen = ({ navigation }) => {
   const heroEvent = events.find(event => event.coverImageUrl) || events[0];
   const heroImageUrl = heroEvent?.coverImageUrl || DEFAULT_IMAGE_URL;
 
+  const renderEventItem = ({ item, index }) => (
+    <TouchableWithoutFeedback>
+      <View
+        key={item.id}
+        onLayout={(event) => onSectionLayout(`section-${index}`, event)}
+        style={[
+          rootStyles.eventSectionContainer,
+          { backgroundColor: `rgba(40,40,40,0.${index + 5})` }
+        ]}
+      >
+        <EventSection
+          event={item}
+          navigation={navigation}
+          onImageError={() => { }}
+          index={index}
+          scrollY={scrollY}
+          sectionY={sectionPositions.current[`section-${index}`] || 0}
+          onVisibilityChange={handleSectionVisibility}
+        />
+      </View>
+    </TouchableWithoutFeedback>
+  );
+
+  const ListHeader = () => (
+    <View>
+      {/* Hero Section */}
+      <Hero
+        navigation={navigation}
+        heroImageUrl={heroImageUrl}
+        scrollY={scrollY}
+      />
+
+      {/* Main Content Header */}
+      <View style={rootStyles.contentHeader}>
+        <Text style={rootStyles.contentTitle}>Events Calendar</Text>
+        <Text style={rootStyles.contentSubtitle}>Explore upcoming and ongoing experiences</Text>
+
+        {/* Network status message */}
+        {networkStatus && <Text style={rootStyles.networkStatus}>{networkStatus}</Text>}
+
+        {/* Error message if any */}
+        {error && <Text style={rootStyles.errorMessage}>{error}</Text>}
+      </View>
+    </View>
+  );
+
+  // Footer component for FlatList
+  const ListFooter = () => (
+    <View style={rootStyles.footerContainer}>
+      <Footer />
+    </View>
+  );
+
+  // Empty component when no events
+  const ListEmpty = () => (
+    <View style={rootStyles.noEventsContainer}>
+      <Text style={rootStyles.noEventsText}>
+        No events found. Check back soon for new events!
+      </Text>
+    </View>
+  );
+
   return (
     <SafeAreaProvider>
-      {/* Notice we're using a full-screen container here */}
-      <View style={{ flex: 1 }}>
-        <SafeAreaView style={styles.container} edges={['top']}>
-          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-          {/* Fixed Navbar */}
+      <View style={rootStyles.container}>
+        {/* FlatList and other content */}
+        <FlatList
+          ref={flatListRef}
+          data={events}
+          renderItem={renderEventItem}
+          keyExtractor={item => item.id.toString()}
+          style={rootStyles.flatList}
+          contentContainerStyle={rootStyles.flatListContent}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter}
+          ListEmptyComponent={ListEmpty}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={true}
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          windowSize={5}
+          removeClippedSubviews={false}
+          bounces={true}
+          alwaysBounceVertical={true}
+          overScrollMode="always"
+          decelerationRate="normal"
+          ItemSeparatorComponent={() => <View style={rootStyles.separator} />}
+        />
+
+        {/* Fixed NavBar */}
+        <View style={rootStyles.navBarContainer} pointerEvents="box-none">
           <NavBar navigation={navigation} opacity={headerOpacity} />
-
-          {/* ScrollView for main content */}
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.mainContent}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true, listener: handleScroll } // Change to useNativeDriver: true
-            )}
-            scrollEventThrottle={16}
-            showsVerticalScrollIndicator={true}
-            indicatorStyle="white"
-            scrollEnabled={true}
-            bounces={true}
-            keyboardShouldPersistTaps="handled" // Add this
-            // Add these to ensure scrolling works
-            alwaysBounceVertical={true}
-            nestedScrollEnabled={true}
-          >
-            {/* Hero Section */}
-            <Hero
-              navigation={navigation}
-              heroImageUrl={heroImageUrl}
-              scrollY={scrollY}
-            />
-
-            {/* Main Content */}
-            <View style={styles.contentSection}>
-              <View style={styles.contentInner}>
-                <Text style={styles.contentTitle}>Events Calendar</Text>
-                <Text style={styles.contentSubtitle}>Explore upcoming and ongoing experiences</Text>
-
-                {/* Error message if any */}
-                {error && <Text style={styles.errorMessage}>{error}</Text>}
-
-                {/* Event Sections */}
-                <View style={{ marginBottom: 30 }}>
-                  {events.map((event, index) => (
-                    <View
-                      key={event.id || `event-${index}`}
-                      onLayout={(event) => onSectionLayout(`section-${index}`, event)}
-                      style={[
-                        styles.eventSectionContainer,
-                        { backgroundColor: `rgba(50,50,50,0.${index + 3})` }
-                      ]}
-                    >
-                      <EventSection
-                        event={event}
-                        navigation={navigation}
-                        onImageError={handleImageError}
-                        index={index}
-                        scrollY={scrollY}
-                        sectionY={sectionPositions.current[`section-${index}`] || 0}
-                        onVisibilityChange={handleSectionVisibility}
-                      />
-
-                      {/* Separator */}
-                      {index < events.length - 1 && (
-                        <View style={{
-                          height: 2,
-                          backgroundColor: 'rgba(255,255,255,0.3)',
-                          marginVertical: 30
-                        }} />
-                      )}
-                    </View>
-                  ))}
-
-                  {/* Fallback for empty events */}
-                  {events.length === 0 && (
-                    <View style={styles.noEventsContainer}>
-                      <Text style={styles.noEventsText}>
-                        No events found. Check back soon for new events!
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Footer */}
-                <View style={styles.footerContainer}>
-                  <Footer />
-                </View>
-              </View>
-            </View>
-          </ScrollView>
-
-        </SafeAreaView>
-
-        {currentVisibleEvent && (
-          <View style={styles.spotifyOverlayContainer} pointerEvents="box-none">
-            <SpotifyRadioOverlay
-              currentEvent={currentVisibleEvent}
-              isPlaying={isPlaying}
-              onTogglePlay={handleTogglePlay}
-              onExpand={handleExpand}
-              expanded={expanded}
-            />
-          </View>
-        )}
+        </View>
       </View>
     </SafeAreaProvider>
   );
-
 };
+
+const rootStyles = StyleSheet.create({
+  container: {
+    flex: 1, // CRITICAL FIX: Ensure parent container is flex: 1
+    backgroundColor: 'black',
+  },
+  flatList: {
+    flex: 1,
+    width: '100%',
+  },
+  flatListContent: {
+    paddingBottom: 120,
+  },
+  networkStatus: {
+    color: '#aaa',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  navBarContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    pointerEvents: 'box-none', // CRITICAL FIX: Ensure correct pointer events
+  },
+  floatingSpotifyContainer: {
+    position: 'absolute',
+    bottom: 40, // Higher position from bottom
+    right: 16,
+    zIndex: 9999,
+    elevation: 20, // Higher elevation for Android
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    // Add a background for visibility
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 24,
+    padding: 4,
+    // Add subtle border
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    // Ensure it gets touch events
+    pointerEvents: 'auto',
+  },
+  contentHeader: {
+    backgroundColor: '#121212',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
+    paddingTop: 40,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+
+  eventSectionContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  separator: {
+    height: 16,
+  },
+
+  contentTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+    color: '#ffffff',
+  },
+  contentSubtitle: {
+    fontSize: 16,
+    color: '#b3b3b3',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    color: '#ff6b6b',
+    fontSize: 15,
+    textAlign: 'center',
+    marginVertical: 16,
+    padding: 12,
+    backgroundColor: 'rgba(255,50,50,0.1)',
+    borderRadius: 8,
+  },
+  noEventsText: {
+    color: '#aaa',
+    fontSize: 16,
+    textAlign: 'center',
+    padding: 40,
+  },
+  noEventsContainer: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    margin: 24,
+    padding: 24,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'black',
+  },
+  loadingText: {
+    color: '#ffffff',
+    fontSize: 18,
+    marginTop: 16,
+  },
+
+  footerContainer: {
+    backgroundColor: '#121212',
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 100,
+  },
+
+  spotifyOverlayContainer: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    zIndex: 9999,
+    pointerEvents: 'box-none', // CRITICAL FIX: Ensure correct pointer events
+  },
+});
 
 export default GuestScreen;

@@ -227,4 +227,6 @@ export const initializeAuth = async () => {
 // Initialize auth token on module load
 initializeAuth();
 
+export { apiClient, publicApiClient };
+
 export default mongoApi;

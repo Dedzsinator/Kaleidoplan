@@ -5,8 +5,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { Audio } from 'expo-av';
 
 // Use environment variables directly
-const CLIENT_ID = 'de63d9c68178463a82b0b78c1f845c1e';
-const CLIENT_SECRET = 'fbb4799ce971413c96e4efc9f95c7c7c';
+const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || '';
+
+console.log('Spotify client ID available:', !!CLIENT_ID);
 
 const REDIRECT_URI = Platform.select({
   web: 'http://localhost:19006/',
@@ -83,25 +85,43 @@ class SpotifyService {
   }
 
   authenticate = async () => {
-    // Check if we already have a valid token
-    if (this.accessToken && this.expiresAt > Date.now()) {
-      return this.accessToken;
-    }
+    try {
+      // First, try to load existing tokens
+      await this.loadTokens();
 
-    // Try to refresh the token if we have a refresh token
-    if (this.refreshToken) {
-      try {
-        const refreshed = await this.refreshAccessToken();
-        if (refreshed) {
-          return this.accessToken;
-        }
-      } catch (error) {
-        console.error('Error refreshing token:', error);
+      // Check if we already have a valid token
+      if (this.accessToken && this.expiresAt > Date.now()) {
+        console.log('Using existing valid Spotify token');
+        return this.accessToken;
       }
-    }
 
-    // Fall back to client credentials (limited access)
-    return this.getClientCredentialsToken();
+      // Try to refresh the token if we have a refresh token
+      if (this.refreshToken) {
+        try {
+          console.log('Attempting to refresh Spotify token');
+          const refreshed = await this.refreshAccessToken();
+          if (refreshed) {
+            console.log('Spotify token refreshed successfully');
+            return this.accessToken;
+          }
+        } catch (error) {
+          console.error('Error refreshing token:', error);
+        }
+      }
+
+      // Fall back to client credentials (limited access)
+      console.log('Getting new client credentials token for Spotify');
+      const token = await this.getClientCredentialsToken();
+      if (token) {
+        console.log('Got new Spotify client credentials token');
+      } else {
+        console.error('Failed to get Spotify client credentials token');
+      }
+      return token;
+    } catch (error) {
+      console.error('Spotify authentication failed:', error);
+      throw error;
+    }
   }
 
   getClientCredentialsToken = async () => {
@@ -190,39 +210,66 @@ class SpotifyService {
     }
   }
 
-  // Play a track using Spotify API or fetch the preview URL
-  playTrack = async (trackId) => {
-    if (!trackId) return false;
+  // Add this general-purpose GET method for Spotify API endpoints
+  get = async (endpoint: string) => {
+    await this.authenticate();
 
     try {
-      // Extract the ID if a URI was passed
-      const cleanId = trackId.includes(':')
-        ? trackId.split(':').pop()
-        : trackId;
+      const response = await axios.get(`https://api.spotify.com/v1/${endpoint}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching ${endpoint}:`, error);
+      return null;
+    }
+  }
 
+  // Then make sure the playTrack method uses it properly
+  playTrack = async (trackId: string) => {
+    try {
       await this.authenticate();
-      console.log(`Attempting to play track: ${cleanId}`);
 
-      // Get the track details including the preview URL
-      const track = await this.getTrack(cleanId);
+      // Clean track ID if needed
+      const cleanId = trackId.includes(':') ? trackId.split(':').pop() : trackId;
 
-      if (!track) {
-        console.error('Track not found');
-        return false;
+      // Get track details
+      const trackData = await this.getTrack(cleanId);
+
+      if (trackData) {
+        console.log(`Track found: ${trackData.name}, preview URL: ${trackData.preview_url}`);
       }
 
-      console.log(`Track found: ${track.name}, preview URL: ${track.preview_url}`);
+      if (!trackData || !trackData.preview_url) {
+        console.log(`No preview URL available for track ID: ${trackId}`);
 
-      // Return the preview URL which will be used by the Audio API
-      if (track.preview_url) {
-        return track.preview_url;
+        // Try to get preview from the album instead
+        if (trackData?.album?.id) {
+          console.log(`Attempting to get album tracks for alternative preview`);
+          try {
+            const albumTracks = await this.get(`albums/${trackData.album.id}/tracks`);
+
+            // Find an alternative track with preview_url
+            if (albumTracks && albumTracks.items) {
+              const trackWithPreview = albumTracks.items.find(track => track.preview_url);
+              if (trackWithPreview) {
+                console.log(`Found alternative preview from same album: ${trackWithPreview.name}`);
+                return trackWithPreview.preview_url;
+              }
+            }
+          } catch (albumError) {
+            console.error('Error fetching album tracks:', albumError);
+          }
+        }
+
+        console.log(`No playable source available for track: ${trackData?.name || trackId}`);
+        return null;
       }
 
-      console.warn('No preview URL available for track:', track.name);
-      return false;
+      return trackData.preview_url;
     } catch (error) {
       console.error('Error playing track:', error);
-      return false;
+      return null;
     }
   }
 

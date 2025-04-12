@@ -200,6 +200,27 @@ app.get('/api/public/events', async (req, res) => {
   }
 });
 
+app.get('/api/playlists/:id', async (req, res) => {
+  try {
+    const playlistId = req.params.id;
+    // You could fetch from a database if you have one
+    // For now, return a mock playlist
+    const mockPlaylist = {
+      _id: playlistId,
+      name: `Playlist ${playlistId}`,
+      description: "Auto-generated playlist",
+      tracks: {
+        "1": { name: "Track 1", artist: "Artist 1", duration: "3:45", spotifyId: "5ghIJDpPoe3CfHMGu71E6T" },
+        "2": { name: "Track 2", artist: "Artist 2", duration: "4:20", spotifyId: "7snQQk1zcKl8gZ92AnueZW" }
+      }
+    };
+    res.json(mockPlaylist);
+  } catch (error) {
+    console.error('Error fetching playlist:', error);
+    res.status(500).json({ error: 'Failed to fetch playlist' });
+  }
+});
+
 // Get public event by ID
 app.get('/api/public/events/:id', async (req, res) => {
   try {
