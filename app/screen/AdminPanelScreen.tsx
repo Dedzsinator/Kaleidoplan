@@ -1,602 +1,745 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, FlatList, Modal, Alert, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { styled } from 'nativewind';
-import { useAuth } from '../contexts/AuthContext';
-import { getFirestore, collection, getDocs, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { getAuth, deleteUser } from 'firebase/auth';
 import {
-  Container,
-  Card,
-  Title,
-  Subtitle,
-  BodyText,
-  Label,
-  Input,
-  PrimaryButton,
-  PrimaryButtonText,
-  SecondaryButton,
-  SecondaryButtonText,
-  DangerButton,
-  DangerButtonText,
-  OutlineButton,
-  OutlineButtonText,
-  Badge,
-  BadgeText,
-  LoadingContainer,
-  Spinner,
-  LoadingText,
-  ListItem,
-  ListItemTitle,
-  ListItemSubtitle,
-  Row,
-  Spacer,
-  Header,
-  HeaderTitle,
-  HeaderSubtitle,
-} from '../components/ui/theme';
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  RefreshControl
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { getFirestore, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { format, subDays, parseISO, differenceInDays } from 'date-fns';
 
 // Get Firestore instance
 const db = getFirestore();
 const firebaseAuth = getAuth();
 
-// Custom styled components for admin panel
-const TabContainer = styled(View, 'flex-row bg-white mb-4 border-b border-gray-200');
-const Tab = styled(TouchableOpacity, 'py-3 px-4');
-const TabText = styled(Text, 'text-gray-600 text-base');
-const ActiveTab = styled(TouchableOpacity, 'py-3 px-4 border-b-2 border-primary');
-const ActiveTabText = styled(Text, 'text-primary font-medium text-base');
-const CardHeader = styled(View, 'flex-row justify-between items-center mb-4');
-const UserItem = styled(TouchableOpacity, 'bg-white p-4 mb-2 rounded-lg border border-gray-200');
-const UserRole = styled(View, 'px-2 py-1 rounded-full bg-blue-100');
-const UserRoleText = styled(Text, 'text-xs text-blue-700');
-const AdminRole = styled(View, 'px-2 py-1 rounded-full bg-purple-100');
-const AdminRoleText = styled(Text, 'text-xs text-purple-700');
-const ModalContainer = styled(View, 'flex-1 justify-center p-5 bg-black/50');
-const ModalContent = styled(View, 'bg-white rounded-lg p-5');
-const ModalTitle = styled(Text, 'text-xl font-bold mb-4');
-const ModalActions = styled(View, 'flex-row mt-4 gap-2');
-const StatCard = styled(Card, 'p-4 mb-4');
-const StatValue = styled(Text, 'text-2xl font-bold text-primary');
-const StatLabel = styled(Text, 'text-sm text-gray-500');
-const SearchBar = styled(View, 'flex-row items-center bg-gray-100 rounded-lg px-3 py-2 mb-4');
-const SearchInput = styled(Input, 'flex-1 bg-transparent border-0 mb-0 p-0');
-const EmptyStateContainer = styled(View, 'py-8 items-center');
-const EmptyStateText = styled(Text, 'text-gray-500 text-base mt-2');
+// Chart dimension
+const screenWidth = Dimensions.get('window').width;
 
-// Tab types
-type TabType = 'overview' | 'organizers' | 'events' | 'tasks';
-
-// User interface
-interface User {
+// User analytics interface
+interface UserAnalytics {
   id: string;
   email: string;
   displayName?: string;
-  role: 'admin' | 'organizer';
-  createdAt?: string;
+  loginCount: number;
+  lastLogin: Date | null;
+  eventsCreated: number;
+  tasksCompleted: number;
+  createdAt: Date | null;
+  platform?: string;
+  daysSinceRegistration: number;
+  role: string;
 }
 
-// Stats interface
-interface Stats {
-  organizerCount: number;
-  eventCount: number;
-  taskCount: number;
-  pendingTaskCount: number;
-}
+// Time range type for filters
+type TimeRangeType = '7d' | '30d' | '90d' | 'all';
 
-const AdminPanelScreen = ({ navigation }) => {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isUserModalVisible, setIsUserModalVisible] = useState(false);
-  const [isRoleModalVisible, setIsRoleModalVisible] = useState(false);
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+const AdminAnalyticsScreen = ({ navigation }) => {
+  const [timeRange, setTimeRange] = useState<TimeRangeType>('30d');
+  const [userAnalytics, setUserAnalytics] = useState<UserAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [stats, setStats] = useState<Stats>({
-    organizerCount: 0,
-    eventCount: 0,
-    taskCount: 0,
-    pendingTaskCount: 0
-  });
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [totalLogins, setTotalLogins] = useState(0);
+  const [activeUsers, setActiveUsers] = useState(0);
+  const [newUsers, setNewUsers] = useState(0);
+  const [mostActiveUser, setMostActiveUser] = useState<UserAnalytics | null>(null);
+  const [platformStats, setPlatformStats] = useState<{ [key: string]: number }>({});
 
-  // Fetch all users from Firestore
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const usersQuery = query(collection(db, 'users'));
-        const querySnapshot = await getDocs(usersQuery);
-        
-        const loadedUsers: User[] = [];
-        querySnapshot.forEach((doc) => {
-          loadedUsers.push({
-            id: doc.id,
-            ...doc.data()
-          } as User);
-        });
-        
-        setUsers(loadedUsers);
-        setFilteredUsers(loadedUsers);
-        
-        // Calculate statistics
-        setStats({
-          organizerCount: loadedUsers.filter(u => u.role === 'organizer').length,
-          eventCount: 0, // You would fetch this from the events collection
-          taskCount: 0, // You would fetch this from the tasks collection
-          pendingTaskCount: 0 // You would fetch this from the tasks collection
-        });
-        
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        Alert.alert('Error', 'Failed to load users');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUsers();
-  }, []);
-  
-  // Filter users when search query changes
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(users);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredUsers(users.filter(user => 
-        (user.displayName?.toLowerCase().includes(query) || 
-         user.email.toLowerCase().includes(query))
-      ));
-    }
-  }, [searchQuery, users]);
-
-  // Handle role change
-  const handleRoleChange = async (userId: string, newRole: 'admin' | 'organizer') => {
+  // Fetch analytics data
+  const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      
-      // Update user role in Firestore
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, { role: newRole });
-      
-      // Update local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId ? { ...user, role: newRole } : user
-        )
-      );
-      
-      // Note: In a production environment, you would also update the user's custom claims
-      // using Firebase Admin SDK through a secure backend function
-      
-      Alert.alert('Success', `User role updated to ${newRole}`);
+
+      // Get users from Firestore
+      const usersQuery = query(collection(db, 'users'));
+      const userSnapshot = await getDocs(usersQuery);
+
+      // Today's date for calculations
+      const today = new Date();
+      const timeRangeDays = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 1000;
+      const cutoffDate = subDays(today, timeRangeDays);
+
+      // Process user data
+      const analytics: UserAnalytics[] = [];
+      const platforms: { [key: string]: number } = {};
+      let totalLoginCount = 0;
+      let activeUserCount = 0;
+      let newUserCount = 0;
+
+      userSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        const lastLogin = userData.lastLogin ? parseISO(userData.lastLogin) : null;
+        const createdAt = userData.createdAt ? parseISO(userData.createdAt) : null;
+        const loginCount = userData.loginCount || 0;
+
+        // Count platform usage
+        const platform = userData.platform || 'Unknown';
+        platforms[platform] = (platforms[platform] || 0) + 1;
+
+        // Calculate total logins
+        totalLoginCount += loginCount;
+
+        // Calculate active users (logged in during time range)
+        if (lastLogin && lastLogin > cutoffDate) {
+          activeUserCount++;
+        }
+
+        // Calculate new users
+        if (createdAt && createdAt > cutoffDate) {
+          newUserCount++;
+        }
+
+        analytics.push({
+          id: doc.id,
+          email: userData.email || '',
+          displayName: userData.displayName || 'Anonymous User',
+          loginCount,
+          lastLogin,
+          eventsCreated: userData.eventsCreated || 0,
+          tasksCompleted: userData.tasksCompleted || 0,
+          createdAt,
+          platform: userData.platform || 'Unknown',
+          daysSinceRegistration: createdAt ? differenceInDays(today, createdAt) : 0,
+          role: userData.role || 'user'
+        });
+      });
+
+      // Sort by login count to find most active users
+      analytics.sort((a, b) => b.loginCount - a.loginCount);
+
+      // Update state with analytics data
+      setUserAnalytics(analytics);
+      setMostActiveUser(analytics[0] || null);
+      setTotalLogins(totalLoginCount);
+      setActiveUsers(activeUserCount);
+      setNewUsers(newUserCount);
+      setPlatformStats(platforms);
+
     } catch (error) {
-      console.error('Error updating user role:', error);
-      Alert.alert('Error', 'Failed to update user role');
+      console.error('Error fetching analytics:', error);
     } finally {
-      setIsRoleModalVisible(false);
       setLoading(false);
+      setRefreshing(false);
     }
   };
-  
-  // Handle user deletion
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      setLoading(true);
-      
-      // Delete user document from Firestore
-      await deleteDoc(doc(db, 'users', userId));
-      
-      // Note: In a real app, you would use Firebase Admin SDK through a secure backend
-      // to delete the user authentication record
-      
-      // Update local state
-      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
-      
-      Alert.alert('Success', 'User deleted successfully');
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      Alert.alert('Error', 'Failed to delete user');
-    } finally {
-      setIsDeleteModalVisible(false);
-      setLoading(false);
-    }
+
+  // Initial load
+  useEffect(() => {
+    fetchAnalytics();
+  }, [timeRange]);
+
+  // Handle refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAnalytics();
   };
-  
-  // Render the overview tab
-  const renderOverviewTab = () => {
+
+  // Render time range filter buttons
+  const renderTimeFilters = () => (
+    <View style={styles.filterContainer}>
+      <TouchableOpacity
+        style={[styles.filterButton, timeRange === '7d' && styles.activeFilterButton]}
+        onPress={() => setTimeRange('7d')}
+      >
+        <Text style={[styles.filterText, timeRange === '7d' && styles.activeFilterText]}>7 Days</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.filterButton, timeRange === '30d' && styles.activeFilterButton]}
+        onPress={() => setTimeRange('30d')}
+      >
+        <Text style={[styles.filterText, timeRange === '30d' && styles.activeFilterText]}>30 Days</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.filterButton, timeRange === '90d' && styles.activeFilterButton]}
+        onPress={() => setTimeRange('90d')}
+      >
+        <Text style={[styles.filterText, timeRange === '90d' && styles.activeFilterText]}>90 Days</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.filterButton, timeRange === 'all' && styles.activeFilterButton]}
+        onPress={() => setTimeRange('all')}
+      >
+        <Text style={[styles.filterText, timeRange === 'all' && styles.activeFilterText]}>All Time</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render metrics overview
+  const renderMetricsOverview = () => (
+    <View style={styles.metricsContainer}>
+      <View style={styles.metricCard}>
+        <Text style={styles.metricValue}>{totalLogins}</Text>
+        <Text style={styles.metricLabel}>Total Logins</Text>
+      </View>
+
+      <View style={styles.metricCard}>
+        <Text style={styles.metricValue}>{activeUsers}</Text>
+        <Text style={styles.metricLabel}>Active Users</Text>
+      </View>
+
+      <View style={styles.metricCard}>
+        <Text style={styles.metricValue}>{newUsers}</Text>
+        <Text style={styles.metricLabel}>New Users</Text>
+      </View>
+    </View>
+  );
+
+  // Render platform stats
+  const renderPlatformStats = () => {
+    const platformData = Object.entries(platformStats)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
     return (
-      <ScrollView>
-        <View className="flex-row flex-wrap gap-2">
-          <StatCard className="w-[48%]">
-            <StatLabel>Organizers</StatLabel>
-            <StatValue>{stats.organizerCount}</StatValue>
-          </StatCard>
-          
-          <StatCard className="w-[48%]">
-            <StatLabel>Events</StatLabel>
-            <StatValue>{stats.eventCount}</StatValue>
-          </StatCard>
-        </View>
-        
-        <View className="flex-row flex-wrap gap-2">
-          <StatCard className="w-[48%]">
-            <StatLabel>Total Tasks</StatLabel>
-            <StatValue>{stats.taskCount}</StatValue>
-          </StatCard>
-          
-          <StatCard className="w-[48%]">
-            <StatLabel>Pending Tasks</StatLabel>
-            <StatValue>{stats.pendingTaskCount}</StatValue>
-          </StatCard>
-        </View>
-        
-        <Card>
-          <CardHeader>
-            <Subtitle>Recent Organizers</Subtitle>
-            <OutlineButton
-              className="py-1 px-3"
-              onPress={() => setActiveTab('organizers')}
-            >
-              <OutlineButtonText>View All</OutlineButtonText>
-            </OutlineButton>
-          </CardHeader>
-          
-          {users.filter(u => u.role === 'organizer').slice(0, 3).map(user => (
-            <UserItem key={user.id} onPress={() => {
-              setSelectedUser(user);
-              setIsUserModalVisible(true);
-            }}>
-              <Row>
-                <View className="flex-1">
-                  <ListItemTitle>{user.displayName || 'No name'}</ListItemTitle>
-                  <ListItemSubtitle>{user.email}</ListItemSubtitle>
-                </View>
-                <UserRole>
-                  <UserRoleText>Organizer</UserRoleText>
-                </UserRole>
-              </Row>
-            </UserItem>
-          ))}
-        </Card>
-        
-        <Card className="mt-4">
-          <CardHeader>
-            <Subtitle>Quick Actions</Subtitle>
-          </CardHeader>
-          
-          <PrimaryButton 
-            className="mb-3 flex-row items-center justify-center"
-            onPress={() => navigation.navigate('EventList')}
-          >
-            <Ionicons name="calendar-outline" size={18} color="#fff" />
-            <PrimaryButtonText className="ml-2">Manage Events</PrimaryButtonText>
-          </PrimaryButton>
-          
-          <SecondaryButton
-            className="flex-row items-center justify-center"
-            onPress={() => navigation.navigate('TaskDetail', { isNewTask: true })}
-          >
-            <Ionicons name="add-outline" size={18} color="#0a7ea4" />
-            <SecondaryButtonText className="ml-2">Create New Task</SecondaryButtonText>
-          </SecondaryButton>
-        </Card>
-      </ScrollView>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Platform Usage</Text>
+
+        {platformData.map((platform, index) => (
+          <View key={platform.name} style={styles.platformRow}>
+            <Text style={styles.platformName}>{platform.name}</Text>
+            <Text style={styles.platformCount}>{platform.count} users</Text>
+            <View style={styles.platformBarContainer}>
+              <View
+                style={[
+                  styles.platformBar,
+                  { width: `${(platform.count / userAnalytics.length) * 100}%` }
+                ]}
+              />
+            </View>
+          </View>
+        ))}
+      </View>
     );
   };
-  
-  // Render the organizers tab
-  const renderOrganizersTab = () => {
+
+  // Render most active users
+  const renderMostActiveUsers = () => {
+    const topUsers = userAnalytics.slice(0, 5);
+
     return (
-      <View>
-        <SearchBar>
-          <Ionicons name="search-outline" size={20} color="#666" />
-          <SearchInput
-            placeholder="Search organizers..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-outline" size={20} color="#666" />
-            </TouchableOpacity>
-          ) : null}
-        </SearchBar>
-        
-        {filteredUsers.length > 0 ? (
-          filteredUsers.map(user => (
-            <UserItem key={user.id} onPress={() => {
-              setSelectedUser(user);
-              setIsUserModalVisible(true);
-            }}>
-              <Row>
-                <View className="flex-1">
-                  <ListItemTitle>{user.displayName || 'No name'}</ListItemTitle>
-                  <ListItemSubtitle>{user.email}</ListItemSubtitle>
-                </View>
-                {user.role === 'admin' ? (
-                  <AdminRole>
-                    <AdminRoleText>Admin</AdminRoleText>
-                  </AdminRole>
-                ) : (
-                  <UserRole>
-                    <UserRoleText>Organizer</UserRoleText>
-                  </UserRole>
-                )}
-              </Row>
-            </UserItem>
-          ))
-        ) : (
-          <EmptyStateContainer>
-            <Ionicons name="people-outline" size={48} color="#ccc" />
-            <EmptyStateText>No organizers found</EmptyStateText>
-          </EmptyStateContainer>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Most Active Users</Text>
+
+        {topUsers.map((user, index) => (
+          <View key={user.id} style={styles.userRow}>
+            <Text style={styles.userRank}>{index + 1}</Text>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user.displayName}</Text>
+              <Text style={styles.userEmail}>{user.email}</Text>
+            </View>
+            <View style={styles.userMetrics}>
+              <Text style={styles.loginCount}>{user.loginCount} logins</Text>
+              <Text style={styles.userRole}>{user.role}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // Render user retention analysis
+  const renderRetentionAnalysis = () => {
+    // Calculate user retention by registration time
+    const newlyRegistered = userAnalytics.filter(u => u.daysSinceRegistration <= 7).length;
+    const totalUsers = userAnalytics.length;
+    const retentionRate = totalUsers > 0 ?
+      ((userAnalytics.filter(u => u.lastLogin &&
+        differenceInDays(new Date(), u.lastLogin) < 30).length / totalUsers) * 100).toFixed(1) : 0;
+
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>User Retention</Text>
+
+        <View style={styles.retentionContainer}>
+          <View style={styles.retentionMetric}>
+            <Text style={styles.retentionValue}>{newlyRegistered}</Text>
+            <Text style={styles.retentionLabel}>New this week</Text>
+          </View>
+
+          <View style={styles.retentionMetric}>
+            <Text style={styles.retentionValue}>{retentionRate}%</Text>
+            <Text style={styles.retentionLabel}>30-day retention</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // Render tab selector
+  const renderTabSelector = () => (
+    <View style={styles.tabContainer}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
+        onPress={() => setActiveTab('overview')}
+      >
+        <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>Overview</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'users' && styles.activeTab]}
+        onPress={() => setActiveTab('users')}
+      >
+        <Text style={[styles.tabText, activeTab === 'users' && styles.activeTabText]}>Users</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'engagement' && styles.activeTab]}
+        onPress={() => setActiveTab('engagement')}
+      >
+        <Text style={[styles.tabText, activeTab === 'engagement' && styles.activeTabText]}>Engagement</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render users table
+  const renderUsersTable = () => (
+    <View style={styles.tableContainer}>
+      <View style={styles.tableHeader}>
+        <Text style={[styles.tableHeaderCell, { flex: 2 }]}>User</Text>
+        <Text style={styles.tableHeaderCell}>Role</Text>
+        <Text style={styles.tableHeaderCell}>Registered</Text>
+        <Text style={styles.tableHeaderCell}>Logins</Text>
+      </View>
+
+      <FlatList
+        data={userAnalytics}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <View style={styles.tableRow}>
+            <View style={[styles.tableCell, { flex: 2 }]}>
+              <Text style={styles.userNameTable}>{item.displayName}</Text>
+              <Text style={styles.userEmailTable}>{item.email}</Text>
+            </View>
+            <Text style={styles.tableCell}>{item.role}</Text>
+            <Text style={styles.tableCell}>
+              {item.createdAt ? format(item.createdAt, 'MMM d') : 'Unknown'}
+            </Text>
+            <Text style={styles.tableCell}>{item.loginCount}</Text>
+          </View>
         )}
-      </View>
-    );
-  };
-  
-  // Render the events tab
-  const renderEventsTab = () => {
-    return (
-      <View>
-        <PrimaryButton 
-          className="mb-4 flex-row items-center justify-center"
-          onPress={() => navigation.navigate('EventList')}
-        >
-          <Ionicons name="calendar-outline" size={18} color="#fff" />
-          <PrimaryButtonText className="ml-2">Manage Events</PrimaryButtonText>
-        </PrimaryButton>
-        
-        <EmptyStateContainer>
-          <Ionicons name="calendar-outline" size={48} color="#ccc" />
-          <EmptyStateText>Go to events management to see all events</EmptyStateText>
-        </EmptyStateContainer>
-      </View>
-    );
-  };
-  
-  // Render the tasks tab
-  const renderTasksTab = () => {
-    return (
-      <View>
-        <PrimaryButton 
-          className="mb-4 flex-row items-center justify-center"
-          onPress={() => navigation.navigate('TaskDetail', { isNewTask: true })}
-        >
-          <Ionicons name="add-outline" size={18} color="#fff" />
-          <PrimaryButtonText className="ml-2">Create New Task</PrimaryButtonText>
-        </PrimaryButton>
-        
-        <EmptyStateContainer>
-          <Ionicons name="list-outline" size={48} color="#ccc" />
-          <EmptyStateText>Task management will be available soon</EmptyStateText>
-        </EmptyStateContainer>
-      </View>
-    );
-  };
-  
-  // User detail modal
-  const renderUserModal = () => {
-    if (!selectedUser) return null;
-    
-    return (
-      <Modal
-        visible={isUserModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsUserModalVisible(false)}
-      >
-        <ModalContainer>
-          <ModalContent>
-            <ModalTitle>{selectedUser.displayName || 'User Details'}</ModalTitle>
-            
-            <Label>Email</Label>
-            <BodyText className="mb-3">{selectedUser.email}</BodyText>
-            
-            <Label>Role</Label>
-            <BodyText className="mb-3">
-              {selectedUser.role === 'admin' ? 'Administrator' : 'Organizer'}
-            </BodyText>
-            
-            {selectedUser.createdAt && (
-              <>
-                <Label>Member Since</Label>
-                <BodyText className="mb-3">
-                  {new Date(selectedUser.createdAt).toLocaleDateString()}
-                </BodyText>
-              </>
-            )}
-            
-            <ModalActions>
-              <SecondaryButton
-                className="flex-1"
-                onPress={() => {
-                  setIsUserModalVisible(false);
-                  setIsRoleModalVisible(true);
-                }}
-              >
-                <SecondaryButtonText>Change Role</SecondaryButtonText>
-              </SecondaryButton>
-              
-              <DangerButton
-                className="flex-1"
-                onPress={() => {
-                  setIsUserModalVisible(false);
-                  setIsDeleteModalVisible(true);
-                }}
-              >
-                <DangerButtonText>Delete</DangerButtonText>
-              </DangerButton>
-            </ModalActions>
-            
-            <OutlineButton 
-              className="mt-2"
-              onPress={() => setIsUserModalVisible(false)}
-            >
-              <OutlineButtonText>Close</OutlineButtonText>
-            </OutlineButton>
-          </ModalContent>
-        </ModalContainer>
-      </Modal>
-    );
-  };
-  
-  // Role change confirmation modal
-  const renderRoleModal = () => {
-    if (!selectedUser) return null;
-    
-    const newRole = selectedUser.role === 'admin' ? 'organizer' : 'admin';
-    
-    return (
-      <Modal
-        visible={isRoleModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsRoleModalVisible(false)}
-      >
-        <ModalContainer>
-          <ModalContent>
-            <ModalTitle>Change User Role</ModalTitle>
-            
-            <BodyText className="mb-4">
-              Are you sure you want to change the role of {selectedUser.displayName || selectedUser.email} from {selectedUser.role} to {newRole}?
-            </BodyText>
-            
-            <ModalActions>
-              <OutlineButton
-                className="flex-1"
-                onPress={() => setIsRoleModalVisible(false)}
-              >
-                <OutlineButtonText>Cancel</OutlineButtonText>
-              </OutlineButton>
-              
-              <PrimaryButton
-                className="flex-1"
-                onPress={() => handleRoleChange(selectedUser.id, newRole as 'admin' | 'organizer')}
-              >
-                <PrimaryButtonText>Confirm</PrimaryButtonText>
-              </PrimaryButton>
-            </ModalActions>
-          </ModalContent>
-        </ModalContainer>
-      </Modal>
-    );
-  };
-  
-  // Delete user confirmation modal
-  const renderDeleteModal = () => {
-    if (!selectedUser) return null;
-    
-    return (
-      <Modal
-        visible={isDeleteModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsDeleteModalVisible(false)}
-      >
-        <ModalContainer>
-          <ModalContent>
-            <ModalTitle>Delete User</ModalTitle>
-            
-            <BodyText className="mb-4">
-              Are you sure you want to delete {selectedUser.displayName || selectedUser.email}? This action cannot be undone.
-            </BodyText>
-            
-            <ModalActions>
-              <OutlineButton
-                className="flex-1"
-                onPress={() => setIsDeleteModalVisible(false)}
-              >
-                <OutlineButtonText>Cancel</OutlineButtonText>
-              </OutlineButton>
-              
-              <DangerButton
-                className="flex-1"
-                onPress={() => handleDeleteUser(selectedUser.id)}
-              >
-                <DangerButtonText>Delete</DangerButtonText>
-              </DangerButton>
-            </ModalActions>
-          </ModalContent>
-        </ModalContainer>
-      </Modal>
-    );
-  };
+      />
+    </View>
+  );
 
-  if (loading && users.length === 0) {
+  if (loading && !refreshing) {
     return (
-      <LoadingContainer>
-        <Spinner size="large" color="#0a7ea4" />
-        <LoadingText>Loading admin panel...</LoadingText>
-      </LoadingContainer>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0a7ea4" />
+        <Text style={styles.loadingText}>Loading analytics data...</Text>
+      </View>
     );
   }
 
   return (
-    <Container>
-      <Header>
-        <HeaderTitle>Admin Panel</HeaderTitle>
-        <HeaderSubtitle>Manage your application</HeaderSubtitle>
-      </Header>
-      
-      <TabContainer>
-        {activeTab === 'overview' ? (
-          <ActiveTab>
-            <ActiveTabText>Overview</ActiveTabText>
-          </ActiveTab>
-        ) : (
-          <Tab onPress={() => setActiveTab('overview')}>
-            <TabText>Overview</TabText>
-          </Tab>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Analytics Dashboard</Text>
+        <Text style={styles.headerSubtitle}>User engagement metrics</Text>
+      </View>
+
+      {renderTabSelector()}
+
+      <ScrollView
+        style={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {renderTimeFilters()}
+
+        {activeTab === 'overview' && (
+          <>
+            {renderMetricsOverview()}
+            {renderMostActiveUsers()}
+            {renderPlatformStats()}
+          </>
         )}
-        
-        {activeTab === 'organizers' ? (
-          <ActiveTab>
-            <ActiveTabText>Organizers</ActiveTabText>
-          </ActiveTab>
-        ) : (
-          <Tab onPress={() => setActiveTab('organizers')}>
-            <TabText>Organizers</TabText>
-          </Tab>
+
+        {activeTab === 'users' && (
+          <>
+            {renderUsersTable()}
+          </>
         )}
-        
-        {activeTab === 'events' ? (
-          <ActiveTab>
-            <ActiveTabText>Events</ActiveTabText>
-          </ActiveTab>
-        ) : (
-          <Tab onPress={() => setActiveTab('events')}>
-            <TabText>Events</TabText>
-          </Tab>
+
+        {activeTab === 'engagement' && (
+          <>
+            {renderRetentionAnalysis()}
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>User Activity by Role</Text>
+
+              <View style={styles.roleStatsContainer}>
+                {['admin', 'organizer', 'user'].map(role => {
+                  const roleUsers = userAnalytics.filter(u => u.role === role);
+                  const avgLogins = roleUsers.length > 0 ?
+                    (roleUsers.reduce((sum, u) => sum + u.loginCount, 0) / roleUsers.length).toFixed(1) : '0';
+
+                  return (
+                    <View key={role} style={styles.roleStat}>
+                      <Text style={styles.roleTitle}>{role}</Text>
+                      <Text style={styles.roleUserCount}>{roleUsers.length} users</Text>
+                      <Text style={styles.roleAvgLogins}>{avgLogins} avg logins</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {mostActiveUser && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Most Active User</Text>
+
+                <View style={styles.mostActiveUserContainer}>
+                  <Text style={styles.mostActiveUserName}>{mostActiveUser.displayName}</Text>
+                  <Text style={styles.mostActiveUserEmail}>{mostActiveUser.email}</Text>
+                  <View style={styles.mostActiveStats}>
+                    <View style={styles.mostActiveStat}>
+                      <Text style={styles.mostActiveStatValue}>{mostActiveUser.loginCount}</Text>
+                      <Text style={styles.mostActiveStatLabel}>Logins</Text>
+                    </View>
+                    <View style={styles.mostActiveStat}>
+                      <Text style={styles.mostActiveStatValue}>{mostActiveUser.eventsCreated}</Text>
+                      <Text style={styles.mostActiveStatLabel}>Events Created</Text>
+                    </View>
+                    <View style={styles.mostActiveStat}>
+                      <Text style={styles.mostActiveStatValue}>{mostActiveUser.tasksCompleted}</Text>
+                      <Text style={styles.mostActiveStatLabel}>Tasks Completed</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
         )}
-        
-        {activeTab === 'tasks' ? (
-          <ActiveTab>
-            <ActiveTabText>Tasks</ActiveTabText>
-          </ActiveTab>
-        ) : (
-          <Tab onPress={() => setActiveTab('tasks')}>
-            <TabText>Tasks</TabText>
-          </Tab>
-        )}
-      </TabContainer>
-      
-      <ScrollView className="flex-1 px-4 pb-8">
-        {activeTab === 'overview' && renderOverviewTab()}
-        {activeTab === 'organizers' && renderOrganizersTab()}
-        {activeTab === 'events' && renderEventsTab()}
-        {activeTab === 'tasks' && renderTasksTab()}
       </ScrollView>
-      
-      {renderUserModal()}
-      {renderRoleModal()}
-      {renderDeleteModal()}
-    </Container>
+    </View>
   );
 };
 
-export default AdminPanelScreen;
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    backgroundColor: '#0a7ea4',
+    padding: 20,
+    paddingTop: 50,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#0a7ea4',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  filterButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  activeFilterButton: {
+    backgroundColor: '#0a7ea4',
+  },
+  filterText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  activeFilterText: {
+    color: 'white',
+    fontWeight: '500',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  tab: {
+    paddingVertical: 16,
+    marginRight: 24,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#0a7ea4',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#0a7ea4',
+    fontWeight: '500',
+  },
+  metricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 16,
+    margin: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0a7ea4',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 16,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
+  },
+  platformRow: {
+    marginBottom: 12,
+  },
+  platformName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  platformCount: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  platformBarContainer: {
+    height: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  platformBar: {
+    height: 8,
+    backgroundColor: '#0a7ea4',
+    borderRadius: 4,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  userRank: {
+    width: 30,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0a7ea4',
+    textAlign: 'center',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  userEmail: {
+    fontSize: 12,
+    color: '#666',
+  },
+  userMetrics: {
+    alignItems: 'flex-end',
+  },
+  loginCount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0a7ea4',
+  },
+  userRole: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  retentionContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+  },
+  retentionMetric: {
+    alignItems: 'center',
+  },
+  retentionValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0a7ea4',
+  },
+  retentionLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  tableContainer: {
+    backgroundColor: 'white',
+    margin: 16,
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  tableHeaderCell: {
+    flex: 1,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tableCell: {
+    flex: 1,
+  },
+  userNameTable: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  userEmailTable: {
+    fontSize: 12,
+    color: '#666',
+  },
+  roleStatsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  roleStat: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f9f9f9',
+    margin: 4,
+    borderRadius: 8,
+  },
+  roleTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#0a7ea4',
+    marginBottom: 8,
+    textTransform: 'capitalize',
+  },
+  roleUserCount: {
+    fontSize: 14,
+    color: '#333',
+  },
+  roleAvgLogins: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  mostActiveUserContainer: {
+    alignItems: 'center',
+    padding: 16,
+  },
+  mostActiveUserName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  mostActiveUserEmail: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+  },
+  mostActiveStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 8,
+  },
+  mostActiveStat: {
+    alignItems: 'center',
+  },
+  mostActiveStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0a7ea4',
+  },
+  mostActiveStatLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+});
+
+export default AdminAnalyticsScreen;

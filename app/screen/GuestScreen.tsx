@@ -35,7 +35,6 @@ const GuestScreen = ({ navigation }) => {
   const flatListRef = useRef(null);
   const sectionPositions = useRef<{ [key: string]: number }>({});
   const [scrollPosition, setScrollPosition] = useState(0);
-  const [networkStatus, setNetworkStatus] = useState<string>('Waiting to fetch events...');
 
   // Spotify overlay state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -154,10 +153,8 @@ const GuestScreen = ({ navigation }) => {
   const fetchEvents = async () => {
     try {
       setError(null);
-      setNetworkStatus('Connecting to server...');
 
       const eventsData = await getEvents();
-      setNetworkStatus(`Successfully fetched ${eventsData.length} events`);
 
       const validEvents = eventsData
         .map((event, index) => validateEvent(event, index))
@@ -169,7 +166,6 @@ const GuestScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error fetching events:', error);
-      setNetworkStatus(`Error: ${error.message}`);
       setError('Failed to load events. Please try again later.');
     } finally {
       setLoading(false);
@@ -245,9 +241,6 @@ const GuestScreen = ({ navigation }) => {
         <Text style={rootStyles.contentTitle}>Events Calendar</Text>
         <Text style={rootStyles.contentSubtitle}>Explore upcoming and ongoing experiences</Text>
 
-        {/* Network status message */}
-        {networkStatus && <Text style={rootStyles.networkStatus}>{networkStatus}</Text>}
-
         {/* Error message if any */}
         {error && <Text style={rootStyles.errorMessage}>{error}</Text>}
       </View>
@@ -320,13 +313,6 @@ const rootStyles = StyleSheet.create({
   },
   flatListContent: {
     paddingBottom: 120,
-  },
-  networkStatus: {
-    color: '#aaa',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-    marginBottom: 16,
   },
   navBarContainer: {
     position: 'absolute',

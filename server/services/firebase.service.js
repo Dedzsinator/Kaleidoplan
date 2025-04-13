@@ -23,11 +23,17 @@ const syncUserToMongoDB = async (firebaseUser) => {
     // Check if user exists in MongoDB
     let user = await User.findOne({ firebaseUid: firebaseUser.uid });
     
+    // Determine role based on email
+    const email = firebaseUser.email || '';
+    const role = email.includes('admin') ? 'admin' : 
+                (firebaseUser.customClaims && firebaseUser.customClaims.role) || 'user';
+    
     if (user) {
       // Update existing user
       user.email = firebaseUser.email || user.email;
       user.displayName = firebaseUser.displayName || user.displayName;
       user.photoURL = firebaseUser.photoURL || user.photoURL;
+      user.role = role; // Update role based on email
       user.lastLogin = new Date();
       
       await user.save();
@@ -38,12 +44,15 @@ const syncUserToMongoDB = async (firebaseUser) => {
         email: firebaseUser.email,
         displayName: firebaseUser.displayName,
         photoURL: firebaseUser.photoURL,
-        role: (firebaseUser.customClaims && firebaseUser.customClaims.role) || 'user',
+        role: role, // Set role based on email
         lastLogin: new Date()
       });
       
       await user.save();
     }
+    
+    // Always update Firebase custom claims to match
+    await admin.auth().setCustomUserClaims(firebaseUser.uid, { role });
     
     return user;
   } catch (error) {

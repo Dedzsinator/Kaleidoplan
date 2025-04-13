@@ -8,7 +8,11 @@ const User = require('../models/user.model');
 const createUserProfile = async (req, res, next) => {
   try {
     const { uid } = req.user;
-    const { displayName, email, photoURL, role = 'user' } = req.body;
+    const { displayName, email, photoURL } = req.body;
+    
+    // Automatically determine role based on email containing 'admin'
+    const role = email && email.includes('admin') ? 'admin' : 'user';
+    console.log(`Setting role for ${email} to ${role}`);
     
     // Check if user exists in MongoDB
     let user = await User.findOne({ firebaseUid: uid });
@@ -20,12 +24,13 @@ const createUserProfile = async (req, res, next) => {
       user.photoURL = photoURL || user.photoURL;
       user.lastLogin = new Date();
       
-      // Only admin can change roles
-      if (req.user.role === 'admin' && role) {
-        user.role = role;
-      }
+      // Always update role based on email check
+      user.role = role;
       
       await user.save();
+      
+      // Update Firebase custom claims to match
+      await admin.auth().setCustomUserClaims(uid, { role });
       
       return res.status(200).json({ 
         message: 'User profile updated successfully',
@@ -46,11 +51,14 @@ const createUserProfile = async (req, res, next) => {
         email,
         displayName,
         photoURL,
-        role: role || 'user',
+        role: role,
         lastLogin: new Date()
       });
       
       await newUser.save();
+      
+      // Set Firebase custom claims
+      await admin.auth().setCustomUserClaims(uid, { role });
       
       return res.status(201).json({ 
         message: 'User profile created successfully',
@@ -66,6 +74,7 @@ const createUserProfile = async (req, res, next) => {
       });
     }
   } catch (error) {
+    console.error('Error creating/updating user profile:', error);
     next(error);
   }
 };
