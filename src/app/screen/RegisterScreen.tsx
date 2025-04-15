@@ -71,7 +71,8 @@ const RegisterScreen = () => {
 
       setIsLoading(true);
       await register(email, password, name);
-      // Navigation handled by AuthContext
+      // Add navigation after successful registration
+      navigate('/home');
     } catch (errorObj) {
       if (errorObj instanceof Yup.ValidationError) {
         const validationErrors: FormErrors = {};

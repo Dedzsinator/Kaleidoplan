@@ -2,7 +2,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 
 // Get the MongoDB connection URI from environment variables
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 // We'll use a singleton pattern for our API client
 let apiClient = axios.create({

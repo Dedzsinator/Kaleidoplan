@@ -1,51 +1,44 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  firebaseUid: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
-  },
-  email: {
+  uid: { 
     type: String, 
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true
+    required: true, 
+    unique: true 
+  }, // Firebase UID
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true 
   },
-  name: {
-    type: String,
-    required: true
-  },
+  displayName: String,
+  photoURL: String,
   role: {
     type: String,
-    enum: ['user', 'admin', 'organizer'],
+    enum: ['user', 'organizer', 'admin'],
     default: 'user'
   },
-  photoUrl: {
-    type: String,
-    default: ''
+  // If user is organizer, track which events they manage
+  managedEvents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event'
+  }],
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
   },
-  preferences: {
-    theme: {
-      type: String,
-      enum: ['light', 'dark', 'system'],
-      default: 'light'
-    },
-    notifications: {
-      type: Boolean,
-      default: true
-    }
+  updatedAt: { 
+    type: Date, 
+    default: Date.now 
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
-}, { timestamps: true });
+  lastLogin: Date
+});
 
-module.exports = mongoose.model('User', userSchema);
+// Pre-save hook to update the updatedAt field
+userSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+const User = mongoose.model('User', userSchema);
+module.exports = User;

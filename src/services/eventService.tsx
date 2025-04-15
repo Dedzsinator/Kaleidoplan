@@ -59,80 +59,91 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
 
     // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
-    const response = await fetchEventsFromApi({ ...opts, timestamp });
 
-    console.log('API response type:', typeof response);
+    try {
+      console.log('About to fetch events from API...');
+      const response = await fetchEventsFromApi({ ...opts, timestamp });
+      console.log('Raw API response received:', response);
 
-    // Handle both { events: [...] } and direct array formats
-    let eventsData: any[] = [];
-    if (Array.isArray(response)) {
-      eventsData = response;
-    } else if (response && typeof response === 'object' && 'events' in response && Array.isArray(response.events)) {
-      eventsData = response.events;
-    }
-
-    if (!eventsData || eventsData.length === 0) {
-      console.warn('EventService: MongoDB returned empty events array');
-      return [];
-    }
-
-    console.log('EventService: Successfully got MongoDB data with', eventsData.length, 'events');
-    console.log('Sample event fields:', Object.keys(eventsData[0] || {}));
-
-    // Log the first event to debug structure issues
-    if (eventsData[0]) {
-      logEventData(eventsData[0], 'First event:');
-    }
-
-    // Map and normalize all events
-    const normalizedEvents = eventsData.map((event: any) => {
-      // Ensure we have a stable ID
-      const eventId = event.id || (event._id ? event._id.toString() : `temp-${Math.random()}`);
-
-      // Normalize image URLs
-      const coverImageUrl = event.coverImageUrl || event.coverImage || '';
-
-      // Handle slideshow images (could be array, string, or missing)
-      let slideshowImages: string[] = [];
-      if (Array.isArray(event.slideshowImages)) {
-        slideshowImages = event.slideshowImages;
-      } else if (typeof event.slideshowImages === 'string' && event.slideshowImages.trim() !== '') {
-        slideshowImages = event.slideshowImages
-          .split(',')
-          .map((url: string) => url.trim())
-          .filter((url: string) => url.length > 0);
-      } else if (coverImageUrl) {
-        slideshowImages = [coverImageUrl];
+      // Handle both { events: [...] } and direct array formats
+      let eventsData: any[] = [];
+      if (Array.isArray(response)) {
+        console.log('Response is array with length:', response.length);
+        eventsData = response;
+      } else if (response && typeof response === 'object') {
+        console.log('Response is object with keys:', Object.keys(response));
+        if ('events' in response && Array.isArray(response.events)) {
+          console.log('Found events array in response with length:', response.events.length);
+          eventsData = response.events;
+        }
       }
 
-      // Parse dates safely
-      const startDate = new Date(event.startDate || Date.now());
-      const endDate = new Date(event.endDate || Date.now());
+      if (!eventsData || eventsData.length === 0) {
+        console.warn('EventService: MongoDB returned empty events array');
+        return [];
+      }
 
-      // Create normalized event object
-      return {
-        ...event,
-        id: eventId,
-        coverImageUrl,
-        slideshowImages,
-        startDate,
-        endDate,
-        status: event.status || calculateStatus(startDate, endDate),
-        // Ensure location fields exist
-        location: event.location || 'Location not specified',
-        latitude: event.latitude || 0,
-        longitude: event.longitude || 0,
-        latitudeDelta: event.latitudeDelta || 0.01,
-        longitudeDelta: event.longitudeDelta || 0.01,
-        color: event.color || '#4285F4' // Provide a default color
-      } as Event;
-    });
+      console.log('EventService: Successfully got MongoDB data with', eventsData.length, 'events');
+      console.log('Sample event fields:', Object.keys(eventsData[0] || {}));
 
-    console.log(`EventService: Processed ${normalizedEvents.length} events from MongoDB`);
-    return normalizedEvents;
+      // Log the first event to debug structure issues
+      if (eventsData[0]) {
+        logEventData(eventsData[0], 'First event:');
+      }
+
+      // Map and normalize all events
+      const normalizedEvents = eventsData.map((event: any) => {
+        // Ensure we have a stable ID
+        const eventId = event.id || (event._id ? event._id.toString() : `temp-${Math.random()}`);
+
+        // Normalize image URLs
+        const coverImageUrl = event.coverImageUrl || event.coverImage || '';
+
+        // Handle slideshow images (could be array, string, or missing)
+        let slideshowImages: string[] = [];
+        if (Array.isArray(event.slideshowImages)) {
+          slideshowImages = event.slideshowImages;
+        } else if (typeof event.slideshowImages === 'string' && event.slideshowImages.trim() !== '') {
+          slideshowImages = event.slideshowImages
+            .split(',')
+            .map((url: string) => url.trim())
+            .filter((url: string) => url.length > 0);
+        } else if (coverImageUrl) {
+          slideshowImages = [coverImageUrl];
+        }
+
+        // Parse dates safely
+        const startDate = new Date(event.startDate || Date.now());
+        const endDate = new Date(event.endDate || Date.now());
+
+        // Create normalized event object
+        return {
+          ...event,
+          id: eventId,
+          coverImageUrl,
+          slideshowImages,
+          startDate,
+          endDate,
+          status: event.status || calculateStatus(startDate, endDate),
+          // Ensure location fields exist
+          location: event.location || 'Location not specified',
+          latitude: event.latitude || 0,
+          longitude: event.longitude || 0,
+          latitudeDelta: event.latitudeDelta || 0.01,
+          longitudeDelta: event.longitudeDelta || 0.01,
+          color: event.color || '#4285F4' // Provide a default color
+        } as Event;
+      });
+
+      console.log(`EventService: Processed ${normalizedEvents.length} events from MongoDB`);
+      return normalizedEvents;
+    } catch (error) {
+      console.error('Error fetching events from API:', error);
+      return []; // Return empty array on error
+    }
   } catch (error) {
-    console.error('Error fetching events:', error);
-    return [];
+    console.error('Error in getEvents service:', error);
+    return []; // Return empty array as fallback
   }
 }
 

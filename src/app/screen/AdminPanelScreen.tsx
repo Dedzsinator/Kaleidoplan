@@ -1,412 +1,239 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getFirestore, collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import { format, subDays, parseISO, differenceInDays } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
+import { fetchWithAuth } from '../../services/api';
 import '../styles/AdminPanel.css';
 
-// Get Firestore instance
-const db = getFirestore();
-const firebaseAuth = getAuth();
-
-// User analytics interface
-interface UserAnalytics {
-  id: string;
+interface UserData {
+  _id: string;
+  uid: string;
   email: string;
-  displayName?: string;
-  loginCount: number;
-  lastLogin: Date | null;
-  eventsCreated: number;
-  tasksCompleted: number;
-  createdAt: Date | null;
-  platform?: string;
-  daysSinceRegistration: number;
+  displayName: string;
   role: string;
+  createdAt: string;
+  lastLogin: string;
+  managedEvents: string[];
 }
 
-// Time range type for filters
-type TimeRangeType = '7d' | '30d' | '90d' | 'all';
-
-const AdminAnalyticsScreen = () => {
-  const navigate = useNavigate();
-  const [timeRange, setTimeRange] = useState<TimeRangeType>('30d');
-  const [userAnalytics, setUserAnalytics] = useState<UserAnalytics[]>([]);
+const UserManagement: React.FC = () => {
+  const { isAdmin } = useAuth();
+  const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [totalLogins, setTotalLogins] = useState(0);
-  const [activeUsers, setActiveUsers] = useState(0);
-  const [newUsers, setNewUsers] = useState(0);
-  const [mostActiveUser, setMostActiveUser] = useState<UserAnalytics | null>(null);
-  const [platformStats, setPlatformStats] = useState<{ [key: string]: number }>({});
+  const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [roleFilter, setRoleFilter] = useState('');
 
-  // Fetch analytics data
-  const fetchAnalytics = async () => {
+  // Fetch users based on current filters and pagination
+  const fetchUsers = async () => {
     try {
       setLoading(true);
+      setError('');
 
-      // Get users from Firestore
-      const usersQuery = query(collection(db, 'users'));
-      const userSnapshot = await getDocs(usersQuery);
+      let url = `/api/users?page=${page}`;
+      if (roleFilter) {
+        url += `&role=${roleFilter}`;
+      }
 
-      // Today's date for calculations
-      const today = new Date();
-      const timeRangeDays = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 1000;
-      const cutoffDate = subDays(today, timeRangeDays);
+      const response = await fetchWithAuth(url);
 
-      // Process user data
-      const analytics: UserAnalytics[] = [];
-      const platforms: { [key: string]: number } = {};
-      let totalLoginCount = 0;
-      let activeUserCount = 0;
-      let newUserCount = 0;
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
 
-      userSnapshot.forEach((doc) => {
-        const userData = doc.data();
-        const lastLogin = userData.lastLogin ? parseISO(userData.lastLogin) : null;
-        const createdAt = userData.createdAt ? parseISO(userData.createdAt) : null;
-        const loginCount = userData.loginCount || 0;
-
-        // Count platform usage
-        const platform = userData.platform || 'Unknown';
-        platforms[platform] = (platforms[platform] || 0) + 1;
-
-        // Calculate total logins
-        totalLoginCount += loginCount;
-
-        // Calculate active users (logged in during time range)
-        if (lastLogin && lastLogin > cutoffDate) {
-          activeUserCount++;
-        }
-
-        // Calculate new users
-        if (createdAt && createdAt > cutoffDate) {
-          newUserCount++;
-        }
-
-        analytics.push({
-          id: doc.id,
-          email: userData.email || '',
-          displayName: userData.displayName || 'Anonymous User',
-          loginCount,
-          lastLogin,
-          eventsCreated: userData.eventsCreated || 0,
-          tasksCompleted: userData.tasksCompleted || 0,
-          createdAt,
-          platform: userData.platform || 'Unknown',
-          daysSinceRegistration: createdAt ? differenceInDays(today, createdAt) : 0,
-          role: userData.role || 'user'
-        });
-      });
-
-      // Sort by login count to find most active users
-      analytics.sort((a, b) => b.loginCount - a.loginCount);
-
-      // Update state with analytics data
-      setUserAnalytics(analytics);
-      setMostActiveUser(analytics[0] || null);
-      setTotalLogins(totalLoginCount);
-      setActiveUsers(activeUserCount);
-      setNewUsers(newUserCount);
-      setPlatformStats(platforms);
-
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
+      const data = await response.json();
+      setUsers(data.users);
+      setTotalPages(data.pagination.pages);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  // Initial load
   useEffect(() => {
-    fetchAnalytics();
-  }, [timeRange]);
+    if (isAdmin) {
+      fetchUsers();
+    }
+  }, [isAdmin, page, roleFilter]);
 
-  // Handle refresh
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchAnalytics();
+  // Handle role change
+  const changeUserRole = async (userId: string, newRole: string) => {
+    try {
+      const response = await fetchWithAuth(`/api/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user role');
+      }
+
+      // Update the user in the local state
+      setUsers(users.map(user => {
+        if (user._id === userId) {
+          return { ...user, role: newRole };
+        }
+        return user;
+      }));
+
+      // If viewing the selected user, update that too
+      if (selectedUser && selectedUser._id === userId) {
+        setSelectedUser({ ...selectedUser, role: newRole });
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    }
   };
 
-  // Render time range filter buttons
-  const renderTimeFilters = () => (
-    <div className="filter-container">
-      <button
-        className={`filter-button ${timeRange === '7d' ? 'active-filter-button' : ''}`}
-        onClick={() => setTimeRange('7d')}
-      >
-        <span className={`filter-text ${timeRange === '7d' ? 'active-filter-text' : ''}`}>7 Days</span>
-      </button>
+  // Delete user
+  const deleteUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
 
-      <button
-        className={`filter-button ${timeRange === '30d' ? 'active-filter-button' : ''}`}
-        onClick={() => setTimeRange('30d')}
-      >
-        <span className={`filter-text ${timeRange === '30d' ? 'active-filter-text' : ''}`}>30 Days</span>
-      </button>
+    try {
+      const response = await fetchWithAuth(`/api/users/${userId}`, {
+        method: 'DELETE'
+      });
 
-      <button
-        className={`filter-button ${timeRange === '90d' ? 'active-filter-button' : ''}`}
-        onClick={() => setTimeRange('90d')}
-      >
-        <span className={`filter-text ${timeRange === '90d' ? 'active-filter-text' : ''}`}>90 Days</span>
-      </button>
+      if (!response.ok) {
+        throw new Error('Failed to delete user');
+      }
 
-      <button
-        className={`filter-button ${timeRange === 'all' ? 'active-filter-button' : ''}`}
-        onClick={() => setTimeRange('all')}
-      >
-        <span className={`filter-text ${timeRange === 'all' ? 'active-filter-text' : ''}`}>All Time</span>
-      </button>
-    </div>
-  );
+      // Remove the user from the local state
+      setUsers(users.filter(user => user._id !== userId));
 
-  // Render metrics overview
-  const renderMetricsOverview = () => (
-    <div className="metrics-container">
-      <div className="metric-card">
-        <span className="metric-value">{totalLogins}</span>
-        <span className="metric-label">Total Logins</span>
-      </div>
-
-      <div className="metric-card">
-        <span className="metric-value">{activeUsers}</span>
-        <span className="metric-label">Active Users</span>
-      </div>
-
-      <div className="metric-card">
-        <span className="metric-value">{newUsers}</span>
-        <span className="metric-label">New Users</span>
-      </div>
-    </div>
-  );
-
-  // Render platform stats
-  const renderPlatformStats = () => {
-    const platformData = Object.entries(platformStats)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-
-    return (
-      <div className="card">
-        <h3 className="card-title">Platform Usage</h3>
-
-        {platformData.map((platform, index) => (
-          <div key={platform.name} className="platform-row">
-            <span className="platform-name">{platform.name}</span>
-            <span className="platform-count">{platform.count} users</span>
-            <div className="platform-bar-container">
-              <div
-                className="platform-bar"
-                style={{ width: `${(platform.count / userAnalytics.length) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+      // If viewing the deleted user, clear the selection
+      if (selectedUser && selectedUser._id === userId) {
+        setSelectedUser(null);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    }
   };
-
-  // Render most active users
-  const renderMostActiveUsers = () => {
-    const topUsers = userAnalytics.slice(0, 5);
-
-    return (
-      <div className="card">
-        <h3 className="card-title">Most Active Users</h3>
-
-        {topUsers.map((user, index) => (
-          <div key={user.id} className="user-row">
-            <span className="user-rank">{index + 1}</span>
-            <div className="user-info">
-              <span className="user-name">{user.displayName}</span>
-              <span className="user-email">{user.email}</span>
-            </div>
-            <div className="user-metrics">
-              <span className="login-count">{user.loginCount} logins</span>
-              <span className="user-role">{user.role}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // Render user retention analysis
-  const renderRetentionAnalysis = () => {
-    // Calculate user retention by registration time
-    const newlyRegistered = userAnalytics.filter(u => u.daysSinceRegistration <= 7).length;
-    const totalUsers = userAnalytics.length;
-    const retentionRate = totalUsers > 0 ?
-      ((userAnalytics.filter(u => u.lastLogin &&
-        differenceInDays(new Date(), u.lastLogin) < 30).length / totalUsers) * 100).toFixed(1) : 0;
-
-    return (
-      <div className="card">
-        <h3 className="card-title">User Retention</h3>
-
-        <div className="retention-container">
-          <div className="retention-metric">
-            <span className="retention-value">{newlyRegistered}</span>
-            <span className="retention-label">New this week</span>
-          </div>
-
-          <div className="retention-metric">
-            <span className="retention-value">{retentionRate}%</span>
-            <span className="retention-label">30-day retention</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render tab selector
-  const renderTabSelector = () => (
-    <div className="tab-container">
-      <button
-        className={`tab ${activeTab === 'overview' ? 'active-tab' : ''}`}
-        onClick={() => setActiveTab('overview')}
-      >
-        <span className={`tab-text ${activeTab === 'overview' ? 'active-tab-text' : ''}`}>Overview</span>
-      </button>
-
-      <button
-        className={`tab ${activeTab === 'users' ? 'active-tab' : ''}`}
-        onClick={() => setActiveTab('users')}
-      >
-        <span className={`tab-text ${activeTab === 'users' ? 'active-tab-text' : ''}`}>Users</span>
-      </button>
-
-      <button
-        className={`tab ${activeTab === 'engagement' ? 'active-tab' : ''}`}
-        onClick={() => setActiveTab('engagement')}
-      >
-        <span className={`tab-text ${activeTab === 'engagement' ? 'active-tab-text' : ''}`}>Engagement</span>
-      </button>
-    </div>
-  );
-
-  // Render users table
-  const renderUsersTable = () => (
-    <div className="table-container">
-      <div className="table-header">
-        <span className="table-header-cell" style={{ flex: 2 }}>User</span>
-        <span className="table-header-cell">Role</span>
-        <span className="table-header-cell">Registered</span>
-        <span className="table-header-cell">Logins</span>
-      </div>
-
-      <div className="table-body">
-        {userAnalytics.map(item => (
-          <div key={item.id} className="table-row">
-            <div className="table-cell" style={{ flex: 2 }}>
-              <span className="user-name-table">{item.displayName}</span>
-              <span className="user-email-table">{item.email}</span>
-            </div>
-            <span className="table-cell">{item.role}</span>
-            <span className="table-cell">
-              {item.createdAt ? format(item.createdAt, 'MMM d') : 'Unknown'}
-            </span>
-            <span className="table-cell">{item.loginCount}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  if (loading && !refreshing) {
-    return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <p className="loading-text">Loading analytics data...</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="container">
-      <div className="header">
-        <h1 className="header-title">Analytics Dashboard</h1>
-        <p className="header-subtitle">User engagement metrics</p>
+    <div className="admin-container">
+      <h1>User Management</h1>
+
+      {error && <div className="error-message">{error}</div>}
+
+      <div className="admin-filters">
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
+          <option value="">All Roles</option>
+          <option value="user">Users</option>
+          <option value="organizer">Organizers</option>
+          <option value="admin">Admins</option>
+        </select>
+
+        <button onClick={() => fetchUsers()}>Refresh</button>
       </div>
 
-      {renderTabSelector()}
+      {loading ? (
+        <div className="loading-spinner">Loading users...</div>
+      ) : (
+        <div className="admin-layout">
+          <div className="users-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(user => (
+                  <tr key={user._id} className={selectedUser?._id === user._id ? 'selected' : ''}>
+                    <td>{user.displayName || 'N/A'}</td>
+                    <td>{user.email}</td>
+                    <td>{user.role}</td>
+                    <td>
+                      <button onClick={() => setSelectedUser(user)}>View</button>
+                      <button onClick={() => deleteUser(user._id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-      <div className="scroll-container">
-        <button onClick={onRefresh} className="refresh-button">
-          {refreshing ? 'Refreshing...' : 'Refresh Data'}
-        </button>
-
-        {renderTimeFilters()}
-
-        {activeTab === 'overview' && (
-          <>
-            {renderMetricsOverview()}
-            {renderMostActiveUsers()}
-            {renderPlatformStats()}
-          </>
-        )}
-
-        {activeTab === 'users' && (
-          <>
-            {renderUsersTable()}
-          </>
-        )}
-
-        {activeTab === 'engagement' && (
-          <>
-            {renderRetentionAnalysis()}
-
-            <div className="card">
-              <h3 className="card-title">User Activity by Role</h3>
-
-              <div className="role-stats-container">
-                {['admin', 'organizer', 'user'].map(role => {
-                  const roleUsers = userAnalytics.filter(u => u.role === role);
-                  const avgLogins = roleUsers.length > 0 ?
-                    (roleUsers.reduce((sum, u) => sum + u.loginCount, 0) / roleUsers.length).toFixed(1) : '0';
-
-                  return (
-                    <div key={role} className="role-stat">
-                      <span className="role-title">{role}</span>
-                      <span className="role-user-count">{roleUsers.length} users</span>
-                      <span className="role-avg-logins">{avgLogins} avg logins</span>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="pagination">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Previous
+              </button>
+              <span>Page {page} of {totalPages}</span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+              </button>
             </div>
+          </div>
 
-            {mostActiveUser && (
-              <div className="card">
-                <h3 className="card-title">Most Active User</h3>
+          {selectedUser && (
+            <div className="user-details">
+              <h2>{selectedUser.displayName || 'User Details'}</h2>
+              <p><strong>Email:</strong> {selectedUser.email}</p>
+              <p><strong>UID:</strong> {selectedUser.uid}</p>
+              <p><strong>Created:</strong> {new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+              <p><strong>Last Login:</strong> {selectedUser.lastLogin ? new Date(selectedUser.lastLogin).toLocaleString() : 'Never'}</p>
 
-                <div className="most-active-user-container">
-                  <h4 className="most-active-user-name">{mostActiveUser.displayName}</h4>
-                  <p className="most-active-user-email">{mostActiveUser.email}</p>
-                  <div className="most-active-stats">
-                    <div className="most-active-stat">
-                      <span className="most-active-stat-value">{mostActiveUser.loginCount}</span>
-                      <span className="most-active-stat-label">Logins</span>
-                    </div>
-                    <div className="most-active-stat">
-                      <span className="most-active-stat-value">{mostActiveUser.eventsCreated}</span>
-                      <span className="most-active-stat-label">Events Created</span>
-                    </div>
-                    <div className="most-active-stat">
-                      <span className="most-active-stat-value">{mostActiveUser.tasksCompleted}</span>
-                      <span className="most-active-stat-label">Tasks Completed</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="role-management">
+                <h3>Role Management</h3>
+                <select
+                  value={selectedUser.role}
+                  onChange={(e) => changeUserRole(selectedUser._id, e.target.value)}
+                >
+                  <option value="user">User</option>
+                  <option value="organizer">Organizer</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <p className="help-text">
+                  {selectedUser.role === 'organizer' ? 'This user can manage events assigned to them.' :
+                    selectedUser.role === 'admin' ? 'This user has full administrative access.' :
+                      'This is a regular user with no special privileges.'}
+                </p>
               </div>
-            )}
-          </>
-        )}
-      </div>
+
+              {selectedUser.role === 'organizer' && (
+                <div className="managed-events">
+                  <h3>Managed Events</h3>
+                  {selectedUser.managedEvents && selectedUser.managedEvents.length > 0 ? (
+                    <ul>
+                      {selectedUser.managedEvents.map(eventId => (
+                        <li key={eventId}>
+                          {eventId}
+                          <button onClick={() => {
+                            // Handle removing event from organizer
+                          }}>Remove</button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No events assigned to this organizer.</p>
+                  )}
+
+                  <button>Assign New Event</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-export default AdminAnalyticsScreen;
+export default UserManagement;

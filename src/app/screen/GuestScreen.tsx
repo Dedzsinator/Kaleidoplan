@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEvents } from '../../services/eventService';
+import { fetchWithAuth } from '../../services/api';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
@@ -12,6 +13,12 @@ import { Event } from '../models/types';
 // Constants
 const DEFAULT_IMAGE_URL = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
 const HEADER_OFFSET = 100;
+const PLACEHOLDER_IMAGES = [
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1080&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=1080&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1080&auto=format&fit=crop'
+];
 
 // View modes
 type ViewMode = 'card' | 'detailed';
@@ -34,6 +41,182 @@ const GuestScreen = () => {
 
   // Flag to control re-fetches
   const hasLoadedEvents = useRef(false);
+
+  // Define validateEvent before fetchEvents since fetchEvents depends on it
+  const validateEvent = useCallback((event: any, index: number): Event | null => {
+    if (!event) {
+      console.error(`Invalid event data at position ${index}`);
+      return null;
+    }
+
+    // Create a shallow copy to avoid mutating the original
+    const validatedEvent = { ...event };
+
+    if (!validatedEvent.playlistId) {
+      validatedEvent.playlistId = `pl${validatedEvent.id || index + 1}`;
+    }
+
+    if (!validatedEvent.id) {
+      validatedEvent.id = `temp-id-${index}`;
+    }
+
+    if (!validatedEvent.name) {
+      validatedEvent.name = "Unnamed Event";
+    }
+
+    if (validatedEvent.coverImage && !validatedEvent.coverImageUrl) {
+      validatedEvent.coverImageUrl = validatedEvent.coverImage;
+    }
+
+    if (!validatedEvent.coverImageUrl ||
+      typeof validatedEvent.coverImageUrl !== 'string' ||
+      validatedEvent.coverImageUrl.trim() === '') {
+      validatedEvent.coverImageUrl = PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length];
+    }
+
+    if (validatedEvent.slideshowImages) {
+      if (typeof validatedEvent.slideshowImages === 'string') {
+        validatedEvent.slideshowImages = validatedEvent.slideshowImages
+          .split(',')
+          .map((url: string) => url.trim())
+          .filter((url: string) => url.length > 0);
+      } else if (Array.isArray(validatedEvent.slideshowImages) &&
+        validatedEvent.slideshowImages.length === 1 &&
+        typeof validatedEvent.slideshowImages[0] === 'string' &&
+        validatedEvent.slideshowImages[0].includes(',')) {
+        validatedEvent.slideshowImages = validatedEvent.slideshowImages[0]
+          .split(',')
+          .map((url: string) => url.trim())
+          .filter((url: string) => url.length > 0);
+      }
+
+      if (Array.isArray(validatedEvent.slideshowImages)) {
+        validatedEvent.slideshowImages = validatedEvent.slideshowImages
+          .filter((url: string) => typeof url === 'string' && url.trim().length > 0)
+          .map((url: string) => url.trim());
+      }
+    }
+
+    if (!validatedEvent.slideshowImages ||
+      !Array.isArray(validatedEvent.slideshowImages) ||
+      validatedEvent.slideshowImages.length === 0) {
+      if (validatedEvent.coverImageUrl) {
+        validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
+      }
+    }
+
+    return validatedEvent;
+  }, []);
+
+  // Define fetchEvents after validateEvent is defined
+  const fetchEvents = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log("Fetching events from service...");
+
+      // First try the standard API endpoint through eventService
+      const fetchedEvents = await getEvents({ forceRefresh: true });
+      console.log('Received events:', fetchedEvents.length);
+
+      if (fetchedEvents.length > 0) {
+        // Validate and format each event
+        const validatedEvents = fetchedEvents
+          .map((event, index) => validateEvent(event, index))
+          .filter(Boolean) as Event[];
+
+        setEvents(validatedEvents);
+      } else {
+        // If no events from the main API, try the public endpoint directly
+        console.log('No events from main API, trying public endpoint');
+        try {
+          const response = await fetch('/api/public/events');
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Public API response:', data);
+
+            if (data.events && data.events.length > 0) {
+              const publicEvents = data.events;
+              console.log('Received public events:', publicEvents.length);
+
+              // Validate and format each event
+              const validatedEvents = publicEvents
+                .map((event: any, index: number) => validateEvent(event, index))
+                .filter(Boolean) as Event[];
+
+              setEvents(validatedEvents);
+            } else {
+              console.log('No events available from public endpoint either');
+              // Create some demo events if nothing is available
+              createDemoEvents();
+            }
+          } else {
+            console.error('Public API returned error:', response.status);
+            createDemoEvents();
+          }
+        } catch (error) {
+          console.error('Error fetching from public endpoint:', error);
+          createDemoEvents();
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching events:', err);
+      setError('Failed to load events. Please try again later.');
+      createDemoEvents();
+    } finally {
+      setLoading(false);
+    }
+  }, [validateEvent]);
+
+  // Create demo events if no real events are available
+  const createDemoEvents = useCallback(() => {
+    console.log('Creating demo events');
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
+
+    const demoEvents = [
+      {
+        id: 'demo-1',
+        name: 'Music Festival',
+        description: 'A weekend of amazing music performances',
+        location: 'City Park',
+        startDate: tomorrow,
+        endDate: nextWeek,
+        coverImageUrl: PLACEHOLDER_IMAGES[0],
+        slideshowImages: [PLACEHOLDER_IMAGES[0]],
+        status: 'upcoming',
+        playlistId: 'pl-demo-1'
+      },
+      {
+        id: 'demo-2',
+        name: 'Tech Conference',
+        description: 'Learn about the latest technology trends',
+        location: 'Convention Center',
+        startDate: tomorrow,
+        endDate: nextWeek,
+        coverImageUrl: PLACEHOLDER_IMAGES[1],
+        slideshowImages: [PLACEHOLDER_IMAGES[1]],
+        status: 'upcoming',
+        playlistId: 'pl-demo-2'
+      },
+      {
+        id: 'demo-3',
+        name: 'Food Festival',
+        description: 'Taste cuisine from around the world',
+        location: 'Downtown Square',
+        startDate: tomorrow,
+        endDate: nextWeek,
+        coverImageUrl: PLACEHOLDER_IMAGES[2],
+        slideshowImages: [PLACEHOLDER_IMAGES[2]],
+        status: 'upcoming',
+        playlistId: 'pl-demo-3'
+      }
+    ] as Event[];
+
+    setEvents(demoEvents);
+  }, []);
 
   // Visibility change handler with stable reference
   const handleVisibilityChange = useCallback((isVisible: boolean, eventId: string) => {
@@ -85,109 +268,13 @@ const GuestScreen = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []); // Empty dependency - only run once
 
-  // Fetch events once on mount
+  // Fetch events once on mount - make sure to include fetchEvents in dependencies
   useEffect(() => {
     if (!hasLoadedEvents.current) {
       fetchEvents();
       hasLoadedEvents.current = true;
     }
-  }, []);
-
-  // Event validator with memoization
-  const validateEvent = useCallback((event: any, index: number): Event | null => {
-    if (!event) {
-      console.error(`Invalid event data at position ${index}`);
-      return null;
-    }
-
-    // Create a shallow copy to avoid mutating the original
-    const validatedEvent = { ...event };
-
-    if (!validatedEvent.playlistId) {
-      validatedEvent.playlistId = `pl${validatedEvent.id || index + 1}`;
-    }
-
-    if (!validatedEvent.id) {
-      validatedEvent.id = `temp-id-${index}`;
-    }
-
-    if (!validatedEvent.name) {
-      validatedEvent.name = "Unnamed Event";
-    }
-
-    if (validatedEvent.coverImage && !validatedEvent.coverImageUrl) {
-      validatedEvent.coverImageUrl = validatedEvent.coverImage;
-    }
-
-    if (!validatedEvent.coverImageUrl ||
-      typeof validatedEvent.coverImageUrl !== 'string' ||
-      validatedEvent.coverImageUrl.trim() === '') {
-      const placeholderImages = [
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1080&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=1080&auto=format&fit=crop',
-        'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1080&auto=format&fit=crop'
-      ];
-      validatedEvent.coverImageUrl = placeholderImages[index % placeholderImages.length];
-    }
-
-    if (validatedEvent.slideshowImages) {
-      if (typeof validatedEvent.slideshowImages === 'string') {
-        validatedEvent.slideshowImages = validatedEvent.slideshowImages
-          .split(',')
-          .map((url: string) => url.trim())
-          .filter((url: string) => url.length > 0);
-      } else if (Array.isArray(validatedEvent.slideshowImages) &&
-        validatedEvent.slideshowImages.length === 1 &&
-        typeof validatedEvent.slideshowImages[0] === 'string' &&
-        validatedEvent.slideshowImages[0].includes(',')) {
-        validatedEvent.slideshowImages = validatedEvent.slideshowImages[0]
-          .split(',')
-          .map((url: string) => url.trim())
-          .filter((url: string) => url.length > 0);
-      }
-
-      if (Array.isArray(validatedEvent.slideshowImages)) {
-        validatedEvent.slideshowImages = validatedEvent.slideshowImages
-          .filter((url: string) => typeof url === 'string' && url.trim().length > 0)
-          .map((url: string) => url.trim());
-      }
-    }
-
-    if (!validatedEvent.slideshowImages ||
-      !Array.isArray(validatedEvent.slideshowImages) ||
-      validatedEvent.slideshowImages.length === 0) {
-      if (validatedEvent.coverImageUrl) {
-        validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
-      }
-    }
-
-    return validatedEvent;
-  }, []);
-
-  const fetchEvents = async () => {
-    try {
-      setError(null);
-
-      // Only force refresh on initial load or explicit refresh action
-      const forceRefresh = !events.length;
-      const eventsData = await getEvents({ forceRefresh });
-
-      const validEvents = eventsData
-        .map((event: any, index: number) => validateEvent(event, index))
-        .filter((event: Event | null) => event !== null) as Event[];
-
-      setEvents(validEvents);
-      if (validEvents.length === 0) {
-        setError('No valid events found');
-      }
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      setError('Failed to load events. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchEvents]); // Add fetchEvents as a dependency
 
   const handleEventClick = useCallback((eventId: string) => {
     navigate(`/events/${eventId}`);

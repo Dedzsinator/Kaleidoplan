@@ -1,141 +1,160 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '../config/firebase';
-import { signIn, register, signOut, signInWithGoogle, getUserProfile, UserProfile } from '../../services/authService';
+import {
+  getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword,
+  createUserWithEmailAndPassword, updateProfile, signInWithPopup,
+  GoogleAuthProvider, User as FirebaseUser
+} from 'firebase/auth';
+// Import the Firebase app instance
+import { auth } from '../config/firebase'; // Import the pre-initialized auth
+import { fetchWithAuth } from '../../services/api';
 
-// Interface for combined user data - Use Omit to remove the email property before extending
-export interface AppUser extends Omit<UserProfile, 'email'> {
-  firebaseUser: FirebaseUser; // Original Firebase user object
+// Define user types
+export type UserRole = 'user' | 'organizer' | 'admin';
+
+export interface User {
   uid: string;
-  email: string | null; // Now we can define email as nullable without conflict
-  displayName: string | null;
-  photoURL: string | null;
-  role: string;
+  email: string;
+  displayName?: string;
+  photoURL?: string;
+  role: UserRole;
+  managedEvents?: string[];
 }
 
-// Updated interface to expose AppUser
 interface AuthContextType {
-  user: AppUser | null;
+  currentUser: User | null;
+  user: User | null; // Add alias for currentUser to fix HomeScreen
   loading: boolean;
-  login: (email: string, password: string) => Promise<FirebaseUser>;
-  register: (email: string, password: string, displayName: string) => Promise<FirebaseUser>;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isOrganizer: boolean;
+
+  // Add missing methods used in components
+  login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
-  loginWithGoogle: () => Promise<FirebaseUser>;
+  refreshUserData: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [combinedUser, setCombinedUser] = useState<AppUser | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  // REMOVE navigate - this is causing the error
-  // const navigate = useNavigate(); 
 
-  // Combine Firebase user with backend profile
-  useEffect(() => {
-    if (firebaseUser && userProfile) {
-      setCombinedUser({
-        ...userProfile,
-        firebaseUser,
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
-        role: userProfile.role || 'user'
-      });
-    } else {
-      setCombinedUser(null);
-    }
-  }, [firebaseUser, userProfile]);
+  // Authentication methods - use the imported auth instance
+  const login = async (email: string, password: string): Promise<void> => {
+    await signInWithEmailAndPassword(auth, email, password);
+    // User data will be set by the auth state listener
+  };
 
-  // Listen for auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (newFirebaseUser) => {
-      setFirebaseUser(newFirebaseUser);
+  const loginWithGoogle = async (): Promise<void> => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+    // User data will be set by the auth state listener
+  };
 
-      if (newFirebaseUser) {
-        try {
-          // Get user profile from backend
-          const profile = await getUserProfile();
-          setUserProfile(profile);
-        } catch (error) {
-          console.error("Failed to load user profile", error);
-          setUserProfile(null);
-        }
-      } else {
-        setUserProfile(null);
+  const register = async (email: string, password: string, displayName: string): Promise<void> => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Update profile with display name
+    await updateProfile(userCredential.user, {
+      displayName: displayName
+    });
+
+    // User data will be set by the auth state listener
+  };
+
+  const logout = async (): Promise<void> => {
+    await signOut(auth);
+    setCurrentUser(null);
+  };
+
+  const refreshUserData = async (): Promise<User | null> => {
+    try {
+      const response = await fetchWithAuth('/api/auth/me');
+      if (!response.ok) {
+        throw new Error('Failed to refresh user data');
       }
 
+      const userData = await response.json();
+      setCurrentUser(userData);
+      return userData;
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      return currentUser;
+    }
+  };
+
+  // Check if user has admin role
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Check if user has organizer role (organizer or admin)
+  const isOrganizer = currentUser?.role === 'organizer' || isAdmin;
+
+  // Listen for Firebase auth state changes
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Get additional user data from our API
+        try {
+          // Get token and get user data from backend
+          const token = await firebaseUser.getIdToken();
+
+          // This would typically fetch user data from your backend
+          const userResponse = await fetch('/api/auth/me', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            setCurrentUser(userData);
+          } else {
+            // If backend is not available, create a basic user object
+            setCurrentUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              displayName: firebaseUser.displayName || undefined,
+              photoURL: firebaseUser.photoURL || undefined,
+              role: 'user' // Default role until we get server confirmation
+            });
+          }
+        } catch (error) {
+          console.error('Error getting user data:', error);
+          // Create basic user if backend fails
+          setCurrentUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || undefined,
+            photoURL: firebaseUser.photoURL || undefined,
+            role: 'user' // Default role
+          });
+        }
+      } else {
+        setCurrentUser(null);
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Handle login - REMOVE navigation
-  const login = async (email: string, password: string) => {
-    try {
-      const user = await signIn(email, password);
-      // REMOVE: navigate('/home');
-      return user;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
-
-  // Handle registration - REMOVE navigation
-  const handleRegister = async (email: string, password: string, displayName: string) => {
-    try {
-      const user = await register(email, password, displayName);
-      // REMOVE: navigate('/home');
-      return user;
-    } catch (error) {
-      console.error('Register error:', error);
-      throw error;
-    }
-  };
-
-  // Handle logout - REMOVE navigation
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      // REMOVE: navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
-    }
-  };
-
-  // Handle Google login - REMOVE navigation
-  const handleGoogleLogin = async () => {
-    try {
-      const user = await signInWithGoogle();
-      // REMOVE: navigate('/home');
-      return user;
-    } catch (error) {
-      console.error('Google login error:', error);
-      throw error;
-    }
-  };
-
+  // Missing part: provide all required properties in the context value
   const value: AuthContextType = {
-    user: combinedUser,
+    currentUser,
+    user: currentUser, // Add alias for currentUser to fix HomeScreen
     loading,
+    isAuthenticated: Boolean(currentUser),
+    isAdmin,
+    isOrganizer,
     login,
-    register: handleRegister,
-    logout: handleLogout,
-    loginWithGoogle: handleGoogleLogin,
+    loginWithGoogle,
+    register,
+    logout,
+    refreshUserData
   };
 
   return (
@@ -143,4 +162,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-};
+}
+
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}

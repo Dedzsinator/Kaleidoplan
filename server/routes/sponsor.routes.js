@@ -1,13 +1,12 @@
-// Sponsor management routes
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const { authenticateFirebaseToken, authorizeRoles } = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
 const Sponsor = require('../models/sponsor.model');
 const EventSponsor = require('../models/event-sponsor.model');
 
 // All sponsor routes require authentication
-router.use(authenticateFirebaseToken);
+router.use(authMiddleware.verifyToken);
 
 /**
  * Get all sponsors
@@ -74,8 +73,9 @@ router.get('/:id', async (req, res, next) => {
 
 /**
  * Create a new sponsor
+ * FIX: Change authorizeRoles to authMiddleware.requireOrganizerOrAdmin
  */
-router.post('/', authorizeRoles('admin', 'organizer'), async (req, res, next) => {
+router.post('/', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
     const { 
       name, description, website, logoUrl, 
@@ -110,7 +110,7 @@ router.post('/', authorizeRoles('admin', 'organizer'), async (req, res, next) =>
 /**
  * Update a sponsor
  */
-router.put('/:id', authorizeRoles('admin', 'organizer'), async (req, res, next) => {
+router.put('/:id', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
@@ -149,7 +149,7 @@ router.put('/:id', authorizeRoles('admin', 'organizer'), async (req, res, next) 
 /**
  * Delete a sponsor
  */
-router.delete('/:id', authorizeRoles('admin'), async (req, res, next) => {
+router.delete('/:id', authMiddleware.requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -179,7 +179,7 @@ router.delete('/:id', authorizeRoles('admin'), async (req, res, next) => {
 /**
  * Link sponsor to an event
  */
-router.post('/link-to-event', authorizeRoles('admin', 'organizer'), async (req, res, next) => {
+router.post('/link-to-event', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
     const { sponsorId, eventId, sponsorshipLevel, sponsorshipAmount, featured } = req.body;
     

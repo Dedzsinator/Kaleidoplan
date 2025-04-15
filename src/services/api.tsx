@@ -1,106 +1,223 @@
-import { Event } from '../app/models/types';
+import { getAuth } from 'firebase/auth';
 
-// Cache for API responses
-const cache: { [key: string]: { data: any, timestamp: number } } = {};
-const CACHE_TTL = 60000; // 1 minute cache
+// Base API URL
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-// Fetch events from API with caching
-export const fetchEventsFromApi = async (options: {
-    forceRefresh?: boolean,
-    timestamp?: number
-} = {}): Promise<any> => {
-    const cacheKey = 'events_list';
-    const now = Date.now();
+// Helper function to get auth token
+export const getAuthToken = async (): Promise<string | null> => {
+    const auth = getAuth();
+    const user = auth.currentUser;
 
-    // Check cache first unless forceRefresh is true
-    if (!options.forceRefresh && cache[cacheKey] && (now - cache[cacheKey].timestamp) < CACHE_TTL) {
-        console.log('API: Using cached events data');
-        return cache[cacheKey].data;
+    if (user) {
+        try {
+            return await user.getIdToken();
+        } catch (error) {
+            console.error('Error getting token:', error);
+            return null;
+        }
     }
 
+    return null;
+};
+
+// Fetch with authentication
+export const fetchWithAuth = async (
+    endpoint: string,
+    options: RequestInit = {}
+): Promise<Response> => {
     try {
-        console.log('API: Fetching events from server...');
+        const auth = getAuth();
+        const user = auth.currentUser;
 
-        // Add timestamp to prevent browser caching
-        const timestamp = options.timestamp || new Date().getTime();
-
-        const response = await fetch(`/api/public/events?_=${timestamp}`, {
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('API raw response structure:', typeof data, data ? 'has data' : 'no data');
-
-        // Store in cache
-        cache[cacheKey] = {
-            data,
-            timestamp: now
+        // Create headers with auth token if user is logged in
+        let headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            ...options.headers
         };
 
-        return data;
-    } catch (error) {
-        console.error('Failed to fetch events:', error);
-        throw error;
+        if (user) {
+            const token = await user.getIdToken();
+            headers = {
+                ...headers,
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        // Build the full URL
+        const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+        // Make the request
+        return fetch(url, {
+            ...options,
+            headers
+        });
+    } catch (error: any) {
+        console.error('API request failed:', error);
+        throw new Error(`API request failed: ${error.message}`);
     }
 };
 
-// Fetch single event by ID
+/**
+ * Fetch a single event by ID from the API
+ * @param eventId The ID of the event to fetch
+ * @param options Additional options like timestamp for cache busting
+ * @returns The event data
+ */
 export const fetchEventByIdFromApi = async (
     eventId: string,
-    options: { timestamp?: number } = {}
+    options: Record<string, any> = {}
 ): Promise<any> => {
-    const cacheKey = `event_${eventId}`;
-    const now = Date.now();
+    // Build the query string from options
+    const queryParams = new URLSearchParams();
+    Object.entries(options).forEach(([key, value]) => {
+        queryParams.append(key, String(value));
+    });
 
-    // Cache check
-    if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < CACHE_TTL) {
-        console.log(`API: Using cached data for event ${eventId}`);
-        return cache[cacheKey].data;
-    }
+    // Construct the URL with query string
+    const queryString = queryParams.toString();
+    const endpoint = `/api/events/${eventId}${queryString ? `?${queryString}` : ''}`;
 
     try {
-        console.log(`API: Fetching event ${eventId} from server...`);
-
-        // Add timestamp to prevent browser caching
-        const timestamp = options.timestamp || new Date().getTime();
-
-        const response = await fetch(`/api/public/events/${eventId}?_=${timestamp}`, {
-            headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
-        });
+        const response = await fetchWithAuth(endpoint);
 
         if (!response.ok) {
-            throw new Error(`API error: ${response.status}`);
+            if (response.status === 401) {
+                console.warn('Unauthorized request to fetch event. User may need to log in.');
+                throw new Error('Unauthorized');
+            }
+            throw new Error(`Error fetching event: ${response.statusText}`);
         }
 
-        const data = await response.json();
-
-        // Cache the result
-        cache[cacheKey] = {
-            data,
-            timestamp: now
-        };
-
-        return data;
-    } catch (error) {
-        console.error(`Failed to fetch event ${eventId}:`, error);
+        return response.json();
+    } catch (error: any) {
+        console.error(`Error fetching event ${eventId}:`, error);
         throw error;
     }
 };
 
-// Clear API cache (useful for debugging)
-export const clearCache = () => {
-    Object.keys(cache).forEach(key => delete cache[key]);
-    console.log('API cache cleared');
+/**
+ * Fetch events with optional filtering parameters
+ * @param options Query parameters and options for fetching events
+ * @returns Array of events or object containing events array
+ */
+export const fetchEventsFromApi = async (
+    options: Record<string, any> = {}
+): Promise<any> => {
+    // Build the query string
+    const queryParams = new URLSearchParams();
+    Object.entries(options).forEach(([key, value]) => {
+        queryParams.append(key, String(value));
+    });
+    const queryString = queryParams.toString();
+
+    // Fix: Remove extra /api prefix to prevent /api/api duplication
+    const auth = getAuth();
+    const endpoint = auth.currentUser
+        ? `/api/events${queryString ? `?${queryString}` : ''}`
+        : `/api/public/events${queryString ? `?${queryString}` : ''}`;
+
+    // Debug output - log the whole endpoint URL
+    console.log(`Complete API URL: ${API_BASE_URL}${endpoint}`);
+
+    try {
+        console.log(`Fetching events from ${endpoint}`);
+        // Use fetchWithAuth so token is included if available
+        const response = await fetchWithAuth(endpoint);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                console.warn('Unauthorized request to fetch events. User may need to log in.');
+                throw new Error('Unauthorized');
+            }
+
+            // Return empty results instead of throwing for guest users
+            if (!auth.currentUser && (response.status === 404 || response.status === 500)) {
+                console.warn('Public events endpoint not available, returning empty array');
+                return { events: [] };
+            }
+
+            throw new Error(`Error fetching events: ${response.statusText}`);
+        }
+
+        // Debug: log the raw response text before parsing
+        const responseText = await response.text();
+        console.log('Raw response text (first 100 chars):', responseText.substring(0, 100));
+
+        // Now parse the JSON
+        try {
+            const data = JSON.parse(responseText);
+            return data;
+        } catch (parseError) {
+            console.error('Error parsing JSON response:', parseError);
+            return { events: [] };
+        }
+    } catch (error: any) {
+        console.error('Error fetching events:', error);
+
+        // For guest users, return empty array instead of throwing
+        if (!auth.currentUser) {
+            console.warn('Returning empty events array for guest user after error');
+            return { events: [] };
+        }
+
+        throw error;
+    }
+};
+
+// Helper for GET requests
+export const get = async (endpoint: string, options?: RequestInit): Promise<any> => {
+    const response = await fetchWithAuth(endpoint, {
+        method: 'GET',
+        ...options
+    });
+
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// Helper for POST requests
+export const post = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+    const response = await fetchWithAuth(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(data),
+        ...options
+    });
+
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// Helper for PUT requests
+export const put = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+    const response = await fetchWithAuth(endpoint, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+        ...options
+    });
+
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// Helper for DELETE requests
+export const del = async (endpoint: string, options?: RequestInit): Promise<any> => {
+    const response = await fetchWithAuth(endpoint, {
+        method: 'DELETE',
+        ...options
+    });
+
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+    }
+
+    return response.json();
 };

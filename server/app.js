@@ -14,10 +14,11 @@ dotenv.config();
 const authRoutes = require('./routes/auth.routes');
 const eventsRoutes = require('./routes/events.routes');
 const tasksRoutes = require('./routes/tasks.routes');
-const publicRoutes = require('./routes/public.routes');
 const spotifyRoutes = require('./routes/spotify.routes');
 const sponsorRoutes = require('./routes/sponsor.routes');
 const playlistRoutes = require('./routes/playlist.routes');
+const userRoutes = require('./routes/user.routes');
+const publicRoutes = require('./routes/public.routes');
 
 // Initialize Express app
 const app = express();
@@ -46,6 +47,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+const authMiddleware = require('./middleware/auth');
+
 // Add cookie parser middleware
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
@@ -61,12 +64,14 @@ require('./models/event.model');
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/events', eventsRoutes);
 app.use('/api/tasks', tasksRoutes);
-app.use('/api/public', publicRoutes);
 app.use('/api/spotify', spotifyRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/playlists', playlistRoutes);
+app.use('/api/public', publicRoutes);
+
+app.use('/api/events', eventsRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

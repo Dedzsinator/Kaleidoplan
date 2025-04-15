@@ -105,7 +105,7 @@ export const fetchEventsFromApi = async (options: FetchOptions = {}): Promise<Ev
 
         // Add timestamp to prevent browser caching (not our own cache)
         const timestamp = new Date().getTime();
-        const response = await eventApiClient.get(`/public/events?_=${timestamp}`);
+        const response = await eventApiClient.get(`/api/public/events?_=${timestamp}`);
         console.log('Raw API response:', JSON.stringify(response.data).substring(0, 200) + '...');
 
         let events: Event[] = [];

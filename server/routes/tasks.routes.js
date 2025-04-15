@@ -1,11 +1,11 @@
 // Task management routes
 const express = require('express');
 const router = express.Router();
-const { authenticateFirebaseToken } = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
 const tasksController = require('../controllers/tasks.controller');
 
 // All task routes require authentication
-router.use(authenticateFirebaseToken);
+router.use(authMiddleware.verifyToken);
 
 // Task CRUD operations
 router.get('/', tasksController.getAllTasks);

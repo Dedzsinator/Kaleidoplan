@@ -1,92 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import '../../styles/NavBar.css';
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import '../../styles/NavBar.css';
 
 interface NavBarProps {
     opacity?: number;
-    transparent?: boolean;
 }
 
-const NavBar = ({ opacity = 1, transparent = false }: NavBarProps) => {
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [scrolled, setScrolled] = useState(false);
-    const { user, logout } = useAuth();
-    const location = useLocation();
-
-    useEffect(() => {
-        const handleScroll = () => {
-            setScrolled(window.scrollY > 20);
-        };
-
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
+const NavBar: React.FC<NavBarProps> = ({ opacity = 1 }) => {
+    const { currentUser, isAuthenticated, isAdmin, isOrganizer, logout } = useAuth();
 
     return (
-        <header
-            className={`navbar ${scrolled || !transparent ? 'scrolled' : ''}`}
-            style={{ opacity }}
-        >
+        <nav className="navbar" style={{ opacity }}>
             <div className="navbar-container">
-                <Link to="/" className="navbar-logo">
-                    <img
-                        src={require('../../assets/images/favicon.jpg')}
-                        alt="Kaleidoplan Logo"
-                        className="navbar-logo-img"
-                    />
-                    <span className="navbar-title">Kaleidoplan</span>
-                </Link>
+                <div className="navbar-logo">
+                    <Link to="/">Kaleidoplan</Link>
+                </div>
 
-                <button
-                    className={`navbar-toggle ${menuOpen ? 'open' : ''}`}
-                    onClick={() => setMenuOpen(!menuOpen)}
-                    aria-label="Toggle navigation"
-                >
-                    <div className="navbar-toggle-bar"></div>
-                    <div className="navbar-toggle-bar"></div>
-                    <div className="navbar-toggle-bar"></div>
-                </button>
+                <div className="navbar-links">
+                    <Link to="/events" className="navbar-link">Events</Link>
 
-                <nav className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-                    <Link to="/events" className={`navbar-link ${location.pathname === '/events' ? 'active' : ''}`}>
-                        Events
-                    </Link>
-
-                    {user && user.role === 'organizer' && (
-                        <Link to="/tasks" className={`navbar-link ${location.pathname.includes('/tasks') ? 'active' : ''}`}>
-                            Tasks
-                        </Link>
-                    )}
-
-                    {user && user.role === 'admin' && (
-                        <Link to="/admin" className={`navbar-link ${location.pathname === '/admin' ? 'active' : ''}`}>
-                            Admin
-                        </Link>
-                    )}
-
-                    {user ? (
+                    {/* Public links */}
+                    {!isAuthenticated && (
                         <>
-                            <Link to="/profile" className="navbar-link user-link">
-                                <img
-                                    src={user.photoURL || require('../../assets/images/default-avatar.png')}
-                                    alt="Profile"
-                                    className="navbar-user-img"
-                                />
-                                <span className="navbar-username">{user.displayName?.split(' ')[0] || 'User'}</span>
-                            </Link>
-                            <button className="navbar-link logout-button" onClick={logout}>
-                                Logout
-                            </button>
+                            <Link to="/login" className="navbar-link">Sign In</Link>
+                            <Link to="/register" className="navbar-link">Sign Up</Link>
                         </>
-                    ) : (
-                        <Link to="/login" className="navbar-link login-button">
-                            Sign In
-                        </Link>
                     )}
-                </nav>
+
+                    {/* Authenticated user links */}
+                    {isAuthenticated && (
+                        <>
+                            <Link to="/dashboard" className="navbar-link">Dashboard</Link>
+
+                            {/* Organizer links */}
+                            {isOrganizer && (
+                                <Link to="/organizer" className="navbar-link">Organizer Dashboard</Link>
+                            )}
+
+                            {/* Admin links */}
+                            {isAdmin && (
+                                <div className="dropdown">
+                                    <button className="dropdown-toggle navbar-link">Admin</button>
+                                    <div className="dropdown-menu">
+                                        <Link to="/admin" className="dropdown-item">Dashboard</Link>
+                                        <Link to="/admin/users" className="dropdown-item">Users</Link>
+                                        <Link to="/admin/events" className="dropdown-item">All Events</Link>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* User menu */}
+                            <div className="dropdown user-menu">
+                                <button className="dropdown-toggle navbar-link">
+                                    {currentUser?.displayName || currentUser?.email?.split('@')[0]}
+                                </button>
+                                <div className="dropdown-menu">
+                                    <Link to="/profile" className="dropdown-item">Profile</Link>
+                                    <Link to="/settings" className="dropdown-item">Settings</Link>
+                                    <hr />
+                                    <button onClick={logout} className="dropdown-item logout-button">
+                                        Sign Out
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
-        </header>
+        </nav>
     );
 };
 

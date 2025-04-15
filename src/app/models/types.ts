@@ -95,23 +95,22 @@ export interface Event {
   id: string;
   name: string;
   description?: string;
-  startDate?: string | Date;
-  endDate?: string | Date;
+  startDate: string | Date; // Remove optional since it's used without checks
+  endDate: string | Date;   // Remove optional since it's used without checks
   date?: string | Date;
   color: string;
-  location?: string;
+  location: string;         // Remove optional since it's used without checks
   coverImageUrl?: string;
-  slideshowImages?: string[]; // Add this line if not already present
+  slideshowImages?: string[];
   playlistId?: string;
   createdBy?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
-  status?: string;
+  status: string;           // Remove optional since it's used without checks
   themeColor?: string;
   performers?: Performer[];
   latitude?: number;
   longitude?: number;
   latitudeDelta?: number;
   longitudeDelta?: number;
-  // ...other properties
 }

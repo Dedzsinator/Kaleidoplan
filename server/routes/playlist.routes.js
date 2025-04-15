@@ -1,11 +1,11 @@
 // Playlist management routes
 const express = require('express');
 const router = express.Router();
-const { authenticateFirebaseToken, authorizeRoles } = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth');
 const Playlist = require('../models/playlist.model');
 
 // All playlist routes require authentication
-router.use(authenticateFirebaseToken);
+router.use(authMiddleware.verifyToken);
 
 /**
  * Get all playlists
@@ -74,7 +74,7 @@ router.get('/:id', async (req, res, next) => {
 /**
  * Create new playlist
  */
-router.post('/', authorizeRoles('admin', 'organizer'), async (req, res, next) => {
+router.post('/', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
     const { 
       playlistId,
@@ -132,7 +132,7 @@ router.post('/', authorizeRoles('admin', 'organizer'), async (req, res, next) =>
 /**
  * Update playlist
  */
-router.put('/:id', authorizeRoles('admin', 'organizer'), async (req, res, next) => {
+router.put('/:id', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
@@ -180,7 +180,7 @@ router.put('/:id', authorizeRoles('admin', 'organizer'), async (req, res, next) 
 /**
  * Delete playlist
  */
-router.delete('/:id', authorizeRoles('admin', 'organizer'), async (req, res, next) => {
+router.delete('/:id', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
     
