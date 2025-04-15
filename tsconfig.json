@@ -1,20 +1,29 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
-    "baseUrl": ".",
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": "src",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
-    "jsx": "react-jsx"
+      "@app/*": ["app/*"],
+      "@assets/*": ["assets/*"],
+      "@services/*": ["services/*"]
+    }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "scripts/mongoInit.js",
-    "index.js",
-    "services/mongoService.tsx"
-  ]
+    "src/**/*",
+    "src/types/custom.d.ts"
+, "src/app/config/firebase.tsx"  ]
 }

@@ -1,54 +1,51 @@
-// User model for MongoDB storage
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   firebaseUid: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    index: true
   },
   email: {
-    type: String,
+    type: String, 
     required: true,
     unique: true,
-    trim: true,
-    lowercase: true
-  },
-  displayName: {
-    type: String,
+    lowercase: true,
     trim: true
   },
-  photoURL: String,
+  name: {
+    type: String,
+    required: true
+  },
   role: {
     type: String,
-    enum: ['admin', 'organizer', 'user', 'guest'],
+    enum: ['user', 'admin', 'organizer'],
     default: 'user'
   },
-  preferences: {
-    notifications: {
-      email: { type: Boolean, default: true },
-      push: { type: Boolean, default: true }
-    },
-    theme: { type: String, default: 'dark' }
+  photoUrl: {
+    type: String,
+    default: ''
   },
-  bio: String,
-  location: String,
+  preferences: {
+    theme: {
+      type: String,
+      enum: ['light', 'dark', 'system'],
+      default: 'light'
+    },
+    notifications: {
+      type: Boolean,
+      default: true
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
   },
-  lastLogin: Date,
-  active: {
-    type: Boolean,
-    default: true
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 }, { timestamps: true });
 
-// Create index for faster queries
-userSchema.index({ firebaseUid: 1 });
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
+module.exports = mongoose.model('User', userSchema);

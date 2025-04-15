@@ -1,0 +1,44 @@
+.animated-section {
+    /* Base styling */
+    position: relative;
+    width: 100%;
+    will-change: transform, opacity;
+    overflow: visible;
+    
+    /* Initial state is handled by inline styles in the component */
+    /* (transform: translateY(100px), opacity: 0) */
+    
+    /* Default spacing */
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+  }
+  
+  /* For better performance on supported browsers */
+  @supports (transform-style: preserve-3d) {
+    .animated-section {
+      transform-style: preserve-3d;
+      backface-visibility: hidden;
+    }
+  }
+  
+  /* Optional: Adding a subtle shadow effect when the section is visible */
+  .animated-section[style*="opacity: 1"] {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Media query for smaller screens */
+  @media (max-width: 768px) {
+    .animated-section {
+      /* Less dramatic animation for mobile */
+      transform: translateY(50px) !important;
+      margin-bottom: 1rem;
+    }
+  }
+  
+  /* Media query for extremely small screens */
+  @media (max-width: 480px) {
+    .animated-section {
+      /* Minimal animation for very small devices to avoid layout issues */
+      transform: translateY(30px) !important;
+    }
+  }

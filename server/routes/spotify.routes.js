@@ -1,20 +1,18 @@
-// Spotify integration routes
 const express = require('express');
 const router = express.Router();
 const spotifyController = require('../controllers/spotify.controller');
-const { authenticateFirebaseToken, optionalAuthentication } = require('../middleware/auth');
+const { authenticateFirebaseToken } = require('../middleware/auth');
 
-// Public routes
-router.get('/auth', spotifyController.getLoginUrl);
-router.get('/callback', optionalAuthentication, spotifyController.handleCallback);
-router.post('/refresh', spotifyController.refreshToken);
-router.get('/search', spotifyController.searchTracks);
-
-// Protected routes
+// Protect all routes - require authentication
 router.use(authenticateFirebaseToken);
-router.get('/playlist/:eventId', spotifyController.getEventPlaylist);
-router.post('/playlist/:eventId', spotifyController.createEventPlaylist);
-router.post('/playlist/:playlistId/tracks', spotifyController.addTrackToPlaylist);
-router.delete('/playlist/:playlistId/tracks/:trackId', spotifyController.removeTrackFromPlaylist);
+
+// LINE 9: The issue is here - you're using an undefined controller method
+// router.get('/search', spotifyController.searchTracks); 
+
+// FIX: Replace with properly defined controller functions
+router.get('/search', spotifyController.searchTracks);
+router.get('/playlists', spotifyController.getUserPlaylists);
+router.post('/playlists', spotifyController.createPlaylist);
+router.get('/tracks/:id', spotifyController.getTrackDetails);
 
 module.exports = router;

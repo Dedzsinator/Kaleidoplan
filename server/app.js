@@ -30,13 +30,33 @@ initFirebaseAdmin();
 connectToMongoDB();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: ['http://localhost:3001', 'http://localhost:3000', process.env.CORS_ORIGIN].filter(Boolean),
+  credentials: true, // Important for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Cache-Control',
+    'Pragma',
+    'Expires'
+  ]
+};
+
+app.use(cors(corsOptions));
+
+// Add cookie parser middleware
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev')); // Request logging
 
 // models
 require('./models/performer.model');
+require('./models/playlist.model');
+require('./models/user.model');
 require('./models/event.model');
 
 // API Routes

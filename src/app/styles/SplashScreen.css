@@ -1,0 +1,143 @@
+.splash-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+    z-index: 9999;
+    overflow: hidden;
+  }
+  
+  .splash-gradient-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #6A11CB, #2575FC, #3C1053);
+    z-index: -2;
+  }
+  
+  .splash-waves {
+    position: absolute;
+    width: 100%;
+    height: 230px;
+    bottom: 0;
+    z-index: -1;
+  }
+  
+  .splash-wave {
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    bottom: 0;
+    left: -50%;
+    border-radius: 1000px 1000px 0 0;
+  }
+  
+  .splash-wave-1 {
+    background: rgba(106, 17, 203, 0.4);
+    animation: wave 15s linear infinite;
+  }
+  
+  .splash-wave-2 {
+    background: rgba(37, 117, 252, 0.35);
+    animation: wave 17s linear infinite;
+    animation-delay: -5s;
+  }
+  
+  .splash-wave-3 {
+    background: rgba(60, 16, 83, 0.3);
+    animation: wave 20s linear infinite;
+    animation-delay: -2s;
+  }
+  
+  .splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  
+  .splash-content.visible {
+    opacity: 1;
+  }
+  
+  .splash-logo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 60px;
+    transform: scale(0.8);
+    opacity: 0;
+    transition: opacity 1s ease, transform 1.2s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+    transition-delay: 0.4s;
+  }
+  
+  .splash-logo-container.visible {
+    transform: scale(1);
+    opacity: 1;
+  }
+  
+  .splash-logo {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 16px;
+    border-radius: 20px;
+  }
+  
+  .splash-app-name {
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+  
+  .splash-loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .splash-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  .splash-loading-text {
+    margin-top: 16px;
+    font-size: 16px;
+    color: #fff;
+    font-weight: 500;
+    opacity: 0.8;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  @keyframes wave {
+    0% {
+      transform: translateX(0) translateZ(0) scaleY(1);
+    }
+    50% {
+      transform: translateX(-25%) translateZ(0) scaleY(0.8);
+    }
+    100% {
+      transform: translateX(-50%) translateZ(0) scaleY(1);
+    }
+  }

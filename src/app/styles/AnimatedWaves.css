@@ -1,0 +1,51 @@
+.animated-waves {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  width: 100%;
+  z-index: 1;
+}
+
+.animated-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background-repeat: repeat-x;
+  background-position: 0 bottom;
+  transform-origin: center bottom;
+  border-radius: 1000% 1000% 0 0;
+}
+
+/* Individual wave styles */
+.wave-1 {
+  opacity: 0.7;
+  animation: wave-animation linear infinite;
+}
+
+.wave-2 {
+  opacity: 0.5;
+  animation: wave-animation linear infinite;
+  animation-direction: reverse;
+}
+
+.wave-3 {
+  opacity: 0.3;
+  animation: wave-animation linear infinite;
+}
+
+/* Wave animation keyframes */
+@keyframes wave-animation {
+  0% {
+    transform: translateX(0) translateZ(0) scaleY(1);
+  }
+  50% {
+    transform: translateX(-25%) translateZ(0) scaleY(0.8);
+  }
+  100% {
+    transform: translateX(-50%) translateZ(0) scaleY(1);
+  }
+}

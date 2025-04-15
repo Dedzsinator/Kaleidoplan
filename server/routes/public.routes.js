@@ -1,41 +1,29 @@
-// Public API endpoints that don't require authentication
 const express = require('express');
 const router = express.Router();
-const eventsController = require('../controllers/events.controller');
-const { optionalAuthentication } = require('../middleware/auth');
+const publicController = require('../controllers/public.controller');
 
-// Use optional authentication to get user context if available
-router.use(optionalAuthentication);
+// Check what's available in the controller (debugging)
+console.log('Public controller exports:', Object.keys(publicController));
 
-// Public event endpoints
-router.get('/events', async (req, res, next) => {
-  try {
-    // Modify the query to only show public/published events
-    req.query = {
-      ...req.query,
-      status: req.query.status || ['upcoming', 'ongoing']
-    };
-    
-    // Use the standard events controller
-    await eventsController.getAllEvents(req, res, next);
-  } catch (error) {
-    next(error);
+// Define routes with proper error checking
+router.get('/events', (req, res, next) => {
+  if (typeof publicController.getPublicEvents === 'function') {
+    return publicController.getPublicEvents(req, res, next);
+  } else {
+    console.error('getPublicEvents is not a function:', publicController.getPublicEvents);
+    return res.status(500).json({ error: 'Route handler not implemented' });
   }
 });
 
-router.get('/events/:id', async (req, res, next) => {
-  try {
-    // Use the standard event controller but limit sensitive data
-    await eventsController.getEventById(req, res, next);
-  } catch (error) {
-    next(error);
+router.get('/events/:id', (req, res, next) => {
+  if (typeof publicController.getPublicEventById === 'function') {
+    return publicController.getPublicEventById(req, res, next);
+  } else {
+    console.error('getPublicEventById is not a function:', publicController.getPublicEventById);
+    return res.status(500).json({ error: 'Route handler not implemented' });
   }
 });
 
-// Playlist endpoints (public access)
-router.get('/playlists/:id', (req, res) => {
-  // Public playlist endpoint
-  // Implementation details would go here
-});
+// Add any other public routes here...
 
 module.exports = router;

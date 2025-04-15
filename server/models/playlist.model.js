@@ -1,11 +1,20 @@
-// Playlist model for storing event playlists
 const mongoose = require('mongoose');
 
-const playlistSchema = new mongoose.Schema({
-  playlistId: {
+const spotifyTrackSchema = new mongoose.Schema({
+  id: String,
+  name: String,
+  artist: String,
+  album: String,
+  duration: Number,
+  imageUrl: String,
+  previewUrl: String
+});
+
+const spotifyPlaylistSchema = new mongoose.Schema({
+  userId: {
     type: String,
     required: true,
-    unique: true
+    index: true
   },
   name: {
     type: String,
@@ -14,48 +23,17 @@ const playlistSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    trim: true
+    default: ''
   },
-  spotifyId: {
-    type: String,
-    trim: true
+  tracks: [spotifyTrackSchema],
+  public: {
+    type: Boolean,
+    default: true
   },
-  spotifyUri: {
-    type: String,
-    trim: true
-  },
-  coverImageUrl: {
-    type: String,
-    trim: true
-  },
-  tracks: [{
-    spotifyId: String,
-    name: String,
-    artist: String,
-    albumName: String,
-    albumImageUrl: String,
-    durationMs: Number,
-    uri: String
-  }],
   eventId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Event'
-  },
-  createdBy: String,
-  updatedBy: String,
-  public: {
-    type: Boolean,
-    default: false
   }
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-// Create indexes for faster queries
-playlistSchema.index({ playlistId: 1 });
-playlistSchema.index({ eventId: 1 });
-playlistSchema.index({ spotifyId: 1 });
-
-const Playlist = mongoose.model('Playlist', playlistSchema);
-
-module.exports = Playlist;
+module.exports = mongoose.model('SpotifyPlaylist', spotifyPlaylistSchema);

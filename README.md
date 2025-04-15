@@ -120,38 +120,40 @@ Kaleidoplan uses a modern tech stack:
 
 - **Create a .env file in the project root with the following variables:**
 
-   ```bash
-   FIREBASE_API_KEY="your-firebase-api-key"
-   FIREBASE_AUTH_DOMAIN="your-firebase-auth-domain"
-   FIREBASE_PROJECT_ID="your-firebase-project-id"
-   FIREBASE_STORAGE_BUCKET="your-firebase-storage-bucket"
-   FIREBASE_MESSAGING_SENDER_ID="your-firebase-messaging-sender-id"
-   FIREBASE_APP_ID="your-firebase-app-id"
-   FIREBASE_MEASUREMENT_ID="your-firebase-measurement-id"
+  ```bash
+  FIREBASE_API_KEY="your-firebase-api-key"
+  FIREBASE_AUTH_DOMAIN="your-firebase-auth-domain"
+  FIREBASE_PROJECT_ID="your-firebase-project-id"
+  FIREBASE_STORAGE_BUCKET="your-firebase-storage-bucket"
+  FIREBASE_MESSAGING_SENDER_ID="your-firebase-messaging-sender-id"
+  FIREBASE_APP_ID="your-firebase-app-id"
+  FIREBASE_MEASUREMENT_ID="your-firebase-measurement-id"
 
-   MONGODB_URI="mongodb://localhost:27017/kaleidoplan"
-   EXPO_PUBLIC_API_URL=http://localhost:3000/api
-   MONGODB_DB_NAME="kaleidoplan"
-   EMAIL_USER=your-gmail-address@gmail.com
-   EMAIL_PASSWORD=your-app-password
-   ```
+  MONGODB_URI="mongodb://localhost:27017/kaleidoplan"
+  REACT_APP_API_URL=http://localhost:3000/api
+  MONGODB_DB_NAME="kaleidoplan"
+  EMAIL_USER=your-gmail-address@gmail.com
+  EMAIL_PASSWORD=your-app-password
+  ```
 
-   **Important**: For EMAIL_PASSWORD, use an App Password generated from Google Account settings, not your regular Gmail password, especially for accounts with 2FA enabled.
+  **Important**: For EMAIL_PASSWORD, use an App Password generated from Google Account settings, not your regular Gmail password, especially for accounts with 2FA enabled.
 
 - Firebase Setup
-   1. Create a Firebase project at firebase.google.com
-   2. Enable Authentication with email/password sign-in
-   3. Create a Firebase Storage bucket
-   4. Generate a service account key and save it as serviceAccountKey.json in the project root
+
+  1.  Create a Firebase project at firebase.google.com
+  2.  Enable Authentication with email/password sign-in
+  3.  Create a Firebase Storage bucket
+  4.  Generate a service account key and save it as serviceAccountKey.json in the project root
 
 - MongoDB Setup
-   1. Install MongoDB locally or create an Atlas cluster
-   2. Configure your connection string in the .env file
-   3. Initialize the database:
 
-   ```bash
-   npm run db:seed
-   ```
+  1.  Install MongoDB locally or create an Atlas cluster
+  2.  Configure your connection string in the .env file
+  3.  Initialize the database:
+
+  ```bash
+  npm run db:seed
+  ```
 
 ## User Guide
 
@@ -159,36 +161,36 @@ Kaleidoplan uses a modern tech stack:
 
 Guests can:
 
-   1. **Browse Events**: The home screen displays upcoming events with filtering options
-   2. **View Event Details**: Tap any event to see full information, including location on a map
-   3. **Express Interest**: Use the "I Want to Go" button to receive reminders
-   4. **Get Directions**: Use the map integration to get directions to the event
+1.  **Browse Events**: The home screen displays upcoming events with filtering options
+2.  **View Event Details**: Tap any event to see full information, including location on a map
+3.  **Express Interest**: Use the "I Want to Go" button to receive reminders
+4.  **Get Directions**: Use the map integration to get directions to the event
 
 ### Organizer Experience
 
 Organizers need to log in first:
 
-   1. **Login**: Use organizer credentials to access the organizer dashboard
-   2. **View Assigned Tasks**: See all tasks assigned for events
-   3. **Update Task Status**: Change task status between "pending", "in-progress", and "completed"
-   4. **View Event Details**: Access detailed information about events they're organizing
-   5. **Check Task Logs**: See the history of task updates and changes
+1.  **Login**: Use organizer credentials to access the organizer dashboard
+2.  **View Assigned Tasks**: See all tasks assigned for events
+3.  **Update Task Status**: Change task status between "pending", "in-progress", and "completed"
+4.  **View Event Details**: Access detailed information about events they're organizing
+5.  **Check Task Logs**: See the history of task updates and changes
 
 ### Administrator Experience
 
 Admins have full system control:
 
-   1. **User Management**: Add, edit, or remove users from the system
-   2. **Role Assignment**: Change user roles between organizer and admin
-   3. **Event Creation**: Create new events and assign organizers
-   4. **Task Management**: Create tasks for events and assign them to organizers
-   5. **System Overview**: View statistics about events, tasks, and users
+1.  **User Management**: Add, edit, or remove users from the system
+2.  **Role Assignment**: Change user roles between organizer and admin
+3.  **Event Creation**: Create new events and assign organizers
+4.  **Task Management**: Create tasks for events and assign them to organizers
+5.  **System Overview**: View statistics about events, tasks, and users
 
 ## Backend Services
 
 ### MongoDB Server
 
-The ***mongoServer.js*** script handles all database operations and API endpoints:
+The **_mongoServer.js_** script handles all database operations and API endpoints:
 
 ```bash
 # Start the MongoDB server
@@ -197,15 +199,15 @@ npm run server:dev
 
 ### Key API endpoints
 
-- ***/api/events*** - Event management
-- ***/api/tasks*** - Task management
-- ***/api/taskLogs*** - Task history logs
-- ***/api/events/:eventId/subscribe*** - Register interest in an event
-- ***/api/events/:eventId/unsubscribe*** - Remove interest from an event
+- **_/api/events_** - Event management
+- **_/api/tasks_** - Task management
+- **_/api/taskLogs_** - Task history logs
+- **_/api/events/:eventId/subscribe_** - Register interest in an event
+- **_/api/events/:eventId/unsubscribe_** - Remove interest from an event
 
 ### Email Notifications
 
-The ***emailService.js*** script sends email notifications and reminders using Nodemailer:
+The **_emailService.js_** script sends email notifications and reminders using Nodemailer:
 
 ```bash
 # Start the email service
@@ -253,7 +255,7 @@ The project uses NativeWind (Tailwind CSS for React Native) for styling:
 
 ```tsx
 // Example of styled component
-const Button = styled(TouchableOpacity, 'bg-primary rounded-lg py-2 px-4');
+const Button = styled(TouchableOpacity, "bg-primary rounded-lg py-2 px-4");
 ```
 
 NativeWind allows you to use familiar Tailwind CSS classes directly in your React Native components. For consistent theming, we've defined custom components in the `components/ui/theme.ts` file.
@@ -270,7 +272,7 @@ The project uses React Native Maps with Expo Location for geolocation services:
   scrollEnabled={true}
   zoomEnabled={true}
 >
-  <Marker 
+  <Marker
     coordinate={{ latitude: event.latitude, longitude: event.longitude }}
     title={event.name}
     description={event.location}
@@ -381,7 +383,7 @@ docker-compose up -d
 
   ```bash
   npm install react-native-maps expo-location
-   ```
+  ```
 
 - Check if location permissions are properly requested in the app
 - Verify Google Maps API key (Android) or Bundle ID (iOS) is correctly set up

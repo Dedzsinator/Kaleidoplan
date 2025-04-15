@@ -1,0 +1,91 @@
+/* Container styles */
+.map-wrapper {
+  position: relative;
+  width: 100%;
+  height: 350px; /* Fixed height is important */
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  background-color: #f9f9f9; /* Light background before map loads */
+}
+
+.map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important; /* Force full width */
+  height: 100% !important; /* Force full height */
+  z-index: 1;
+}
+
+/* Loading indicator */
+.map-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+}
+
+.map-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+.map-loading-text {
+  color: #333;
+  font-size: 14px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Leaflet specific styles */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1;
+  background: #f9f9f9 !important;
+  outline: none !important;
+}
+
+/* Fix attribution */
+.leaflet-control-attribution {
+  font-size: 8px !important;
+}
+
+/* Better looking popups */
+.leaflet-popup-content-wrapper {
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+  margin: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.leaflet-popup-content strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Fallback */
+.map-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}

@@ -1,0 +1,124 @@
+.event-section-container {
+    width: 100%;
+    padding: 24px 0;
+  }
+  
+  .event-section-inner {
+    width: 100%;
+  }
+  
+  .event-content-row {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .event-left-column {
+    flex: 3;
+    min-width: 280px;
+    margin-right: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .event-right-column {
+    flex: 2;
+    min-width: 240px;
+    margin-bottom: 16px;
+  }
+  
+  .secondary-container {
+    margin-bottom: 24px;
+  }
+  
+  .map-wrapper {
+    margin-bottom: 24px;
+  }
+  
+  .map-container {
+    border-radius: 8px;
+    overflow: hidden;
+    height: 350px; /* Fixed height for map */
+  }
+  
+  .map-placeholder {
+    width: 100%;
+    height: 100%;
+    background-color: #2a2a2a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+  }
+  
+  .section-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 12px;
+  }
+  
+  .description-container {
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 24px;
+  }
+  
+  .description-text {
+    color: #ccc;
+    font-size: 14px;
+    line-height: 22px;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .placeholder-text {
+    color: #aaa;
+    text-align: center;
+  }
+  
+  .location-text {
+    font-size: 12px;
+    color: #ccc;
+    margin-top: 8px;
+  }
+  
+  .error-container {
+    padding: 16px;
+    background-color: rgba(255,100,100,0.1);
+    border-radius: 8px;
+    margin-bottom: 24px;
+  }
+  
+  .error-text {
+    color: #ff6b6b;
+    text-align: center;
+  }
+  
+  .slideshow-container {
+    margin-top: 24px;
+    margin-bottom: 8px;
+  }
+  
+  .event-divider {
+    height: 1px;
+    background-color: rgba(255,255,255,0.1);
+    width: 100%;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+  
+  /* Media queries for responsive design */
+  @media (max-width: 768px) {
+    .event-content-row {
+      flex-direction: column;
+    }
+  
+    .event-left-column, .event-right-column {
+      flex: 1;
+      width: 100%;
+      margin-right: 0;
+    }
+  }

@@ -1,0 +1,113 @@
+.event-primary-container {
+    margin-bottom: 48px;
+  }
+  
+  .event-image-container {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    overflow: hidden;
+    background-color: #1F2937;
+    margin-bottom: 24px;
+  }
+  
+  .event-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .event-placeholder-image {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #1F2937;
+  }
+  
+  .event-placeholder-text {
+    font-size: 80px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.1);
+  }
+  
+  .event-content-container {
+    padding: 0 8px;
+  }
+  
+  .event-title {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--text-primary, #fff);
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+  
+  .event-meta-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .event-icon {
+    font-size: 24px;
+    color: #A3A3A3;
+  }
+  
+  .event-meta-text {
+    font-size: 18px;
+    color: #A3A3A3;
+    margin-left: 12px;
+  }
+  
+  .event-status-container {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 16px;
+  }
+  
+  .event-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  
+  .event-status-text {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  
+  .event-description {
+    font-size: 16px;
+    color: #D1D5DB;
+    line-height: 24px;
+    margin-top: 16px;
+    margin-bottom: 24px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .event-button {
+    padding: 14px 24px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    transition: opacity 0.2s ease;
+  }
+  
+  .event-button:hover {
+    opacity: 0.9;
+  }
