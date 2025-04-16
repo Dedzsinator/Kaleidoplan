@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updateProfile, signInWithPopup,
@@ -27,31 +27,115 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isOrganizer: boolean;
+  firebaseUser: FirebaseUser | null; // Add this to expose the raw Firebase user
 
   // Add missing methods used in components
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  loginWithGoogle: () => Promise<User>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<User | null>;
+  refreshUserToken: () => Promise<void>; // Add this method to force token refresh
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null); // Store Firebase user
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isOrganizer, setIsOrganizer] = useState(false);
 
-  // Authentication methods - use the imported auth instance
-  const login = async (email: string, password: string): Promise<void> => {
-    await signInWithEmailAndPassword(auth, email, password);
-    // User data will be set by the auth state listener
+  const refreshUserToken = async () => {
+    if (firebaseUser) {
+      const idTokenResult = await firebaseUser.getIdTokenResult(true);
+      const role = idTokenResult.claims.role || 'user';
+
+      // Update user data with refreshed role
+      if (currentUser) {
+        const updatedUser = { ...currentUser, role: role as UserRole };
+        setCurrentUser(updatedUser);
+        setIsAdmin(role === 'admin');
+        setIsOrganizer(role === 'admin' || role === 'organizer');
+      }
+    }
   };
 
-  const loginWithGoogle = async (): Promise<void> => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-    // User data will be set by the auth state listener
+  // Authentication methods - use the imported auth instance
+  const login = async (email: string, password: string): Promise<User> => {
+    try {
+      setLoading(true);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      setFirebaseUser(userCredential.user); // Store Firebase user
+
+      // Force token refresh to get updated custom claims
+      const idTokenResult = await userCredential.user.getIdTokenResult(true);
+
+      // Extract role from Firebase claims
+      const role = idTokenResult.claims.role || 'user';
+
+      console.log('Login successful with role:', role, 'Claims:', idTokenResult.claims);
+
+      // Create user object with role
+      const userData = {
+        uid: userCredential.user.uid,
+        email: userCredential.user.email || '',
+        displayName: userCredential.user.displayName || undefined,
+        photoURL: userCredential.user.photoURL || undefined,
+        role: role as UserRole
+      };
+
+      // Update state
+      setCurrentUser(userData);
+      setIsAuthenticated(true);
+      setIsAdmin(role === 'admin');
+      setIsOrganizer(role === 'admin' || role === 'organizer');
+
+      return userData;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (): Promise<User> => {
+    try {
+      setLoading(true);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      setFirebaseUser(result.user);
+
+      // Force token refresh to get updated custom claims
+      const idTokenResult = await result.user.getIdTokenResult(true);
+
+      // Extract role from Firebase claims
+      const role = idTokenResult.claims.role || 'user';
+
+      // Create user object with role
+      const userData: User = {
+        uid: result.user.uid,
+        email: result.user.email || '',
+        displayName: result.user.displayName || undefined,
+        photoURL: result.user.photoURL || undefined,
+        role: role as UserRole
+      };
+
+      setCurrentUser(userData);
+      setIsAuthenticated(true);
+      setIsAdmin(role === 'admin');
+      setIsOrganizer(role === 'admin' || role === 'organizer');
+
+      return userData; // Return the user data
+    } catch (error) {
+      console.error('Google login error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const register = async (email: string, password: string, displayName: string): Promise<void> => {
@@ -86,75 +170,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Check if user has admin role
-  const isAdmin = currentUser?.role === 'admin';
-
-  // Check if user has organizer role (organizer or admin)
-  const isOrganizer = currentUser?.role === 'organizer' || isAdmin;
-
-  // Listen for Firebase auth state changes
   useEffect(() => {
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Get additional user data from our API
-        try {
-          // Get token and get user data from backend
-          const token = await firebaseUser.getIdToken();
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        if (fbUser) {
+          // Store the Firebase user
+          setFirebaseUser(fbUser);
 
-          // This would typically fetch user data from your backend
-          const userResponse = await fetch('/api/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
+          // Force token refresh to get latest claims
+          const idTokenResult = await fbUser.getIdTokenResult(true);
 
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            setCurrentUser(userData);
-          } else {
-            // If backend is not available, create a basic user object
-            setCurrentUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || undefined,
-              photoURL: firebaseUser.photoURL || undefined,
-              role: 'user' // Default role until we get server confirmation
-            });
-          }
-        } catch (error) {
-          console.error('Error getting user data:', error);
-          // Create basic user if backend fails
+          // Get role from Firebase custom claims
+          const role = idTokenResult.claims.role || 'user';
+
+          console.log('User authenticated with role from Firebase:', role);
+
+          // Set user data with role from Firebase claims
           setCurrentUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || undefined,
-            photoURL: firebaseUser.photoURL || undefined,
-            role: 'user' // Default role
+            uid: fbUser.uid,
+            email: fbUser.email || '',
+            displayName: fbUser.displayName || undefined,
+            photoURL: fbUser.photoURL || undefined,
+            role: role as UserRole
           });
+
+          setIsAuthenticated(true);
+          setIsAdmin(role === 'admin');
+          setIsOrganizer(role === 'admin' || role === 'organizer');
+        } else {
+          setFirebaseUser(null);
+          setCurrentUser(null);
+          setIsAuthenticated(false);
+          setIsAdmin(false);
+          setIsOrganizer(false);
         }
-      } else {
+      } catch (error) {
+        console.error('Error processing authentication:', error);
+        setFirebaseUser(null);
         setCurrentUser(null);
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+        setIsOrganizer(false);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Missing part: provide all required properties in the context value
   const value: AuthContextType = {
     currentUser,
-    user: currentUser, // Add alias for currentUser to fix HomeScreen
+    user: currentUser,
+    firebaseUser, // Expose the Firebase user
     loading,
-    isAuthenticated: Boolean(currentUser),
+    isAuthenticated,
     isAdmin,
     isOrganizer,
     login,
     loginWithGoogle,
     register,
     logout,
-    refreshUserData
+    refreshUserData,
+    refreshUserToken // Add the new method
   };
 
   return (

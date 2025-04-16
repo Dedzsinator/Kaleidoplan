@@ -19,13 +19,16 @@ const sponsorRoutes = require('./routes/sponsor.routes');
 const playlistRoutes = require('./routes/playlist.routes');
 const userRoutes = require('./routes/user.routes');
 const publicRoutes = require('./routes/public.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize Firebase Admin SDK
-initFirebaseAdmin();
+const admin = require('./config/firebase');
+// Firebase is already initialized when we require the module
+console.log('Firebase Admin SDK initialized');
 
 // Connect to MongoDB
 connectToMongoDB();
@@ -69,9 +72,9 @@ app.use('/api/spotify', spotifyRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/public', publicRoutes);
-
 app.use('/api/events', eventsRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/admin', require('./routes/admin.routes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

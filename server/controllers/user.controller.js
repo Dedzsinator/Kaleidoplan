@@ -273,3 +273,60 @@ exports.removeEventFromOrganizer = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// Add this function if it doesn't exist
+exports.setAdminRole = async (req, res) => {
+  try {
+    // Use the authenticated user's ID if no specific ID provided
+    const userId = req.body.userId || req.uid;
+    console.log("Setting admin role for user:", userId);
+    
+    // Set the custom claims in Firebase
+    await admin.auth().setCustomUserClaims(userId, { role: 'admin' });
+    console.log("Firebase custom claims updated");
+    
+    // Update role in MongoDB
+    const updatedUser = await User.findOneAndUpdate(
+      { uid: userId },
+      { role: 'admin' },
+      { new: true }
+    );
+    
+    if (!updatedUser) {
+      console.log("User not found in database:", userId);
+      // Try to find by email if UID search failed
+      const firebaseUser = await admin.auth().getUser(userId);
+      if (firebaseUser && firebaseUser.email) {
+        const userByEmail = await User.findOneAndUpdate(
+          { email: firebaseUser.email },
+          { 
+            uid: userId,
+            role: 'admin'
+          },
+          { new: true, upsert: true }
+        );
+        console.log("Created/updated user by email:", userByEmail);
+        return res.status(200).json({ 
+          message: 'Admin role set successfully (created user)',
+          user: userByEmail
+        });
+      }
+      return res.status(404).json({ error: 'User not found in database' });
+    }
+    
+    console.log("MongoDB user role updated:", updatedUser.role);
+    
+    res.status(200).json({ 
+      message: 'Admin role set successfully',
+      user: {
+        uid: updatedUser.uid,
+        email: updatedUser.email,
+        displayName: updatedUser.displayName,
+        role: updatedUser.role
+      }
+    });
+  } catch (error) {
+    console.error('Error setting admin role:', error);
+    res.status(500).json({ error: 'Failed to set admin role: ' + error.message });
+  }
+};

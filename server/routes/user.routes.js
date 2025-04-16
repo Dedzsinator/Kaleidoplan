@@ -52,4 +52,9 @@ router.delete('/:userId/events/:eventId',
   authMiddleware.requireAdmin,
   userController.removeEventFromOrganizer);
 
+router.post('/set-admin-role', 
+  authMiddleware.verifyToken,
+  authMiddleware.attachUserData,
+  userController.setAdminRole);
+
 module.exports = router;

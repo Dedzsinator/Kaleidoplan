@@ -24,7 +24,6 @@ const LoginScreen = () => {
 
   interface LoginFormEvent extends React.FormEvent<HTMLFormElement> { }
 
-  // Update handleLogin to navigate after successful login
   const handleLogin = async (e: LoginFormEvent): Promise<void> => {
     e.preventDefault();
 
@@ -36,9 +35,16 @@ const LoginScreen = () => {
     try {
       setError('');
       setIsLoading(true);
-      await login(email, password);
-      // Add navigation here
-      navigate('/home');
+      const user = await login(email, password);
+
+      // Redirect based on user role
+      if (user && user.role === 'admin') {
+        navigate('/admin');
+      } else if (user && user.role === 'organizer') {
+        navigate('/organizer');
+      } else {
+        navigate('/home');
+      }
     } catch (error: unknown) {
       setError('Invalid email or password. Please try again.');
       console.log('Login error:', error);
@@ -47,14 +53,21 @@ const LoginScreen = () => {
     }
   };
 
-  // Update Google login to navigate after success
+  // Also update Google login with similar logic
   const handleGoogleLogin = async () => {
     try {
       setError('');
       setIsGoogleLoading(true);
-      await loginWithGoogle();
-      // Add navigation here
-      navigate('/home');
+      const user = await loginWithGoogle();
+
+      // Redirect based on user role
+      if (user && user.role === 'admin') {
+        navigate('/admin');
+      } else if (user && user.role === 'organizer') {
+        navigate('/organizer');
+      } else {
+        navigate('/home');
+      }
     } catch (error) {
       setError('Google sign-in failed. Please try again.');
       console.log('Google login error:', error);

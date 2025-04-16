@@ -6,11 +6,47 @@ import '../styles/DashboardScreen.css';
 import { Event } from '../models/types';
 
 const DashboardScreen: React.FC = () => {
-    const { currentUser, isOrganizer, isAdmin } = useAuth();
+    // Call all hooks at the top level of the component
+    const { currentUser, isOrganizer, isAdmin, refreshUserToken } = useAuth();
     const [userEvents, setUserEvents] = useState<Event[]>([]);
     const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // Now use refreshUserToken from the destructured values
+    const checkAdminRole = async () => {
+        try {
+            await refreshUserToken(); // Use the function from the top-level hook call
+            console.log("Current user after refresh:", currentUser);
+        } catch (error) {
+            console.error("Error checking admin role:", error);
+        }
+    };
+
+    // The rest of your component remains the same
+    const setAdminRole = async () => {
+        try {
+            // Update URL to match the new route
+            const response = await fetchWithAuth('/api/user/set-admin-role', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                alert("Admin role has been set. Please log out and log back in to refresh your token.");
+            } else {
+                const errorData = await response.json();
+                console.error("Failed to set admin role:", errorData);
+                alert(`Failed to set admin role: ${errorData.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error("Error setting admin role:", error);
+            alert("Error setting admin role. See console for details.");
+        }
+    };
+    
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -144,6 +180,18 @@ const DashboardScreen: React.FC = () => {
                     <Link to="/profile" className="account-action-button">Edit Profile</Link>
                     <Link to="/settings" className="account-action-button">Preferences</Link>
                     <Link to="/notifications" className="account-action-button">Notifications</Link>
+                </div>
+            </div>
+
+            <div className="dashboard-section">
+                <h3>Debug Tools</h3>
+                <div className="debug-actions">
+                    <button onClick={checkAdminRole} className="debug-button">Check Admin Status</button>
+                    <button onClick={setAdminRole} className="debug-button">Force Set Admin Role</button>
+                    <div className="debug-info">
+                        <p>Current User Role: {currentUser?.role || 'Not set'}</p>
+                        <p>Is Admin: {isAdmin ? 'Yes' : 'No'}</p>
+                    </div>
                 </div>
             </div>
         </div>
