@@ -20,41 +20,22 @@ export const getAuthToken = async (): Promise<string | null> => {
     return null;
 };
 
-// Fetch with authentication
-export const fetchWithAuth = async (
-    endpoint: string,
-    options: RequestInit = {}
-): Promise<Response> => {
-    try {
-        const auth = getAuth();
-        const user = auth.currentUser;
+export const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
+    // Remove the double prefix bug:
+    // If endpoint already starts with /api/, don't add another /api/
+    const url = endpoint.startsWith('/api/')
+        ? endpoint
+        : `/api${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
-        // Create headers with auth token if user is logged in
-        let headers: HeadersInit = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
+    const authToken = await getAuthToken();
 
-        if (user) {
-            const token = await user.getIdToken();
-            headers = {
-                ...headers,
-                'Authorization': `Bearer ${token}`
-            };
+    return fetch(url, {
+        ...options,
+        headers: {
+            ...(options.headers as Record<string, string> || {}),
+            'Authorization': `Bearer ${authToken}`
         }
-
-        // Build the full URL
-        const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
-
-        // Make the request
-        return fetch(url, {
-            ...options,
-            headers
-        });
-    } catch (error: any) {
-        console.error('API request failed:', error);
-        throw new Error(`API request failed: ${error.message}`);
-    }
+    });
 };
 
 /**

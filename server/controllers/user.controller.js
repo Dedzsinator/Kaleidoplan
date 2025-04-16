@@ -1,332 +1,203 @@
-const User = require('../models/user.model');
 const admin = require('../config/firebase');
+const Event = require('../models/event.model');
 
 // Get current user profile
 exports.getCurrentUser = async (req, res) => {
   try {
-    if (!req.userData) {
-      return res.status(404).json({ error: 'User not found' });
+    if (!req.user || !req.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
-
-    // Return user data without sensitive info
-    res.status(200).json({
-      uid: req.userData.uid,
-      email: req.userData.email,
-      displayName: req.userData.displayName,
-      role: req.userData.role,
-      photoURL: req.userData.photoURL,
-      createdAt: req.userData.createdAt,
-      lastLogin: req.userData.lastLogin
-    });
+    
+    // Get the user from Firebase
+    const userRecord = await admin.auth().getUser(req.uid);
+    
+    // Create a user object with the necessary fields
+    const user = {
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName || userRecord.email.split('@')[0],
+      photoURL: userRecord.photoURL,
+      role: (userRecord.customClaims && userRecord.customClaims.role) || 'user',
+      createdAt: userRecord.metadata.creationTime,
+      lastLogin: userRecord.metadata.lastSignInTime
+    };
+    
+    res.status(200).json({ user });
   } catch (error) {
-    console.error('Error fetching current user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error getting current user:', error);
+    res.status(500).json({ error: 'Failed to retrieve user profile' });
   }
 };
 
 // Update current user profile
 exports.updateCurrentUser = async (req, res) => {
   try {
-    const { displayName, photoURL, preferences } = req.body;
-    
-    if (!req.userData) {
-      return res.status(404).json({ error: 'User not found' });
+    if (!req.user || !req.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    // Update allowed fields
-    if (displayName) req.userData.displayName = displayName;
-    if (photoURL) req.userData.photoURL = photoURL;
+    const { displayName, photoURL } = req.body;
     
-    // Update preferences if provided
-    if (preferences) {
-      req.userData.preferences = {
-        ...req.userData.preferences || {},
-        ...preferences
-      };
-    }
-    
-    req.userData.updatedAt = new Date();
-    await req.userData.save();
-    
-    // Update Firebase Auth user if needed
-    await admin.auth().updateUser(req.userData.uid, {
-      displayName: displayName || req.userData.displayName,
-      photoURL: photoURL || req.userData.photoURL
+    // Update user in Firebase
+    await admin.auth().updateUser(req.uid, {
+      displayName,
+      photoURL
     });
     
-    res.status(200).json({
-      uid: req.userData.uid,
-      displayName: req.userData.displayName,
-      photoURL: req.userData.photoURL,
-      role: req.userData.role,
-      preferences: req.userData.preferences
-    });
-  } catch (error) {
-    console.error('Error updating user profile:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-// Get all users (admin only)
-exports.getAllUsers = async (req, res) => {
-  try {
-    const { limit = 50, page = 1, role, search } = req.query;
+    // Get updated user
+    const userRecord = await admin.auth().getUser(req.uid);
     
-    // Build filter
-    const filter = {};
-    
-    if (role) {
-      filter.role = role;
-    }
-    
-    if (search) {
-      filter.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { displayName: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Get users
-    const users = await User.find(filter)
-      .select('-passwordHash -refreshTokens')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    // Get total count
-    const totalUsers = await User.countDocuments(filter);
-    
-    res.status(200).json({
-      users,
-      pagination: {
-        total: totalUsers,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(totalUsers / parseInt(limit))
+    res.status(200).json({ 
+      user: {
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName,
+        photoURL: userRecord.photoURL,
+        role: (userRecord.customClaims && userRecord.customClaims.role) || 'user'
       }
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user profile' });
   }
 };
 
-// Update user role (admin only)
-exports.updateUserRole = async (req, res) => {
+// Get all users from Firebase
+exports.getAllUsers = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { role } = req.body;
+    console.log("Getting all users from Firebase...");
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 100; // Firebase has different pagination
     
-    if (!role) {
-      return res.status(400).json({ error: 'Role is required' });
-    }
+    // Firebase Auth listUsers returns up to 1000 users at a time with pagination
+    let users = [];
+    let nextPageToken;
     
-    // Valid roles
-    const validRoles = ['user', 'organizer', 'admin'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({ 
-        error: 'Invalid role',
-        validRoles
-      });
-    }
+    // Get batch of users from Firebase
+    const listUsersResult = await admin.auth().listUsers(limit);
+    users = listUsersResult.users;
     
-    // Find user
-    const user = await User.findOne({ uid: userId });
+    console.log(`Found ${users.length} users from Firebase`);
     
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Update role
-    user.role = role;
-    user.updatedAt = new Date();
-    await user.save();
+    // Format user data to match expected format in frontend
+    const formattedUsers = users.map(user => {
+      // Extract role from custom claims
+      const role = (user.customClaims && user.customClaims.role) || 'user';
+      
+      return {
+        _id: user.uid, // Use uid as _id for compatibility
+        uid: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || (user.email ? user.email.split('@')[0] : 'User'),
+        role: role,
+        createdAt: user.metadata.creationTime,
+        lastLogin: user.metadata.lastSignInTime,
+        photoURL: user.photoURL,
+        // Without MongoDB, we won't have managed events
+        managedEvents: []
+      };
+    });
     
     res.status(200).json({
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      role: user.role
+      users: formattedUsers,
+      pagination: {
+        total: users.length,
+        pages: 1,
+        page: 1,
+        limit: users.length
+      }
+    });
+  } catch (error) {
+    console.error('Error getting users from Firebase:', error);
+    res.status(500).json({ error: 'Failed to retrieve users: ' + error.message });
+  }
+};
+
+// Update user role
+exports.updateUserRole = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const { role } = req.body;
+    
+    // Validate role
+    if (!['user', 'organizer', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+    
+    // Update Firebase custom claims
+    await admin.auth().setCustomUserClaims(userId, { role });
+    
+    // Get updated user
+    const userRecord = await admin.auth().getUser(userId);
+    
+    res.status(200).json({ 
+      user: {
+        _id: userRecord.uid,
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName,
+        role: role,
+        photoURL: userRecord.photoURL
+      } 
     });
   } catch (error) {
     console.error('Error updating user role:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to update user role' });
   }
 };
 
-// Delete user (admin only)
+// Delete user
 exports.deleteUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
     
-    // Find user
-    const user = await User.findOne({ uid: userId });
+    // Delete from Firebase
+    await admin.auth().deleteUser(userId);
     
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Delete from Firebase Auth
-    try {
-      await admin.auth().deleteUser(userId);
-    } catch (firebaseError) {
-      console.warn('Firebase user deletion error:', firebaseError);
-      // Continue with local deletion even if Firebase deletion fails
-    }
-    
-    // Delete from our database
-    await User.deleteOne({ uid: userId });
-    
-    res.status(200).json({
-      message: 'User deleted successfully',
-      uid: userId
-    });
+    res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 };
 
-// Assign event to organizer (admin only)
+// For Firebase-only approach, these event management functions won't do anything useful
+// without a database to store the relationships
 exports.assignEventToOrganizer = async (req, res) => {
-  try {
-    const { userId, eventId } = req.params;
-    
-    // Find user
-    const user = await User.findOne({ uid: userId });
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Ensure user is or becomes an organizer
-    if (user.role !== 'organizer' && user.role !== 'admin') {
-      user.role = 'organizer';
-    }
-    
-    // Initialize managedEvents array if it doesn't exist
-    if (!user.managedEvents) {
-      user.managedEvents = [];
-    }
-    
-    // Check if event is already assigned
-    if (user.managedEvents.includes(eventId)) {
-      return res.status(400).json({ error: 'Event already assigned to this organizer' });
-    }
-    
-    // Assign event
-    user.managedEvents.push(eventId);
-    await user.save();
-    
-    res.status(200).json({
-      message: 'Event assigned to organizer',
-      uid: user.uid,
-      displayName: user.displayName,
-      role: user.role,
-      managedEvents: user.managedEvents
-    });
-  } catch (error) {
-    console.error('Error assigning event to organizer:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  res.status(200).json({ message: 'Feature not available in Firebase-only mode' });
 };
 
-// Remove event from organizer (admin only)
 exports.removeEventFromOrganizer = async (req, res) => {
-  try {
-    const { userId, eventId } = req.params;
-    
-    // Find user
-    const user = await User.findOne({ uid: userId });
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Check if user has managedEvents
-    if (!user.managedEvents || !user.managedEvents.includes(eventId)) {
-      return res.status(400).json({ error: 'User is not managing this event' });
-    }
-    
-    // Remove event
-    user.managedEvents = user.managedEvents.filter(id => id.toString() !== eventId);
-    
-    // If no more events and not admin, downgrade to regular user
-    if (user.managedEvents.length === 0 && user.role === 'organizer') {
-      user.role = 'user';
-    }
-    
-    await user.save();
-    
-    res.status(200).json({
-      message: 'Event removed from organizer',
-      uid: user.uid,
-      displayName: user.displayName,
-      role: user.role,
-      managedEvents: user.managedEvents
-    });
-  } catch (error) {
-    console.error('Error removing event from organizer:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  res.status(200).json({ message: 'Feature not available in Firebase-only mode' });
 };
 
-// Add this function if it doesn't exist
+exports.getUserEvents = async (req, res) => {
+  // For Firebase-only approach, we'll just return an empty array
+  res.status(200).json({ events: [] });
+};
+
 exports.setAdminRole = async (req, res) => {
   try {
-    // Use the authenticated user's ID if no specific ID provided
-    const userId = req.body.userId || req.uid;
-    console.log("Setting admin role for user:", userId);
-    
-    // Set the custom claims in Firebase
-    await admin.auth().setCustomUserClaims(userId, { role: 'admin' });
-    console.log("Firebase custom claims updated");
-    
-    // Update role in MongoDB
-    const updatedUser = await User.findOneAndUpdate(
-      { uid: userId },
-      { role: 'admin' },
-      { new: true }
-    );
-    
-    if (!updatedUser) {
-      console.log("User not found in database:", userId);
-      // Try to find by email if UID search failed
-      const firebaseUser = await admin.auth().getUser(userId);
-      if (firebaseUser && firebaseUser.email) {
-        const userByEmail = await User.findOneAndUpdate(
-          { email: firebaseUser.email },
-          { 
-            uid: userId,
-            role: 'admin'
-          },
-          { new: true, upsert: true }
-        );
-        console.log("Created/updated user by email:", userByEmail);
-        return res.status(200).json({ 
-          message: 'Admin role set successfully (created user)',
-          user: userByEmail
-        });
-      }
-      return res.status(404).json({ error: 'User not found in database' });
+    if (!req.uid) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    console.log("MongoDB user role updated:", updatedUser.role);
+    // Set admin role in Firebase
+    await admin.auth().setCustomUserClaims(req.uid, { role: 'admin' });
     
-    res.status(200).json({ 
-      message: 'Admin role set successfully',
+    // Get updated user
+    const userRecord = await admin.auth().getUser(req.uid);
+    
+    res.status(200).json({
+      message: 'Admin role set successfully, please log out and log back in.',
       user: {
-        uid: updatedUser.uid,
-        email: updatedUser.email,
-        displayName: updatedUser.displayName,
-        role: updatedUser.role
+        uid: userRecord.uid,
+        email: userRecord.email,
+        role: 'admin'
       }
     });
   } catch (error) {
     console.error('Error setting admin role:', error);
-    res.status(500).json({ error: 'Failed to set admin role: ' + error.message });
+    res.status(500).json({ error: 'Failed to set admin role' });
   }
 };

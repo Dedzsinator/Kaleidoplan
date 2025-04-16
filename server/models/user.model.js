@@ -34,6 +34,9 @@ const userSchema = new mongoose.Schema({
   lastLogin: Date
 });
 
+// Remove any userId index if it exists (will be recreated properly)
+userSchema.index({ userId: 1 }, { unique: true, sparse: true });
+
 // Pre-save hook to update the updatedAt field
 userSchema.pre('save', function(next) {
   this.updatedAt = Date.now();

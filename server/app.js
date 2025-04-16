@@ -74,7 +74,8 @@ app.use('/api/playlists', playlistRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/admin', require('./routes/admin.routes'));
+app.use('/api/admin', adminRoutes);
+app.use('/api/user', userRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
