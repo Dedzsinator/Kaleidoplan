@@ -27,15 +27,25 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
         ? endpoint
         : `/api${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
+    console.log(`Fetching from: ${url}`);
+
     const authToken = await getAuthToken();
 
-    return fetch(url, {
+    // Create new headers object to avoid readonly issues
+    const headers = new Headers(options.headers);
+
+    // Set Authorization header if we have a token
+    if (authToken) {
+        headers.set('Authorization', `Bearer ${authToken}`);
+    }
+
+    // Create new options object with the updated headers
+    const updatedOptions = {
         ...options,
-        headers: {
-            ...(options.headers as Record<string, string> || {}),
-            'Authorization': `Bearer ${authToken}`
-        }
-    });
+        headers
+    };
+
+    return fetch(url, updatedOptions);
 };
 
 /**
