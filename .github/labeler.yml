@@ -1,0 +1,23 @@
+# Configuration for the GitHub Labeler Action
+# https://github.com/actions/labeler
+
+client:
+  - client/**/*
+
+server:
+  - server/**/*
+
+shared:
+  - shared/**/*
+
+documentation:
+  - "**/*.md"
+  - docs/**/*
+
+# Add 'workflow' label to any changes in workflow files
+workflow:
+  - .github/**/*
+
+# Add 'dependencies' label to any changes to requirements.txt
+dependencies:
+  - requirements.txt

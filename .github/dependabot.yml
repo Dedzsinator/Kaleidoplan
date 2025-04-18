@@ -1,0 +1,24 @@
+# filepath: .github/dependabot.yml
+version: 2
+updates:
+  # Frontend dependencies
+  - package-ecosystem: "npm"
+    directory: "/" # Root directory for frontend
+    schedule:
+      interval: "weekly"
+    # Add reviewers/assignees if desired
+    # reviewers:
+    #   - "your-username"
+    # assignees:
+    #   - "your-username"
+
+  # Backend dependencies
+  - package-ecosystem: "npm"
+    directory: "/server" # Directory for backend
+    schedule:
+      interval: "weekly"
+    # Add reviewers/assignees if desired
+    # reviewers:
+    #   - "your-username"
+    # assignees:
+    #   - "your-username"

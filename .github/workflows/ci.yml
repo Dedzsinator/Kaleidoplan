@@ -1,0 +1,49 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x] # Specify Node.js versions to test against
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm" # Enable caching for npm dependencies
+
+      - name: Install Frontend Dependencies
+        run: npm ci # Use ci for faster, reliable installs in CI
+
+      - name: Install Backend Dependencies
+        run: cd server && npm ci
+
+      - name: Run Linters (Frontend & Backend)
+        run: |
+          npm run lint # Assumes lint script in root package.json checks both if needed, or add server lint separately
+          # If server has its own lint script: cd server && npm run lint
+          npm run format -- --check # Check formatting
+
+      - name: Run TypeScript Type Check (Frontend)
+        run: npm run typecheck # Assumes typecheck script in root package.json
+
+      - name: Run Frontend Tests
+        run: npm test -- --watchAll=false # Run frontend tests non-interactively
+
+      - name: Run Backend Tests
+        run: cd server && npm test # Assumes test script in server/package.json
+
+      - name: Build Frontend
+        run: npm run build # Run the production build script

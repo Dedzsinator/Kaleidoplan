@@ -1,0 +1,27 @@
+name: Issue Management
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label issues
+        uses: github/issue-labeler@v3
+        if: github.event_name == 'issues' && github.event.action == 'opened'
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          configuration-path: .github/issue-labeler.yml
+
+      - name: Auto-assign issues
+        uses: pozil/auto-assign-issue@v1
+        if: github.event_name == 'issues' && github.event.action == 'labeled'
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          teams: maintainers
+          assignees: dedzsinator
+          numOfAssignee: 1

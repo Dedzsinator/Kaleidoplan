@@ -5,6 +5,7 @@ import { fetchWithAuth } from '../../services/api';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
+import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay'; // Import the overlay component
 import '../styles/Guest.css';
 
 // Event type import
@@ -32,6 +33,8 @@ const GuestScreen = () => {
   const [headerOpacity, setHeaderOpacity] = useState(0.8);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('card'); // Default to card view
+  const [isRadioPlaying, setIsRadioPlaying] = useState(false); // State for radio player
+  const [isOverlayExpanded, setIsOverlayExpanded] = useState(false); // State for overlay expansion
   const navigate = useNavigate();
 
   // Use ref for currentVisibleEvent to avoid triggering renders
@@ -53,8 +56,9 @@ const GuestScreen = () => {
     // Create a shallow copy to avoid mutating the original
     const validatedEvent = { ...event };
 
+    // Ensure we have a playlistId for Spotify integration
     if (!validatedEvent.playlistId) {
-      validatedEvent.playlistId = `pl${validatedEvent.id || index + 1}`;
+      validatedEvent.playlistId = `pl-${validatedEvent.id || `temp-${index}`}`;
     }
 
     if (!validatedEvent.id) {
@@ -109,13 +113,67 @@ const GuestScreen = () => {
     ) {
       if (validatedEvent.coverImageUrl) {
         validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
+      } else {
+        // Add a fallback image if no slideshowImages and no coverImageUrl
+        validatedEvent.slideshowImages = [PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length]];
       }
     }
 
     return validatedEvent;
   }, []);
 
-  // Define fetchEvents after validateEvent is defined
+  // Create demo events if no real events are available
+  const createDemoEvents = useCallback(() => {
+    console.log('Creating demo events');
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
+
+    const demoEvents = [
+      {
+        id: 'demo-1',
+        name: 'Music Festival',
+        description: 'A weekend of amazing music performances',
+        location: 'City Park',
+        startDate: tomorrow,
+        endDate: nextWeek,
+        coverImageUrl: PLACEHOLDER_IMAGES[0],
+        slideshowImages: [PLACEHOLDER_IMAGES[0]],
+        status: 'upcoming',
+        playlistId: 'pl-demo-1', // Ensure demo events have playlist IDs
+      },
+      {
+        id: 'demo-2',
+        name: 'Tech Conference',
+        description: 'Learn about the latest technology trends',
+        location: 'Convention Center',
+        startDate: tomorrow,
+        endDate: nextWeek,
+        coverImageUrl: PLACEHOLDER_IMAGES[1],
+        slideshowImages: [PLACEHOLDER_IMAGES[1]],
+        status: 'upcoming',
+        playlistId: 'pl-demo-2',
+      },
+      {
+        id: 'demo-3',
+        name: 'Food Festival',
+        description: 'Taste cuisine from around the world',
+        location: 'Downtown Square',
+        startDate: tomorrow,
+        endDate: nextWeek,
+        coverImageUrl: PLACEHOLDER_IMAGES[2],
+        slideshowImages: [PLACEHOLDER_IMAGES[2]],
+        status: 'upcoming',
+        playlistId: 'pl-demo-3',
+      },
+    ] as Event[];
+
+    setEvents(demoEvents);
+  }, []);
+
+  // Define fetchEvents after validateEvent and createDemoEvents are defined
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
@@ -172,58 +230,7 @@ const GuestScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [validateEvent]);
-
-  // Create demo events if no real events are available
-  const createDemoEvents = useCallback(() => {
-    console.log('Creating demo events');
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    const nextWeek = new Date(now);
-    nextWeek.setDate(now.getDate() + 7);
-
-    const demoEvents = [
-      {
-        id: 'demo-1',
-        name: 'Music Festival',
-        description: 'A weekend of amazing music performances',
-        location: 'City Park',
-        startDate: tomorrow,
-        endDate: nextWeek,
-        coverImageUrl: PLACEHOLDER_IMAGES[0],
-        slideshowImages: [PLACEHOLDER_IMAGES[0]],
-        status: 'upcoming',
-        playlistId: 'pl-demo-1',
-      },
-      {
-        id: 'demo-2',
-        name: 'Tech Conference',
-        description: 'Learn about the latest technology trends',
-        location: 'Convention Center',
-        startDate: tomorrow,
-        endDate: nextWeek,
-        coverImageUrl: PLACEHOLDER_IMAGES[1],
-        slideshowImages: [PLACEHOLDER_IMAGES[1]],
-        status: 'upcoming',
-        playlistId: 'pl-demo-2',
-      },
-      {
-        id: 'demo-3',
-        name: 'Food Festival',
-        description: 'Taste cuisine from around the world',
-        location: 'Downtown Square',
-        startDate: tomorrow,
-        endDate: nextWeek,
-        coverImageUrl: PLACEHOLDER_IMAGES[2],
-        slideshowImages: [PLACEHOLDER_IMAGES[2]],
-        status: 'upcoming',
-        playlistId: 'pl-demo-3',
-      },
-    ] as Event[];
-
-    setEvents(demoEvents);
-  }, []);
+  }, [validateEvent, createDemoEvents]);
 
   // Visibility change handler with stable reference
   const handleVisibilityChange = useCallback(
@@ -234,7 +241,13 @@ const GuestScreen = () => {
       if (isVisible) {
         setActiveEventId((prevId) => {
           // Only update if changed
-          return prevId !== eventId ? eventId : prevId;
+          if (prevId !== eventId) {
+            // Reset radio state when changing events
+            setIsRadioPlaying(false);
+            setIsOverlayExpanded(false);
+            return eventId;
+          }
+          return prevId;
         });
 
         // Update ref instead of state to avoid re-renders
@@ -245,12 +258,12 @@ const GuestScreen = () => {
             name: event.name || 'Unknown Event',
           };
         }
-      } else if (activeEventId === eventId) {
-        // Only unset if this event was the active one
-        setActiveEventId(null);
       }
+      // Modified: No longer reset activeEventId when scrolling away
+      // This allows the music to keep playing as user scrolls
+      // User must explicitly stop it via the overlay controls
     },
-    [activeEventId, events],
+    [events], // Removed activeEventId from dependencies since we're not using it here anymore
   );
 
   // Scroll handler with throttling
@@ -302,6 +315,15 @@ const GuestScreen = () => {
     setViewMode(mode);
   }, []);
 
+  // New handlers for Spotify Radio Overlay
+  const handleToggleRadioPlay = useCallback(() => {
+    setIsRadioPlaying(prev => !prev);
+  }, []);
+
+  const handleToggleOverlayExpand = useCallback(() => {
+    setIsOverlayExpanded(prev => !prev);
+  }, []);
+
   // Memoize event items creation to prevent unnecessary re-creation
   const renderEventItems = useCallback(() => {
     return events.map((event, index) => (
@@ -317,6 +339,9 @@ const GuestScreen = () => {
       />
     ));
   }, [events, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
+
+  // Find the event object for the activeEventId
+  const currentActiveEvent = events.find(event => event.id === activeEventId);
 
   if (loading) {
     return (
@@ -384,6 +409,19 @@ const GuestScreen = () => {
           </div>
         )}
       </main>
+
+
+      {/* Spotify Radio Overlay 
+      {currentActiveEvent && (
+        <SpotifyRadioOverlay
+          currentEvent={currentActiveEvent}
+          isPlaying={isRadioPlaying}
+          onTogglePlay={handleToggleRadioPlay}
+          onExpand={handleToggleOverlayExpand}
+          expanded={isOverlayExpanded}
+        />
+      )}
+        */}
 
       {/* Footer */}
       <Footer />

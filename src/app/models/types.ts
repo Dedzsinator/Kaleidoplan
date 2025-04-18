@@ -54,15 +54,38 @@ export interface TaskLog {
   comment?: string;
 }
 
+export interface Track {
+  name: string;
+  artist: string;
+  spotifyId?: string;
+  previewUrl?: string;
+  albumArt?: string;
+  // Add these missing properties used in playlistService.tsx
+  fallbackPreviewUrl?: string;
+  localAudioPath?: string;
+}
+
+export interface SpotifyTrack {
+  name: string;
+  // Change preview_url to possibly be null (to match Spotify API)
+  preview_url: string | null;
+  album?: {
+    images?: Array<{url: string}>;
+  };
+  // Add artists array to the interface
+  artists?: Array<{name: string}>;
+}
+
 export interface Playlist {
   _id: string;
-  eventId: string;
   name: string;
   description: string;
-  tracks: Record<string, Track>;
+  eventId: string;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  // Support different track formats
+  tracks: Record<string, Track> | string[] | string | any;
 }
 
 export interface Performer {
@@ -73,16 +96,6 @@ export interface Performer {
   image: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Track {
-  name: string;
-  artist: string;
-  spotifyId: string;
-  previewUrl?: string; // From Spotify API
-  fallbackPreviewUrl?: string; // Your own hosted audio file
-  localAudioPath?: string; // For offline playback
-  albumArt?: string; // From Spotify API
 }
 
 export interface error {
