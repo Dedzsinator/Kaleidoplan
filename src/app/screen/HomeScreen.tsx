@@ -14,7 +14,8 @@ import '../styles/HomeScreen.css';
 import { Event, User } from '../models/types';
 
 // Constants
-const DEFAULT_IMAGE_URL = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
+const DEFAULT_IMAGE_URL =
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
 const HEADER_OFFSET = 100;
 
 // View modes
@@ -33,7 +34,7 @@ const HomeScreen: React.FC = () => {
   const navigate = useNavigate();
 
   // Use ref for currentVisibleEvent to avoid triggering renders
-  const currentVisibleEventRef = useRef<{ id: string, name: string }>({ id: '', name: '' });
+  const currentVisibleEventRef = useRef<{ id: string; name: string }>({ id: '', name: '' });
 
   // Refs for section positions
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -42,13 +43,15 @@ const HomeScreen: React.FC = () => {
   const hasLoadedEvents = useRef(false);
 
   // Create an adapter user for components that need the exact User type
-  const adaptedUser: User | null = user ? {
-    id: user.uid,
-    email: user.email || '',
-    displayName: user.displayName || null,
-    photoURL: user.photoURL || null,
-    role: user.role || 'user'
-  } : null;
+  const adaptedUser: User | null = user
+    ? {
+        id: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        role: user.role || 'user',
+      }
+    : null;
 
   // Handle logout
   const handleLogout = async () => {
@@ -76,7 +79,7 @@ const HomeScreen: React.FC = () => {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("Fetching events for logged in user...");
+      console.log('Fetching events for logged in user...');
 
       const fetchedEvents = await getEvents({ forceRefresh: true });
       console.log('Received events:', fetchedEvents.length);
@@ -127,27 +130,33 @@ const HomeScreen: React.FC = () => {
   }, []);
 
   // Handle visibility changes for events
-  const handleVisibilityChange = useCallback((isVisible: boolean, eventId: string) => {
-    if (!eventId) return;
+  const handleVisibilityChange = useCallback(
+    (isVisible: boolean, eventId: string) => {
+      if (!eventId) return;
 
-    if (isVisible) {
-      setActiveEventId(prevId => prevId !== eventId ? eventId : prevId);
+      if (isVisible) {
+        setActiveEventId((prevId) => (prevId !== eventId ? eventId : prevId));
 
-      const event = events.find(e => e.id === eventId);
-      if (event && currentVisibleEventRef.current.id !== eventId) {
-        currentVisibleEventRef.current = {
-          id: eventId,
-          name: event.name || 'Unknown Event'
-        };
+        const event = events.find((e) => e.id === eventId);
+        if (event && currentVisibleEventRef.current.id !== eventId) {
+          currentVisibleEventRef.current = {
+            id: eventId,
+            name: event.name || 'Unknown Event',
+          };
+        }
+      } else if (activeEventId === eventId) {
+        setActiveEventId(null);
       }
-    } else if (activeEventId === eventId) {
-      setActiveEventId(null);
-    }
-  }, [activeEventId, events]);
+    },
+    [activeEventId, events],
+  );
 
-  const handleEventClick = useCallback((eventId: string) => {
-    navigate(`/events/${eventId}`);
-  }, [navigate]);
+  const handleEventClick = useCallback(
+    (eventId: string) => {
+      navigate(`/events/${eventId}`);
+    },
+    [navigate],
+  );
 
   const handleImageError = useCallback((eventId: string) => {
     console.log(`Failed to load image for event: ${eventId}`);
@@ -184,7 +193,7 @@ const HomeScreen: React.FC = () => {
   }
 
   // For hero section
-  const heroEvent = events.find(event => event.coverImageUrl) || events[0];
+  const heroEvent = events.find((event) => event.coverImageUrl) || events[0];
   const heroImageUrl = heroEvent?.coverImageUrl || DEFAULT_IMAGE_URL;
 
   return (
@@ -203,15 +212,9 @@ const HomeScreen: React.FC = () => {
 
       {/* Welcome Cards Section */}
       <div className="welcome-section">
+        {adaptedUser && <UserWelcomeCard user={adaptedUser} />}
         {adaptedUser && (
-          <UserWelcomeCard user={adaptedUser} />
-        )}
-        {adaptedUser && (
-          <QuickActions
-            user={adaptedUser}
-            onLogout={handleLogout}
-            onNavigate={(path: string) => navigate(path)}
-          />
+          <QuickActions user={adaptedUser} onLogout={handleLogout} onNavigate={(path: string) => navigate(path)} />
         )}
       </div>
 
@@ -243,12 +246,10 @@ const HomeScreen: React.FC = () => {
 
         {events.length === 0 ? (
           <div className="no-events-container">
-            <p className="no-events-text">
-              No events found. Check back soon for new events!
-            </p>
+            <p className="no-events-text">No events found. Check back soon for new events!</p>
           </div>
         ) : (
-          <div className={viewMode === 'card' ? "card-events-container" : "detailed-events-container"}>
+          <div className={viewMode === 'card' ? 'card-events-container' : 'detailed-events-container'}>
             {renderEventItems()}
           </div>
         )}

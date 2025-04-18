@@ -10,34 +10,33 @@ exports.getStats = async (req, res) => {
     const usersCount = await User.countDocuments();
     const organizersCount = await User.countDocuments({ role: 'organizer' });
     const newUsersCount = await User.countDocuments({
-      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     });
-    
+
     // Get event statistics
     const eventsCount = await Event.countDocuments();
-    const upcomingEvents = await Event.countDocuments({ 
-      startDate: { $gt: new Date() } 
+    const upcomingEvents = await Event.countDocuments({
+      startDate: { $gt: new Date() },
     });
-    const ongoingEvents = await Event.countDocuments({ 
+    const ongoingEvents = await Event.countDocuments({
       startDate: { $lte: new Date() },
-      endDate: { $gte: new Date() }
+      endDate: { $gte: new Date() },
     });
 
     // Calculate user growth (comparing to previous month)
     const lastMonthCount = await User.countDocuments({
-      createdAt: { $lte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+      createdAt: { $lte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     });
-    
-    const growth = lastMonthCount === 0 ? 100 : 
-      Math.round(((usersCount - lastMonthCount) / lastMonthCount) * 100);
-    
+
+    const growth = lastMonthCount === 0 ? 100 : Math.round(((usersCount - lastMonthCount) / lastMonthCount) * 100);
+
     // Simple task stats for now (can expand later)
     const taskStats = {
-      completed: 45,  // Placeholder values
+      completed: 45, // Placeholder values
       pending: 23,
       overdue: 7,
       total: 75,
-      completionRate: 60
+      completionRate: 60,
     };
 
     res.status(200).json({
@@ -45,15 +44,15 @@ exports.getStats = async (req, res) => {
         total: eventsCount,
         upcoming: upcomingEvents,
         ongoing: ongoingEvents,
-        percentage: eventsCount ? Math.round((upcomingEvents / eventsCount) * 100) : 0
+        percentage: eventsCount ? Math.round((upcomingEvents / eventsCount) * 100) : 0,
       },
       tasks: taskStats,
       users: {
         total: usersCount,
         organizers: organizersCount,
         new: newUsersCount,
-        growth
-      }
+        growth,
+      },
     });
   } catch (error) {
     console.error('Error getting stats:', error);
@@ -68,25 +67,25 @@ exports.getLoginActivity = async (req, res) => {
     const activity = [];
     for (let i = 29; i >= 0; i--) {
       const date = moment().subtract(i, 'days').format('YYYY-MM-DD');
-      
+
       // Get login count for this date
       const startOfDay = new Date(date);
       const endOfDay = new Date(date);
       endOfDay.setDate(endOfDay.getDate() + 1);
-      
+
       const count = await User.countDocuments({
-        lastLogin: { 
-          $gte: startOfDay, 
-          $lt: endOfDay 
-        }
+        lastLogin: {
+          $gte: startOfDay,
+          $lt: endOfDay,
+        },
       });
-      
+
       activity.push({
         date,
-        count
+        count,
       });
     }
-    
+
     res.status(200).json({ activity });
   } catch (error) {
     console.error('Error getting login activity:', error);
@@ -98,13 +97,13 @@ exports.getLoginActivity = async (req, res) => {
 exports.getActiveUsers = async (req, res) => {
   try {
     const activeTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     const users = await User.find({
-      lastLogin: { $gte: activeTime }
+      lastLogin: { $gte: activeTime },
     })
-    .sort({ lastLogin: -1 })
-    .limit(10);
-    
+      .sort({ lastLogin: -1 })
+      .limit(10);
+
     res.status(200).json({ users });
   } catch (error) {
     console.error('Error getting active users:', error);

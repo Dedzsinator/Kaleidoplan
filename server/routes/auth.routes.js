@@ -19,32 +19,35 @@ if (typeof authController.googleCallback !== 'function') {
 }
 
 // The issue is with one of these routes - implement missing controller methods
-router.post('/login', 
-  typeof authController.login === 'function' 
-    ? authController.login 
-    : (req, res) => res.status(501).json({ error: 'Not implemented' })
+router.post(
+  '/login',
+  typeof authController.login === 'function'
+    ? authController.login
+    : (req, res) => res.status(501).json({ error: 'Not implemented' }),
 );
 
-router.post('/logout', 
-  typeof authController.logout === 'function' 
-    ? authController.logout 
-    : (req, res) => res.status(501).json({ error: 'Not implemented' })
+router.post(
+  '/logout',
+  typeof authController.logout === 'function'
+    ? authController.logout
+    : (req, res) => res.status(501).json({ error: 'Not implemented' }),
 );
 
-router.post('/google-auth', 
-  typeof authController.googleCallback === 'function' 
-    ? authController.googleCallback 
-    : (req, res) => res.status(501).json({ error: 'Not implemented' })
+router.post(
+  '/google-auth',
+  typeof authController.googleCallback === 'function'
+    ? authController.googleCallback
+    : (req, res) => res.status(501).json({ error: 'Not implemented' }),
 );
 
 // This is already correct
 router.post('/verify-token', authenticateFirebaseToken, (req, res) => {
-  res.status(200).json({ 
-    valid: true, 
-    user: { 
+  res.status(200).json({
+    valid: true,
+    user: {
       uid: req.user.uid,
-      email: req.user.email
-    } 
+      email: req.user.email,
+    },
   });
 });
 
@@ -52,16 +55,18 @@ router.post('/verify-token', authenticateFirebaseToken, (req, res) => {
 router.use(authenticateFirebaseToken);
 
 // User profile management - check if these methods exist too
-router.post('/profile', 
-  typeof authController.createUserProfile === 'function' 
-    ? authController.createUserProfile 
-    : (req, res) => res.status(501).json({ error: 'Not implemented' })
+router.post(
+  '/profile',
+  typeof authController.createUserProfile === 'function'
+    ? authController.createUserProfile
+    : (req, res) => res.status(501).json({ error: 'Not implemented' }),
 );
 
-router.get('/profile', 
-  typeof authController.getUserProfile === 'function' 
-    ? authController.getUserProfile 
-    : (req, res) => res.status(501).json({ error: 'Not implemented' })
+router.get(
+  '/profile',
+  typeof authController.getUserProfile === 'function'
+    ? authController.getUserProfile
+    : (req, res) => res.status(501).json({ error: 'Not implemented' }),
 );
 
 module.exports = router;

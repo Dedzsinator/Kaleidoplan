@@ -4,27 +4,27 @@ const performerSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   bio: {
     type: String,
-    trim: true
+    trim: true,
   },
   image: String,
   website: String,
   socialMedia: {
     twitter: String,
     instagram: String,
-    facebook: String
+    facebook: String,
   },
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   updatedAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 const Performer = mongoose.model('Performer', performerSchema);

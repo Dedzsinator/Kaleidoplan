@@ -1,34 +1,37 @@
 // Event-Sponsor relationship model
 const mongoose = require('mongoose');
 
-const eventSponsorSchema = new mongoose.Schema({
-  eventId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Event',
-    required: true 
+const eventSponsorSchema = new mongoose.Schema(
+  {
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Event',
+      required: true,
+    },
+    sponsorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Sponsor',
+      required: true,
+    },
+    sponsorshipLevel: {
+      type: String,
+      enum: ['platinum', 'gold', 'silver', 'bronze', 'partner'],
+      default: 'partner',
+    },
+    sponsorshipAmount: {
+      type: Number,
+      default: 0,
+    },
+    featured: {
+      type: Boolean,
+      default: false,
+    },
+    notes: String,
   },
-  sponsorId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Sponsor',
-    required: true 
+  {
+    timestamps: true,
   },
-  sponsorshipLevel: {
-    type: String,
-    enum: ['platinum', 'gold', 'silver', 'bronze', 'partner'],
-    default: 'partner'
-  },
-  sponsorshipAmount: {
-    type: Number,
-    default: 0
-  },
-  featured: {
-    type: Boolean,
-    default: false
-  },
-  notes: String
-}, { 
-  timestamps: true
-});
+);
 
 // Create index for faster queries
 eventSponsorSchema.index({ eventId: 1, sponsorId: 1 }, { unique: true });

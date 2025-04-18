@@ -52,19 +52,22 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Memoize the region to prevent unnecessary re-renders
-  const memoizedRegion = useMemo(() => ({
-    latitude: region.latitude,
-    longitude: region.longitude,
-    latitudeDelta: region.latitudeDelta || 0.01,
-    longitudeDelta: region.longitudeDelta || 0.01
-  }), [region.latitude, region.longitude, region.latitudeDelta, region.longitudeDelta]);
+  const memoizedRegion = useMemo(
+    () => ({
+      latitude: region.latitude,
+      longitude: region.longitude,
+      latitudeDelta: region.latitudeDelta || 0.01,
+      longitudeDelta: region.longitudeDelta || 0.01,
+    }),
+    [region.latitude, region.longitude, region.latitudeDelta, region.longitudeDelta],
+  );
 
   // Update markers without recreating the map
   const updateMarkers = useCallback(() => {
     if (!mapInstanceRef.current) return;
 
     // First clear existing markers
-    markersRef.current.forEach(marker => {
+    markersRef.current.forEach((marker) => {
       mapInstanceRef.current?.removeLayer(marker);
     });
     markersRef.current = [];
@@ -72,10 +75,7 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
     // Then add new markers
     if (markers.length > 0) {
       markers.forEach((marker) => {
-        if (
-          isNaN(marker.coordinate.latitude) ||
-          isNaN(marker.coordinate.longitude)
-        ) return;
+        if (isNaN(marker.coordinate.latitude) || isNaN(marker.coordinate.longitude)) return;
 
         const m = L.marker([marker.coordinate.latitude, marker.coordinate.longitude]);
 
@@ -93,8 +93,7 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
       });
     } else {
       // Add default marker at center
-      const m = L.marker([memoizedRegion.latitude, memoizedRegion.longitude])
-        .bindPopup('Event location');
+      const m = L.marker([memoizedRegion.latitude, memoizedRegion.longitude]).bindPopup('Event location');
 
       m.addTo(mapInstanceRef.current);
       markersRef.current.push(m);
@@ -117,9 +116,7 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
     const initTimer = setTimeout(() => {
       try {
         // Calculate zoom level
-        const zoom = memoizedRegion.latitudeDelta
-          ? getZoomLevel(memoizedRegion.latitudeDelta)
-          : 13;
+        const zoom = memoizedRegion.latitudeDelta ? getZoomLevel(memoizedRegion.latitudeDelta) : 13;
 
         // Create map
         const map = L.map(mapContainer, {
@@ -128,13 +125,13 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
           scrollWheelZoom: true,
           dragging: true,
           doubleClickZoom: true,
-          zoomControl: true
+          zoomControl: true,
         });
 
         // Add tile layer (stable OpenStreetMap CDN)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxZoom: 19
+          maxZoom: 19,
         }).addTo(map);
 
         // Add scale
@@ -175,9 +172,7 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
     if (!mapInstanceRef.current || !isLoaded) return;
 
     // Only update the view, don't recreate the map
-    mapInstanceRef.current.setView(
-      [memoizedRegion.latitude, memoizedRegion.longitude]
-    );
+    mapInstanceRef.current.setView([memoizedRegion.latitude, memoizedRegion.longitude]);
   }, [memoizedRegion.latitude, memoizedRegion.longitude, isLoaded]);
 
   // Update markers when they change
@@ -202,11 +197,13 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
 // Main export - simplified to avoid unnecessary complexity
 const Map: React.FC<MapProps> = (props) => {
   // Basic validation
-  if (!props.region ||
+  if (
+    !props.region ||
     typeof props.region.latitude !== 'number' ||
     typeof props.region.longitude !== 'number' ||
     isNaN(props.region.latitude) ||
-    isNaN(props.region.longitude)) {
+    isNaN(props.region.longitude)
+  ) {
     return (
       <div className="map-error" style={props.style}>
         <p>Invalid map coordinates</p>

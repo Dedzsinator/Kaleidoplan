@@ -22,7 +22,7 @@ const LoginScreen = () => {
     setTimeout(() => setIsAnimated(true), 100);
   }, []);
 
-  interface LoginFormEvent extends React.FormEvent<HTMLFormElement> { }
+  interface LoginFormEvent extends React.FormEvent<HTMLFormElement> {}
 
   const handleLogin = async (e: LoginFormEvent): Promise<void> => {
     e.preventDefault();
@@ -85,11 +85,7 @@ const LoginScreen = () => {
 
       <div className={`auth-card-container ${isAnimated ? 'animated' : ''}`}>
         <div className="auth-card">
-          <img
-            src={require('../assets/images/favicon.jpg')}
-            alt="Logo"
-            className="auth-logo"
-          />
+          <img src={require('../assets/images/favicon.jpg')} alt="Logo" className="auth-logo" />
 
           <h2 className="auth-title">Welcome Back</h2>
 
@@ -97,7 +93,9 @@ const LoginScreen = () => {
 
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label htmlFor="email" className="form-label">Email</label>
+              <label htmlFor="email" className="form-label">
+                Email
+              </label>
               <input
                 id="email"
                 type="email"
@@ -110,7 +108,9 @@ const LoginScreen = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="password" className="form-label">Password</label>
+              <label htmlFor="password" className="form-label">
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
@@ -122,19 +122,13 @@ const LoginScreen = () => {
             </div>
 
             <div className="forgot-password">
-              <a href="#" onClick={() => navigate('/reset-password')}>Forgot password?</a>
+              <a href="#" onClick={() => navigate('/reset-password')}>
+                Forgot password?
+              </a>
             </div>
 
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="button-spinner"></div>
-              ) : (
-                <span>Let's Go!</span>
-              )}
+            <button type="submit" className="primary-button" disabled={isLoading}>
+              {isLoading ? <div className="button-spinner"></div> : <span>Let's Go!</span>}
             </button>
           </form>
 
@@ -142,11 +136,7 @@ const LoginScreen = () => {
             <span>OR</span>
           </div>
 
-          <button
-            onClick={handleGoogleLogin}
-            className="social-button"
-            disabled={isGoogleLoading}
-          >
+          <button onClick={handleGoogleLogin} className="social-button" disabled={isGoogleLoading}>
             {isGoogleLoading ? (
               <div className="button-spinner dark"></div>
             ) : (
@@ -177,12 +167,12 @@ const LoginScreen = () => {
           <div className="auth-footer">
             <p>
               Don't have an account?
-              <a href="#" onClick={() => navigate('/register')}> Sign Up</a>
+              <a href="#" onClick={() => navigate('/register')}>
+                {' '}
+                Sign Up
+              </a>
             </p>
-            <button
-              className="guest-button"
-              onClick={() => navigate('/guest')}
-            >
+            <button className="guest-button" onClick={() => navigate('/guest')}>
               I don't want to create an account
             </button>
           </div>

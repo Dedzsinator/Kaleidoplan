@@ -26,7 +26,7 @@ const registerSchema = Yup.object().shape({
     .required('Password is required'),
   confirmPassword: Yup.string()
     .oneOf([Yup.ref('password'), undefined], 'Passwords must match')
-    .required('Please confirm your password')
+    .required('Please confirm your password'),
 });
 
 const RegisterScreen = () => {
@@ -50,13 +50,17 @@ const RegisterScreen = () => {
   const validateField = async (field: string, value: string) => {
     try {
       await registerSchema.validateAt(field, {
-        name, email, password, confirmPassword, [field]: value
+        name,
+        email,
+        password,
+        confirmPassword,
+        [field]: value,
       });
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     } catch (errorObj) {
       // Don't explicitly type as unknown, but extract message safely
       const errorMessage = errorObj instanceof Error ? errorObj.message : `Invalid ${field}`;
-      setErrors(prev => ({ ...prev, [field]: errorMessage }));
+      setErrors((prev) => ({ ...prev, [field]: errorMessage }));
     }
   };
 
@@ -64,10 +68,7 @@ const RegisterScreen = () => {
     e.preventDefault();
 
     try {
-      await registerSchema.validate(
-        { name, email, password, confirmPassword },
-        { abortEarly: false }
-      );
+      await registerSchema.validate({ name, email, password, confirmPassword }, { abortEarly: false });
 
       setIsLoading(true);
       await register(email, password, name);
@@ -76,7 +77,7 @@ const RegisterScreen = () => {
     } catch (errorObj) {
       if (errorObj instanceof Yup.ValidationError) {
         const validationErrors: FormErrors = {};
-        errorObj.inner.forEach(err => {
+        errorObj.inner.forEach((err) => {
           if (err.path) {
             validationErrors[err.path as keyof FormErrors] = err.message;
           }
@@ -84,9 +85,7 @@ const RegisterScreen = () => {
         setErrors(validationErrors);
       } else {
         // Simplify error handling
-        const errorMessage = errorObj instanceof Error
-          ? errorObj.message
-          : 'An unknown error occurred';
+        const errorMessage = errorObj instanceof Error ? errorObj.message : 'An unknown error occurred';
 
         console.log('Registration error:', errorObj);
         setErrors({ form: errorMessage || 'Could not create your account. Please try again.' });
@@ -105,11 +104,7 @@ const RegisterScreen = () => {
 
       <div className={`auth-card-container ${isAnimated ? 'animated' : ''}`}>
         <div className="auth-card">
-          <img
-            src={require('../assets/images/favicon.jpg')}
-            alt="Logo"
-            className="auth-logo"
-          />
+          <img src={require('../assets/images/favicon.jpg')} alt="Logo" className="auth-logo" />
 
           <h2 className="auth-title">Join The Festival</h2>
           <p className="auth-subtitle">Create your account</p>
@@ -118,7 +113,9 @@ const RegisterScreen = () => {
 
           <form onSubmit={handleRegister}>
             <div className="form-group">
-              <label htmlFor="name" className="form-label">Full Name</label>
+              <label htmlFor="name" className="form-label">
+                Full Name
+              </label>
               <input
                 id="name"
                 type="text"
@@ -135,7 +132,9 @@ const RegisterScreen = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="email" className="form-label">Email</label>
+              <label htmlFor="email" className="form-label">
+                Email
+              </label>
               <input
                 id="email"
                 type="email"
@@ -152,7 +151,9 @@ const RegisterScreen = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="password" className="form-label">Password</label>
+              <label htmlFor="password" className="form-label">
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
@@ -171,7 +172,9 @@ const RegisterScreen = () => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="confirmPassword" className="form-label">Confirm Password</label>
+              <label htmlFor="confirmPassword" className="form-label">
+                Confirm Password
+              </label>
               <input
                 id="confirmPassword"
                 type="password"
@@ -186,35 +189,28 @@ const RegisterScreen = () => {
               {errors.confirmPassword && <p className="field-error">{errors.confirmPassword}</p>}
             </div>
 
-            <p className="policy-text">
-              By joining, you're agreeing to our Terms of Service and Privacy Policy
-            </p>
+            <p className="policy-text">By joining, you're agreeing to our Terms of Service and Privacy Policy</p>
 
-            <button
-              type="submit"
-              className="primary-button"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="button-spinner"></div>
-              ) : (
-                <span>Join The Festival</span>
-              )}
+            <button type="submit" className="primary-button" disabled={isLoading}>
+              {isLoading ? <div className="button-spinner"></div> : <span>Join The Festival</span>}
             </button>
           </form>
 
           <div className="auth-footer">
             <p>
               Already have an account?
-              <a href="#" onClick={(e) => {
-                e.preventDefault();
-                navigate('/login');
-              }}> Sign In</a>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate('/login');
+                }}
+              >
+                {' '}
+                Sign In
+              </a>
             </p>
-            <button
-              className="guest-button"
-              onClick={() => navigate('/guest')}
-            >
+            <button className="guest-button" onClick={() => navigate('/guest')}>
               Continue without an account
             </button>
           </div>

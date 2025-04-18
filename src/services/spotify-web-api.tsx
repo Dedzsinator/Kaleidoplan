@@ -7,12 +7,7 @@ console.log('Spotify client ID available:', !!CLIENT_ID);
 
 const REDIRECT_URI = 'http://localhost:3000/callback';
 
-const SCOPES = [
-  'user-read-private',
-  'user-read-email',
-  'streaming',
-  'user-modify-playback-state'
-];
+const SCOPES = ['user-read-private', 'user-read-email', 'streaming', 'user-modify-playback-state'];
 
 // Helper function for base64 encoding
 function base64Encode(str: string): string {
@@ -36,7 +31,7 @@ const TokenStorage = {
       console.error('Storage error:', e);
       return null;
     }
-  }
+  },
 };
 
 interface SpotifyTrack {
@@ -77,7 +72,7 @@ class SpotifyService {
     } catch (error) {
       console.error('Error loading Spotify tokens:', error);
     }
-  }
+  };
 
   saveTokens = async (): Promise<void> => {
     try {
@@ -91,7 +86,7 @@ class SpotifyService {
     } catch (error) {
       console.error('Error saving Spotify tokens:', error);
     }
-  }
+  };
 
   authenticate = async (): Promise<string | null> => {
     try {
@@ -131,26 +126,22 @@ class SpotifyService {
       console.error('Spotify authentication failed:', error);
       throw error;
     }
-  }
+  };
 
   getClientCredentialsToken = async (): Promise<string | null> => {
     try {
       // For web, we'll need to encode manually or use btoa
       const auth = base64Encode(`${CLIENT_ID}:${CLIENT_SECRET}`);
 
-      const response = await axios.post(
-        'https://accounts.spotify.com/api/token',
-        'grant_type=client_credentials',
-        {
-          headers: {
-            'Authorization': `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          }
-        }
-      );
+      const response = await axios.post('https://accounts.spotify.com/api/token', 'grant_type=client_credentials', {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
       this.accessToken = response.data.access_token;
-      this.expiresAt = Date.now() + (response.data.expires_in * 1000);
+      this.expiresAt = Date.now() + response.data.expires_in * 1000;
       await this.saveTokens();
 
       return this.accessToken;
@@ -158,7 +149,7 @@ class SpotifyService {
       console.error('Error getting client credentials token:', error);
       return null;
     }
-  }
+  };
 
   refreshAccessToken = async (): Promise<boolean> => {
     try {
@@ -171,14 +162,14 @@ class SpotifyService {
         `grant_type=refresh_token&refresh_token=${this.refreshToken}`,
         {
           headers: {
-            'Authorization': `Basic ${auth}`,
+            Authorization: `Basic ${auth}`,
             'Content-Type': 'application/x-www-form-urlencoded',
-          }
-        }
+          },
+        },
       );
 
       this.accessToken = response.data.access_token;
-      this.expiresAt = Date.now() + (response.data.expires_in * 1000);
+      this.expiresAt = Date.now() + response.data.expires_in * 1000;
 
       if (response.data.refresh_token) {
         this.refreshToken = response.data.refresh_token;
@@ -190,7 +181,7 @@ class SpotifyService {
       console.error('Error refreshing token:', error);
       return false;
     }
-  }
+  };
 
   getTrack = async (trackId: string): Promise<SpotifyTrack | null> => {
     if (!trackId) return null;
@@ -198,14 +189,14 @@ class SpotifyService {
 
     try {
       const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+        headers: { Authorization: `Bearer ${this.accessToken}` },
       });
       return response.data;
     } catch (error) {
       console.error(`Error fetching track ${trackId}:`, error);
       return null;
     }
-  }
+  };
 
   searchTracks = async (query: string, limit = 10) => {
     await this.authenticate();
@@ -213,29 +204,29 @@ class SpotifyService {
     try {
       const response = await axios.get(
         `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+        { headers: { Authorization: `Bearer ${this.accessToken}` } },
       );
       return response.data;
     } catch (error) {
       console.error('Error searching tracks:', error);
       return null;
     }
-  }
+  };
 
   // Add this general-purpose GET method for Spotify API endpoints
-  get = async <T = any>(endpoint: string): Promise<T | null> => {
+  get = async <T = any,>(endpoint: string): Promise<T | null> => {
     await this.authenticate();
 
     try {
       const response = await axios.get<T>(`https://api.spotify.com/v1/${endpoint}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }
+        headers: { Authorization: `Bearer ${this.accessToken}` },
       });
       return response.data;
     } catch (error) {
       console.error(`Error fetching ${endpoint}:`, error);
       return null;
     }
-  }
+  };
 
   // Then make sure the playTrack method uses it properly
   playTrack = async (trackId: string): Promise<string | null> => {
@@ -263,7 +254,7 @@ class SpotifyService {
 
             // Find an alternative track with preview_url
             if (albumTracks && albumTracks.items) {
-              const trackWithPreview = albumTracks.items.find(track => track.preview_url);
+              const trackWithPreview = albumTracks.items.find((track) => track.preview_url);
               if (trackWithPreview) {
                 console.log(`Found alternative preview from same album: ${trackWithPreview.name}`);
                 return trackWithPreview.preview_url;
@@ -283,52 +274,50 @@ class SpotifyService {
       console.error('Error playing track:', error);
       return null;
     }
-  }
+  };
 
   pausePlayback = async (): Promise<boolean> => {
     // This would normally use the Spotify API to pause,
-    // but since we're using the Audio API for previews, 
+    // but since we're using the Audio API for previews,
     // this is handled in the playlistService
     return true;
-  }
+  };
 
   resumePlayback = async (): Promise<boolean> => {
     // This would normally use the Spotify API to resume,
-    // but since we're using the Audio API for previews, 
+    // but since we're using the Audio API for previews,
     // this is handled in the playlistService
     return true;
-  }
+  };
 
   searchArtists = async (query: string) => {
     await this.authenticate();
 
     try {
-      const response = await axios.get(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist`,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
-      );
+      const response = await axios.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist`, {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
       return response.data;
     } catch (error) {
       console.error('Error searching artists:', error);
       return null;
     }
-  }
+  };
 
   getArtistTopTracks = async (artistId: string | undefined) => {
     if (!artistId) return null;
     await this.authenticate();
 
     try {
-      const response = await axios.get(
-        `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
-      );
+      const response = await axios.get(`https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`, {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching artist top tracks:', error);
       return null;
     }
-  }
+  };
 }
 
 const spotifyService = new SpotifyService();

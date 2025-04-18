@@ -4,7 +4,7 @@ const authMiddleware = require('../middleware/auth');
 const eventsController = require('../controllers/events.controller');
 
 // Protected routes (require authentication)
-router.use(authMiddleware.verifyToken);  // Use verifyToken instead of authenticateFirebaseToken
+router.use(authMiddleware.verifyToken); // Use verifyToken instead of authenticateFirebaseToken
 router.get('/', eventsController.getAllEvents);
 router.get('/:id', eventsController.getEventById);
 router.post('/', authMiddleware.requireOrganizerOrAdmin, eventsController.createEvent);

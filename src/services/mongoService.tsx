@@ -43,7 +43,7 @@ const storage = {
     } catch (e) {
       console.warn('Storage removeItem error:', e);
     }
-  }
+  },
 };
 
 // Set auth token if available
@@ -91,7 +91,7 @@ export const mongoApi = {
         console.error(`Error fetching public event ${eventId}:`, error);
         throw error;
       }
-    }
+    },
   },
 
   // Tasks
@@ -179,7 +179,7 @@ export const mongoApi = {
         throw error; // Throw the original error
       }
     }
-  }
+  },
 };
 
 export const testConnection = async () => {

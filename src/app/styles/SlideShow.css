@@ -1,82 +1,90 @@
 .slideshow-container {
-    width: 100%;
-    border-radius: 16px;
-    overflow: hidden;
-    position: relative;
-    margin: 16px 0;
-    background-color: rgba(0, 0, 0, 0.2);
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  margin: 16px 0;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.slide {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+.slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gradient-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
+}
+
+.dots-container {
+  position: absolute;
+  bottom: 16px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.5);
+  margin: 0 4px;
+  cursor: pointer;
+}
+
+.dot.active {
+  background-color: #fff;
+}
+
+.placeholder-text {
+  color: #fff;
+  opacity: 0.7;
+  font-size: 14px;
+  text-align: center;
+  width: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+}
+
+.fade-in {
+  animation: fadeIn 1s ease forwards;
+}
+
+.fade-out {
+  animation: fadeOut 1s ease forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-  
-  .slide {
-    height: 100%;
-    width: 100%;
-    position: relative;
+  to {
+    opacity: 1;
   }
-  
-  .slide-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
   }
-  
-  .gradient-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.6));
+  to {
+    opacity: 0;
   }
-  
-  .dots-container {
-    position: absolute;
-    bottom: 16px;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    z-index: 10;
-  }
-  
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.5);
-    margin: 0 4px;
-    cursor: pointer;
-  }
-  
-  .dot.active {
-    background-color: #fff;
-  }
-  
-  .placeholder-text {
-    color: #fff;
-    opacity: 0.7;
-    font-size: 14px;
-    text-align: center;
-    width: 100%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    margin: 0;
-  }
-  
-  .fade-in {
-    animation: fadeIn 1s ease forwards;
-  }
-  
-  .fade-out {
-    animation: fadeOut 1s ease forwards;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
-  @keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
+}

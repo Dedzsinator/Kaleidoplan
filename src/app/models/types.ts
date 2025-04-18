@@ -16,7 +16,7 @@ export function adaptFirebaseUser(firebaseUser: FirebaseUser, role: string = 'us
     email: firebaseUser.email,
     displayName: firebaseUser.displayName,
     photoURL: firebaseUser.photoURL,
-    role: role
+    role: role,
   };
 }
 
@@ -67,7 +67,7 @@ export interface Playlist {
 
 export interface Performer {
   _id: string;
-  id?: string;  // For compatibility
+  id?: string; // For compatibility
   name: string;
   bio: string;
   image: string;
@@ -79,10 +79,10 @@ export interface Track {
   name: string;
   artist: string;
   spotifyId: string;
-  previewUrl?: string;         // From Spotify API
+  previewUrl?: string; // From Spotify API
   fallbackPreviewUrl?: string; // Your own hosted audio file
-  localAudioPath?: string;     // For offline playback
-  albumArt?: string;         // From Spotify API
+  localAudioPath?: string; // For offline playback
+  albumArt?: string; // From Spotify API
 }
 
 export interface error {
@@ -96,21 +96,22 @@ export interface Event {
   name: string;
   description?: string;
   startDate: string | Date; // Remove optional since it's used without checks
-  endDate: string | Date;   // Remove optional since it's used without checks
+  endDate: string | Date; // Remove optional since it's used without checks
   date?: string | Date;
   color: string;
-  location: string;         // Remove optional since it's used without checks
+  location?: string; // Remove optional since it's used without checks
   coverImageUrl?: string;
   slideshowImages?: string[];
   playlistId?: string;
   createdBy?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
-  status: string;           // Remove optional since it's used without checks
+  status: string; // Remove optional since it's used without checks
   themeColor?: string;
   performers?: Performer[];
   latitude?: number;
   longitude?: number;
   latitudeDelta?: number;
   longitudeDelta?: number;
+  [key: string]: any;
 }

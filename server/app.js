@@ -38,14 +38,7 @@ const corsOptions = {
   origin: ['http://localhost:3001', 'http://localhost:3000', process.env.CORS_ORIGIN].filter(Boolean),
   credentials: true, // Important for cookies
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Cache-Control',
-    'Pragma',
-    'Expires'
-  ]
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma', 'Expires'],
 };
 
 app.use(cors(corsOptions));
@@ -79,10 +72,10 @@ app.use('/api/user', userRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'UP', 
+  res.status(200).json({
+    status: 'UP',
     timestamp: new Date(),
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 

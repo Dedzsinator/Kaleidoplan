@@ -8,21 +8,19 @@ const { SPOTIFY_CONFIG, SPOTIFY_ENDPOINTS } = require('../config/spotify');
  */
 const getAuthToken = async () => {
   try {
-    const authHeader = `Basic ${base64Encode(
-      `${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`
-    )}`;
+    const authHeader = `Basic ${base64Encode(`${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`)}`;
 
     const response = await axios.post(
       SPOTIFY_ENDPOINTS.token,
       new URLSearchParams({
-        grant_type: 'client_credentials'
+        grant_type: 'client_credentials',
       }).toString(),
       {
         headers: {
           Authorization: authHeader,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      },
     );
 
     return response.data;
@@ -37,23 +35,21 @@ const getAuthToken = async () => {
  */
 const getTokenFromCode = async (code, redirectUri) => {
   try {
-    const authHeader = `Basic ${base64Encode(
-      `${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`
-    )}`;
+    const authHeader = `Basic ${base64Encode(`${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`)}`;
 
     const response = await axios.post(
       SPOTIFY_ENDPOINTS.token,
       new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri
+        redirect_uri: redirectUri,
       }).toString(),
       {
         headers: {
           Authorization: authHeader,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      },
     );
 
     return response.data;
@@ -68,22 +64,20 @@ const getTokenFromCode = async (code, redirectUri) => {
  */
 const refreshToken = async (refreshToken) => {
   try {
-    const authHeader = `Basic ${base64Encode(
-      `${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`
-    )}`;
+    const authHeader = `Basic ${base64Encode(`${SPOTIFY_CONFIG.clientId}:${SPOTIFY_CONFIG.clientSecret}`)}`;
 
     const response = await axios.post(
       SPOTIFY_ENDPOINTS.token,
       new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: refreshToken
+        refresh_token: refreshToken,
       }).toString(),
       {
         headers: {
           Authorization: authHeader,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      },
     );
 
     return response.data;
@@ -101,8 +95,8 @@ const createSpotifyClient = (accessToken) => {
     baseURL: SPOTIFY_ENDPOINTS.api,
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
+      'Content-Type': 'application/json',
+    },
   });
 };
 
@@ -116,7 +110,7 @@ const getAuthorizationUrl = (state) => {
     response_type: 'code',
     redirect_uri: SPOTIFY_CONFIG.redirectUri,
     scope: scopesStr,
-    state: state || Math.random().toString(36).substring(7)
+    state: state || Math.random().toString(36).substring(7),
   });
 
   return `${SPOTIFY_ENDPOINTS.authorize}?${queryParams.toString()}`;
@@ -127,5 +121,5 @@ module.exports = {
   getTokenFromCode,
   refreshToken,
   createSpotifyClient,
-  getAuthorizationUrl
+  getAuthorizationUrl,
 };

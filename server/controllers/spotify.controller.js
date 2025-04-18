@@ -7,28 +7,29 @@ const spotifyApi = axios.create({
   baseURL: 'https://api.spotify.com/v1',
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
 // Get access token for Spotify API
 const getSpotifyAccessToken = async () => {
   try {
     // For demo purposes - in production, use proper OAuth flow with refresh tokens
-    const response = await axios.post('https://accounts.spotify.com/api/token', 
+    const response = await axios.post(
+      'https://accounts.spotify.com/api/token',
       new URLSearchParams({
-        grant_type: 'client_credentials'
+        grant_type: 'client_credentials',
       }).toString(),
       {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${Buffer.from(
-            `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
-          ).toString('base64')}`
-        }
-      }
+          Authorization: `Basic ${Buffer.from(
+            `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`,
+          ).toString('base64')}`,
+        },
+      },
     );
-    
+
     return response.data.access_token;
   } catch (error) {
     console.error('Error getting Spotify access token:', error);
@@ -40,24 +41,24 @@ const getSpotifyAccessToken = async () => {
 exports.searchTracks = async (req, res, next) => {
   try {
     const { query, limit = 20 } = req.query;
-    
+
     if (!query) {
       return res.status(400).json({ error: 'Search query is required' });
     }
-    
+
     const accessToken = await getSpotifyAccessToken();
-    
+
     const response = await spotifyApi.get('/search', {
       params: {
         q: query,
         type: 'track',
-        limit
+        limit,
       },
       headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
-    
+
     res.status(200).json(response.data);
   } catch (error) {
     console.error('Spotify search error:', error);
@@ -69,11 +70,10 @@ exports.searchTracks = async (req, res, next) => {
 exports.getUserPlaylists = async (req, res, next) => {
   try {
     const { uid } = req.user;
-    
+
     // Get user's playlists from our database
-    const playlists = await SpotifyPlaylist.find({ userId: uid })
-      .sort({ createdAt: -1 });
-      
+    const playlists = await SpotifyPlaylist.find({ userId: uid }).sort({ createdAt: -1 });
+
     res.status(200).json(playlists);
   } catch (error) {
     next(error);
@@ -85,22 +85,22 @@ exports.createPlaylist = async (req, res, next) => {
   try {
     const { uid } = req.user;
     const { name, description, tracks } = req.body;
-    
+
     if (!name || !tracks || !Array.isArray(tracks)) {
       return res.status(400).json({ error: 'Name and tracks array are required' });
     }
-    
+
     // Create playlist in our database
     const playlist = new SpotifyPlaylist({
       userId: uid,
       name,
       description: description || '',
       tracks,
-      public: true
+      public: true,
     });
-    
+
     await playlist.save();
-    
+
     res.status(201).json(playlist);
   } catch (error) {
     next(error);
@@ -111,19 +111,19 @@ exports.createPlaylist = async (req, res, next) => {
 exports.getTrackDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     if (!id) {
       return res.status(400).json({ error: 'Track ID is required' });
     }
-    
+
     const accessToken = await getSpotifyAccessToken();
-    
+
     const response = await spotifyApi.get(`/tracks/${id}`, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
-    
+
     res.status(200).json(response.data);
   } catch (error) {
     next(error);

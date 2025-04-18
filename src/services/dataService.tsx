@@ -14,10 +14,10 @@ export async function getTasksByOrganizer(firebaseUid: string): Promise<Task[]> 
 
 // Update task status
 export async function updateTaskStatus(
-  taskId: string, 
+  taskId: string,
   newStatus: 'pending' | 'in-progress' | 'completed',
   firebaseUid: string,
-  comment?: string
+  comment?: string,
 ): Promise<void> {
   try {
     return await taskApi.updateTaskStatus(taskId, newStatus, firebaseUid, comment);

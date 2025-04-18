@@ -1,6 +1,6 @@
 // /config/firebaseConfig.js
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { initializeApp } from 'firebase/app';
+import { getAnalytics } from 'firebase/analytics';
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,

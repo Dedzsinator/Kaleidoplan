@@ -1,0 +1,121 @@
+stages:
+  - format
+  - validate
+  - test
+  - version
+  - build
+  - deploy
+
+variables:
+  NODE_VERSION: "18"
+
+# Cache modules in between jobs
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - node_modules/
+
+format:
+  stage: format
+  image: node:${NODE_VERSION}
+  script:
+    - npm ci
+    - npx prettier --write "**/*.{js,jsx,ts,tsx,json,md,css,html}"
+    - |
+      if [[ -n "$(git status --porcelain)" ]]; then
+        git config --global user.email "gitlab-ci@example.com"
+        git config --global user.name "GitLab CI"
+        git add -A
+        git commit -m "style: auto-format code with Prettier"
+        git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:${CI_COMMIT_REF_NAME}
+      else
+        echo "No formatting changes detected."
+      fi
+  only:
+    - main
+    - develop
+    - /^feature\/.*$/
+    - /^release\/.*$/
+
+validate:
+  stage: validate
+  image: node:${NODE_VERSION}
+  script:
+    - npm ci
+    - npx eslint . --ext .js,.jsx,.ts,.tsx --fix
+    - npm install -g html-validate
+    - html-validate --fix "**/*.html"
+    - npx tsc --noEmit
+    - |
+      if [[ -n "$(git status --porcelain)" ]]; then
+        git config --global user.email "gitlab-ci@example.com"
+        git config --global user.name "GitLab CI"
+        git add -A
+        git commit -m "fix: auto-fix validation issues"
+        git push "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:${CI_COMMIT_REF_NAME}
+      else
+        echo "No validation fixes needed."
+      fi
+  only:
+    - main
+    - develop
+    - /^feature\/.*$/
+    - /^release\/.*$/
+
+test:
+  stage: test
+  image: node:${NODE_VERSION}
+  script:
+    - npm ci
+    - npm test -- --ci --coverage
+  artifacts:
+    paths:
+      - coverage/
+    reports:
+      junit: junit.xml
+
+version-and-changelog:
+  stage: version
+  image: node:${NODE_VERSION}
+  script:
+    - npm ci
+    - npm install -g standard-version conventional-changelog-cli
+    - |
+      git config --global user.email "gitlab-ci@example.com"
+      git config --global user.name "GitLab CI"
+      
+      if [[ "${CI_COMMIT_REF_NAME}" == "main" ]]; then
+        npx standard-version
+      else
+        npx standard-version --prerelease
+      fi
+      
+      npx conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+      
+      git add CHANGELOG.md package.json
+      git commit --amend --no-edit
+      git push --follow-tags "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" HEAD:${CI_COMMIT_REF_NAME}
+  only:
+    - main
+    - develop
+
+build:
+  stage: build
+  image: node:${NODE_VERSION}
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: node:${NODE_VERSION}
+  script:
+    - echo "Deployment would happen here"
+  only:
+    - main
+  when: manual

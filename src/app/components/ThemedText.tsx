@@ -9,14 +9,7 @@ export type ThemedTextProps = React.HTMLAttributes<HTMLSpanElement> & {
   children?: React.ReactNode;
 };
 
-export function ThemedText({
-  style,
-  lightColor,
-  darkColor,
-  type = 'default',
-  children,
-  ...rest
-}: ThemedTextProps) {
+export function ThemedText({ style, lightColor, darkColor, type = 'default', children, ...rest }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
 
   const baseStyle: React.CSSProperties = {

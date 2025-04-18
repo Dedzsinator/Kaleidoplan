@@ -7,7 +7,7 @@
   aspect-ratio: 16 / 9;
   border-radius: 16px;
   overflow: hidden;
-  background-color: #1F2937;
+  background-color: #1f2937;
   margin-bottom: 24px;
 }
 
@@ -23,13 +23,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #1F2937;
+  background-color: #1f2937;
 }
 
 .event-placeholder-text {
   font-size: 80px;
   font-weight: 900;
-  color: rgba(255,255,255,0.1);
+  color: rgba(255, 255, 255, 0.1);
 }
 
 .event-content-container {
@@ -52,12 +52,12 @@
 
 .event-icon {
   font-size: 24px;
-  color: #A3A3A3;
+  color: #a3a3a3;
 }
 
 .event-meta-text {
   font-size: 18px;
-  color: #A3A3A3;
+  color: #a3a3a3;
   margin-left: 12px;
 }
 
@@ -83,7 +83,7 @@
 
 .event-description {
   font-size: 16px;
-  color: #D1D5DB;
+  color: #d1d5db;
   line-height: 24px;
   margin-top: 16px;
   margin-bottom: 24px;

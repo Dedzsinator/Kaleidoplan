@@ -1,8 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
-  getAuth, onAuthStateChanged, signOut, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, updateProfile, signInWithPopup,
-  GoogleAuthProvider, User as FirebaseUser
+  getAuth,
+  onAuthStateChanged,
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  User as FirebaseUser,
 } from 'firebase/auth';
 // Import the Firebase app instance
 import { auth } from '../config/firebase'; // Import the pre-initialized auth
@@ -84,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: userCredential.user.email || '',
         displayName: userCredential.user.displayName || undefined,
         photoURL: userCredential.user.photoURL || undefined,
-        role: role as UserRole
+        role: role as UserRole,
       };
 
       // Update state
@@ -121,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: result.user.email || '',
         displayName: result.user.displayName || undefined,
         photoURL: result.user.photoURL || undefined,
-        role: role as UserRole
+        role: role as UserRole,
       };
 
       setCurrentUser(userData);
@@ -143,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Update profile with display name
     await updateProfile(userCredential.user, {
-      displayName: displayName
+      displayName: displayName,
     });
 
     // User data will be set by the auth state listener
@@ -192,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: fbUser.email || '',
             displayName: fbUser.displayName || undefined,
             photoURL: fbUser.photoURL || undefined,
-            role: role as UserRole
+            role: role as UserRole,
           });
 
           setIsAuthenticated(true);
@@ -233,14 +239,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     refreshUserData,
-    refreshUserToken // Add the new method
+    refreshUserToken, // Add the new method
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextType {

@@ -11,13 +11,14 @@ import '../styles/Guest.css';
 import { Event } from '../models/types';
 
 // Constants
-const DEFAULT_IMAGE_URL = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
+const DEFAULT_IMAGE_URL =
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
 const HEADER_OFFSET = 100;
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1080&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=1080&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1080&auto=format&fit=crop'
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=1080&auto=format&fit=crop',
 ];
 
 // View modes
@@ -34,7 +35,7 @@ const GuestScreen = () => {
   const navigate = useNavigate();
 
   // Use ref for currentVisibleEvent to avoid triggering renders
-  const currentVisibleEventRef = useRef<{ id: string, name: string }>({ id: '', name: '' });
+  const currentVisibleEventRef = useRef<{ id: string; name: string }>({ id: '', name: '' });
 
   // Refs for section positions
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -61,16 +62,18 @@ const GuestScreen = () => {
     }
 
     if (!validatedEvent.name) {
-      validatedEvent.name = "Unnamed Event";
+      validatedEvent.name = 'Unnamed Event';
     }
 
     if (validatedEvent.coverImage && !validatedEvent.coverImageUrl) {
       validatedEvent.coverImageUrl = validatedEvent.coverImage;
     }
 
-    if (!validatedEvent.coverImageUrl ||
+    if (
+      !validatedEvent.coverImageUrl ||
       typeof validatedEvent.coverImageUrl !== 'string' ||
-      validatedEvent.coverImageUrl.trim() === '') {
+      validatedEvent.coverImageUrl.trim() === ''
+    ) {
       validatedEvent.coverImageUrl = PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length];
     }
 
@@ -80,10 +83,12 @@ const GuestScreen = () => {
           .split(',')
           .map((url: string) => url.trim())
           .filter((url: string) => url.length > 0);
-      } else if (Array.isArray(validatedEvent.slideshowImages) &&
+      } else if (
+        Array.isArray(validatedEvent.slideshowImages) &&
         validatedEvent.slideshowImages.length === 1 &&
         typeof validatedEvent.slideshowImages[0] === 'string' &&
-        validatedEvent.slideshowImages[0].includes(',')) {
+        validatedEvent.slideshowImages[0].includes(',')
+      ) {
         validatedEvent.slideshowImages = validatedEvent.slideshowImages[0]
           .split(',')
           .map((url: string) => url.trim())
@@ -97,9 +102,11 @@ const GuestScreen = () => {
       }
     }
 
-    if (!validatedEvent.slideshowImages ||
+    if (
+      !validatedEvent.slideshowImages ||
       !Array.isArray(validatedEvent.slideshowImages) ||
-      validatedEvent.slideshowImages.length === 0) {
+      validatedEvent.slideshowImages.length === 0
+    ) {
       if (validatedEvent.coverImageUrl) {
         validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
       }
@@ -112,7 +119,7 @@ const GuestScreen = () => {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      console.log("Fetching events from service...");
+      console.log('Fetching events from service...');
 
       // First try the standard API endpoint through eventService
       const fetchedEvents = await getEvents({ forceRefresh: true });
@@ -187,7 +194,7 @@ const GuestScreen = () => {
         coverImageUrl: PLACEHOLDER_IMAGES[0],
         slideshowImages: [PLACEHOLDER_IMAGES[0]],
         status: 'upcoming',
-        playlistId: 'pl-demo-1'
+        playlistId: 'pl-demo-1',
       },
       {
         id: 'demo-2',
@@ -199,7 +206,7 @@ const GuestScreen = () => {
         coverImageUrl: PLACEHOLDER_IMAGES[1],
         slideshowImages: [PLACEHOLDER_IMAGES[1]],
         status: 'upcoming',
-        playlistId: 'pl-demo-2'
+        playlistId: 'pl-demo-2',
       },
       {
         id: 'demo-3',
@@ -211,37 +218,40 @@ const GuestScreen = () => {
         coverImageUrl: PLACEHOLDER_IMAGES[2],
         slideshowImages: [PLACEHOLDER_IMAGES[2]],
         status: 'upcoming',
-        playlistId: 'pl-demo-3'
-      }
+        playlistId: 'pl-demo-3',
+      },
     ] as Event[];
 
     setEvents(demoEvents);
   }, []);
 
   // Visibility change handler with stable reference
-  const handleVisibilityChange = useCallback((isVisible: boolean, eventId: string) => {
-    // Skip if we don't have an event ID
-    if (!eventId) return;
+  const handleVisibilityChange = useCallback(
+    (isVisible: boolean, eventId: string) => {
+      // Skip if we don't have an event ID
+      if (!eventId) return;
 
-    if (isVisible) {
-      setActiveEventId(prevId => {
-        // Only update if changed
-        return prevId !== eventId ? eventId : prevId;
-      });
+      if (isVisible) {
+        setActiveEventId((prevId) => {
+          // Only update if changed
+          return prevId !== eventId ? eventId : prevId;
+        });
 
-      // Update ref instead of state to avoid re-renders
-      const event = events.find(e => e.id === eventId);
-      if (event && currentVisibleEventRef.current.id !== eventId) {
-        currentVisibleEventRef.current = {
-          id: eventId,
-          name: event.name || 'Unknown Event'
-        };
+        // Update ref instead of state to avoid re-renders
+        const event = events.find((e) => e.id === eventId);
+        if (event && currentVisibleEventRef.current.id !== eventId) {
+          currentVisibleEventRef.current = {
+            id: eventId,
+            name: event.name || 'Unknown Event',
+          };
+        }
+      } else if (activeEventId === eventId) {
+        // Only unset if this event was the active one
+        setActiveEventId(null);
       }
-    } else if (activeEventId === eventId) {
-      // Only unset if this event was the active one
-      setActiveEventId(null);
-    }
-  }, [activeEventId, events]);
+    },
+    [activeEventId, events],
+  );
 
   // Scroll handler with throttling
   useEffect(() => {
@@ -276,9 +286,12 @@ const GuestScreen = () => {
     }
   }, [fetchEvents]); // Add fetchEvents as a dependency
 
-  const handleEventClick = useCallback((eventId: string) => {
-    navigate(`/events/${eventId}`);
-  }, [navigate]);
+  const handleEventClick = useCallback(
+    (eventId: string) => {
+      navigate(`/events/${eventId}`);
+    },
+    [navigate],
+  );
 
   const handleImageError = useCallback((eventId: string) => {
     console.log(`Failed to load image for event: ${eventId}`);
@@ -315,7 +328,7 @@ const GuestScreen = () => {
   }
 
   // For hero section
-  const heroEvent = events.find(event => event.coverImageUrl) || events[0];
+  const heroEvent = events.find((event) => event.coverImageUrl) || events[0];
   const heroImageUrl = heroEvent?.coverImageUrl || DEFAULT_IMAGE_URL;
 
   return (
@@ -363,12 +376,10 @@ const GuestScreen = () => {
 
         {events.length === 0 ? (
           <div className="no-events-container">
-            <p className="no-events-text">
-              No events found. Check back soon for new events!
-            </p>
+            <p className="no-events-text">No events found. Check back soon for new events!</p>
           </div>
         ) : (
-          <div className={viewMode === 'card' ? "card-events-container" : "detailed-events-container"}>
+          <div className={viewMode === 'card' ? 'card-events-container' : 'detailed-events-container'}>
             {renderEventItems()}
           </div>
         )}

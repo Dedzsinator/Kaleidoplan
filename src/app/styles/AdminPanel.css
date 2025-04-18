@@ -49,8 +49,8 @@
 }
 
 .tab.active {
-  color: #4285F4;
-  border-bottom: 3px solid #4285F4;
+  color: #4285f4;
+  border-bottom: 3px solid #4285f4;
 }
 
 .tab-icon {
@@ -84,13 +84,13 @@
 .kpi-value {
   font-size: 32px;
   font-weight: 600;
-  color: #4285F4;
+  color: #4285f4;
   margin-bottom: 8px;
 }
 
 .kpi-trend {
   font-size: 14px;
-  color: #34A853;
+  color: #34a853;
 }
 
 /* Charts */
@@ -159,7 +159,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #4285F4;
+  background-color: #4285f4;
   color: white;
   font-weight: bold;
 }
@@ -175,15 +175,15 @@
 }
 
 .status-indicator.admin {
-  background-color: #FBBC04;
+  background-color: #fbbc04;
 }
 
 .status-indicator.organizer {
-  background-color: #34A853;
+  background-color: #34a853;
 }
 
 .status-indicator.user {
-  background-color: #4285F4;
+  background-color: #4285f4;
 }
 
 .user-info {
@@ -205,7 +205,7 @@
 .user-role {
   display: block;
   font-size: 12px;
-  color: #4285F4;
+  color: #4285f4;
   font-weight: 500;
 }
 
@@ -287,15 +287,15 @@
 }
 
 .user-card.selected {
-  border: 2px solid #4285F4;
+  border: 2px solid #4285f4;
 }
 
 .user-card.organizer {
-  border-left: 4px solid #34A853;
+  border-left: 4px solid #34a853;
 }
 
 .user-card.admin {
-  border-left: 4px solid #FBBC04;
+  border-left: 4px solid #fbbc04;
 }
 
 .user-card-content {
@@ -306,7 +306,7 @@
   display: block;
   font-size: 11px;
   background: #e8f5e9;
-  color: #34A853;
+  color: #34a853;
   padding: 2px 6px;
   border-radius: 4px;
   margin-top: 4px;
@@ -347,7 +347,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #4285F4;
+  background-color: #4285f4;
   color: white;
   font-size: 32px;
   font-weight: bold;
@@ -413,7 +413,8 @@
   margin-right: 12px;
 }
 
-.assign-event-button, .remove-event-button {
+.assign-event-button,
+.remove-event-button {
   padding: 4px 8px;
   border-radius: 4px;
   border: none;
@@ -423,12 +424,12 @@
 }
 
 .assign-event-button {
-  background: #4285F4;
+  background: #4285f4;
   color: white;
 }
 
 .remove-event-button {
-  background: #EA4335;
+  background: #ea4335;
   color: white;
 }
 
@@ -463,7 +464,7 @@
 }
 
 .entity-button.active {
-  background: #4285F4;
+  background: #4285f4;
   color: white;
 }
 
@@ -503,7 +504,7 @@
 
 .create-button {
   padding: 8px 16px;
-  background: #4285F4;
+  background: #4285f4;
   color: white;
   border: none;
   border-radius: 4px;
@@ -539,7 +540,8 @@
   gap: 8px;
 }
 
-.edit-button, .delete-button {
+.edit-button,
+.delete-button {
   padding: 4px 8px;
   border-radius: 4px;
   border: none;
@@ -550,14 +552,14 @@
 
 .edit-button {
   background: #fafafa;
-  color: #4285F4;
-  border: 1px solid #4285F4;
+  color: #4285f4;
+  border: 1px solid #4285f4;
 }
 
 .delete-button {
   background: #fafafa;
-  color: #EA4335;
-  border: 1px solid #EA4335;
+  color: #ea4335;
+  border: 1px solid #ea4335;
 }
 
 .pagination-controls {
@@ -621,11 +623,11 @@
   margin-right: 8px;
 }
 
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="url"],
-input[type="date"],
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='url'],
+input[type='date'],
 select,
 textarea {
   width: 100%;
@@ -649,7 +651,7 @@ textarea {
 
 .primary-button {
   padding: 10px 20px;
-  background: #4285F4;
+  background: #4285f4;
   color: white;
   border: none;
   border-radius: 4px;
@@ -677,9 +679,9 @@ textarea {
 }
 
 .error-message {
-  background-color: #FCE8E6;
-  border-left: 4px solid #EA4335;
-  color: #EA4335;
+  background-color: #fce8e6;
+  border-left: 4px solid #ea4335;
+  color: #ea4335;
   padding: 12px 16px;
   margin: 20px 0;
   border-radius: 4px;
@@ -696,7 +698,7 @@ textarea {
   .analytics-charts {
     grid-template-columns: 1fr;
   }
-  
+
   .crud-container {
     flex-direction: column;
   }
@@ -706,20 +708,20 @@ textarea {
   .user-roles-tab {
     flex-direction: column;
   }
-  
+
   .roles-columns {
     flex-direction: column;
   }
-  
+
   .role-column + .role-column {
     border-left: none;
     border-top: 1px solid #f0f0f0;
   }
-  
+
   .kpi-summary {
     grid-template-columns: 1fr 1fr;
   }
-  
+
   .form-row {
     flex-direction: column;
     gap: 0;

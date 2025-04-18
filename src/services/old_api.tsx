@@ -21,7 +21,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Task and TaskLog API calls
@@ -32,7 +32,7 @@ export const taskApi = {
   getTasksByOrganizer: async (firebaseUid: string): Promise<Task[]> => {
     try {
       const response = await apiClient.get('/tasks', {
-        params: { assignedTo: firebaseUid }
+        params: { assignedTo: firebaseUid },
       });
       return response.data;
     } catch (error) {
@@ -64,12 +64,12 @@ export const taskApi = {
     taskId: string,
     newStatus: 'pending' | 'in-progress' | 'completed',
     firebaseUid: string,
-    comment?: string
+    comment?: string,
   ): Promise<void> => {
     try {
       await apiClient.patch(`/tasks/${taskId}`, {
         status: newStatus,
-        updatedBy: firebaseUid
+        updatedBy: firebaseUid,
       });
 
       // Create a task log for this status change
@@ -79,13 +79,13 @@ export const taskApi = {
         updatedBy: firebaseUid,
         oldStatus: null, // The server will look up the old status
         newStatus,
-        comment
+        comment,
       });
     } catch (error) {
       console.error('Error updating task status:', error);
       throw error;
     }
-  }
+  },
 };
 
 export const taskLogApi = {
@@ -95,7 +95,7 @@ export const taskLogApi = {
   getTaskLogs: async (taskId: string): Promise<TaskLog[]> => {
     try {
       const response = await apiClient.get('/taskLogs', {
-        params: { taskId }
+        params: { taskId },
       });
       return response.data;
     } catch (error) {
@@ -118,17 +118,17 @@ export const taskLogApi = {
     try {
       const response = await apiClient.post('/taskLogs', {
         ...logData,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       return response.data;
     } catch (error) {
       console.error('Error creating task log:', error);
       throw error;
     }
-  }
+  },
 };
 
 export default {
   task: taskApi,
-  taskLog: taskLogApi
+  taskLog: taskLogApi,
 };

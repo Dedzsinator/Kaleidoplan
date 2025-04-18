@@ -8,13 +8,7 @@ export type ThemedViewProps = React.HTMLAttributes<HTMLDivElement> & {
   children?: React.ReactNode;
 };
 
-export function ThemedView({
-  style,
-  lightColor,
-  darkColor,
-  children,
-  ...rest
-}: ThemedViewProps) {
+export function ThemedView({ style, lightColor, darkColor, children, ...rest }: ThemedViewProps) {
   const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');
 
   const combinedStyle: React.CSSProperties = {

@@ -8,9 +8,7 @@ export function useColorScheme(): 'light' | 'dark' {
   const [colorScheme, setColorScheme] = useState<'light' | 'dark'>(() => {
     // Check if window exists (for SSR compatibility)
     if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches 
-        ? 'dark' 
-        : 'light';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     return 'light'; // Default for server-side
   });
@@ -18,10 +16,10 @@ export function useColorScheme(): 'light' | 'dark' {
   useEffect(() => {
     // Only run in browser environment
     if (typeof window === 'undefined') return;
-    
+
     // Create media query list
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     // Event handler function
     const handleChange = (event: MediaQueryListEvent) => {
       setColorScheme(event.matches ? 'dark' : 'light');

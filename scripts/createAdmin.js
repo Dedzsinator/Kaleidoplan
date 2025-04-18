@@ -8,10 +8,10 @@ async function createAdminUser() {
     // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
-    
+
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'adminPassword123';
-    
+
     // Check if user exists in Firebase
     let userRecord;
     try {
@@ -23,18 +23,18 @@ async function createAdminUser() {
         email: adminEmail,
         password: adminPassword,
         displayName: 'System Admin',
-        emailVerified: true
+        emailVerified: true,
       });
       console.log('Created admin user in Firebase');
     }
-    
+
     // Set custom claims
     await admin.auth().setCustomUserClaims(userRecord.uid, { role: 'admin' });
     console.log('Set admin role in Firebase custom claims');
-    
+
     // Check if user exists in MongoDB
     let user = await User.findOne({ uid: userRecord.uid });
-    
+
     if (!user) {
       // Create user in MongoDB
       user = new User({
@@ -42,7 +42,7 @@ async function createAdminUser() {
         email: adminEmail,
         displayName: 'System Admin',
         role: 'admin',
-        lastLogin: new Date()
+        lastLogin: new Date(),
       });
       await user.save();
       console.log('Created admin user in MongoDB');
@@ -56,11 +56,10 @@ async function createAdminUser() {
         console.log('Admin user already exists in MongoDB');
       }
     }
-    
+
     console.log('Admin user setup complete!');
     console.log(`Email: ${adminEmail}`);
     console.log('Password: [the password you specified]');
-    
   } catch (error) {
     console.error('Error creating admin user:', error);
   } finally {

@@ -8,6 +8,7 @@ import Login from './app/screen/LoginScreen';
 import Register from './app/screen/RegisterScreen';
 import Dashboard from './app/screen/DashboardScreen';
 import OrganizerDashboard from './app/screen/OrganizerDashboardScreen';
+import OrganizerTaskScreen from './app/screen/OrganizerTaskScreen';
 import EventAnalytics from './app/screen/EventAnalyticsScreen';
 import AdminPanel from './app/screen/AdminPanelScreen';
 import UserManagement from './app/screen/UserManagementScreen';
@@ -29,43 +30,63 @@ function App() {
           <Route path="/register" element={<Register />} />
 
           {/* Protected routes - any authenticated user */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Organizer routes */}
-          <Route path="/organizer" element={
-            <ProtectedRoute requiredRole="organizer">
-              <OrganizerDashboard />
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/organizer"
+            element={
+              <ProtectedRoute requiredRole="organizer">
+                <OrganizerDashboard />
+              </ProtectedRoute>
+            }
+          />
 
-          <Route path="/analytics/:eventId" element={
-            <ProtectedRoute requiredRole="organizer">
-              <EventAnalytics />
-            </ProtectedRoute>
-          } />
+          <Route path="/tasks" element={<OrganizerTaskScreen />} />
 
-          <Route path="/events/manage" element={
-            <ProtectedRoute requiredRole="organizer">
-              <EventManagement />
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/analytics/:eventId"
+            element={
+              <ProtectedRoute requiredRole="organizer">
+                <EventAnalytics />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/events/manage"
+            element={
+              <ProtectedRoute requiredRole="organizer">
+                <EventManagement />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Admin routes */}
-          <Route path="/admin" element={
-            <ProtectedRoute requiredRole="admin">
-              <AdminPanel />
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPanel />
+              </ProtectedRoute>
+            }
+          />
 
-          <Route path="/admin/users" element={
-            <ProtectedRoute requiredRole="admin">
-              <UserManagement />
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <UserManagement />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>

@@ -26,12 +26,12 @@ const getClientCredentialsToken = async () => {
       url: 'https://accounts.spotify.com/api/token',
       method: 'POST',
       headers: {
-        'Authorization': getClientCredentialsAuthHeader(),
-        'Content-Type': 'application/x-www-form-urlencoded'
+        Authorization: getClientCredentialsAuthHeader(),
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       data: new URLSearchParams({
-        grant_type: 'client_credentials'
-      }).toString()
+        grant_type: 'client_credentials',
+      }).toString(),
     });
 
     return response.data;
@@ -47,22 +47,22 @@ const getClientCredentialsToken = async () => {
 const getAuthorizationUrl = (state, scopes = []) => {
   const defaultScopes = [
     'user-read-private',
-    'user-read-email', 
+    'user-read-email',
     'playlist-read-private',
     'user-read-playback-state',
-    'user-modify-playback-state'
+    'user-modify-playback-state',
   ];
-  
+
   const scopeString = [...defaultScopes, ...scopes].join(' ');
-  
+
   const params = new URLSearchParams({
     client_id: SPOTIFY_CLIENT_ID,
     response_type: 'code',
     redirect_uri: SPOTIFY_REDIRECT_URI,
     scope: scopeString,
-    state: state
+    state: state,
   });
-  
+
   return `https://accounts.spotify.com/authorize?${params.toString()}`;
 };
 
@@ -75,16 +75,16 @@ const exchangeCodeForToken = async (code) => {
       url: 'https://accounts.spotify.com/api/token',
       method: 'POST',
       headers: {
-        'Authorization': getClientCredentialsAuthHeader(),
-        'Content-Type': 'application/x-www-form-urlencoded'
+        Authorization: getClientCredentialsAuthHeader(),
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       data: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: SPOTIFY_REDIRECT_URI
-      }).toString()
+        redirect_uri: SPOTIFY_REDIRECT_URI,
+      }).toString(),
     });
-    
+
     return response.data;
   } catch (error) {
     console.error('Spotify code exchange error:', error.response?.data || error.message);
@@ -101,15 +101,15 @@ const refreshAccessToken = async (refreshToken) => {
       url: 'https://accounts.spotify.com/api/token',
       method: 'POST',
       headers: {
-        'Authorization': getClientCredentialsAuthHeader(),
-        'Content-Type': 'application/x-www-form-urlencoded'
+        Authorization: getClientCredentialsAuthHeader(),
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       data: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: refreshToken
-      }).toString()
+        refresh_token: refreshToken,
+      }).toString(),
     });
-    
+
     return response.data;
   } catch (error) {
     console.error('Spotify token refresh error:', error.response?.data || error.message);
@@ -124,9 +124,9 @@ const createApiClient = (accessToken) => {
   return axios.create({
     baseURL: SPOTIFY_API_BASE_URL,
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
   });
 };
 
@@ -139,5 +139,5 @@ module.exports = {
   getAuthorizationUrl,
   exchangeCodeForToken,
   refreshAccessToken,
-  createApiClient
+  createApiClient,
 };

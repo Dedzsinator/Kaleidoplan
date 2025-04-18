@@ -16,7 +16,7 @@ const getStats = async () => {
     const now = new Date();
     const oneWeekAgo = new Date(now);
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    
+
     // Stats calculations
     const [
       totalEvents,
@@ -27,47 +27,46 @@ const getStats = async () => {
       overdueTasks,
       totalUsers,
       newUsers,
-      totalOrganizers
+      totalOrganizers,
     ] = await Promise.all([
       Event.countDocuments(),
       Event.countDocuments({ startDate: { $gt: now } }),
       Event.countDocuments({
         startDate: { $lte: now },
-        endDate: { $gte: now }
+        endDate: { $gte: now },
       }),
       Task.countDocuments({ status: 'completed' }),
       Task.countDocuments({ status: 'pending' }),
       Task.countDocuments({
         status: { $ne: 'completed' },
-        deadline: { $lt: now }
+        deadline: { $lt: now },
       }),
       User.countDocuments(),
       User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
-      User.countDocuments({ role: 'organizer' })
+      User.countDocuments({ role: 'organizer' }),
     ]);
-    
+
     return {
       events: {
         total: totalEvents,
         upcoming: upcomingEvents,
         ongoing: ongoingEvents,
-        percentage: totalEvents > 0 ? 
-          Math.round((upcomingEvents + ongoingEvents) / totalEvents * 100) : 0
+        percentage: totalEvents > 0 ? Math.round(((upcomingEvents + ongoingEvents) / totalEvents) * 100) : 0,
       },
       tasks: {
         completed: completedTasks,
         pending: pendingTasks,
         overdue: overdueTasks,
         total: completedTasks + pendingTasks,
-        completionRate: (completedTasks + pendingTasks) > 0 ?
-          Math.round(completedTasks / (completedTasks + pendingTasks) * 100) : 0
+        completionRate:
+          completedTasks + pendingTasks > 0 ? Math.round((completedTasks / (completedTasks + pendingTasks)) * 100) : 0,
       },
       users: {
         total: totalUsers,
         new: newUsers,
         organizers: totalOrganizers,
-        growth: totalUsers > 0 ? Math.round(newUsers / totalUsers * 100) : 0
-      }
+        growth: totalUsers > 0 ? Math.round((newUsers / totalUsers) * 100) : 0,
+      },
     };
   } catch (error) {
     console.error('Error getting stats:', error);
@@ -106,13 +105,13 @@ const importFromCSV = async (data, collection) => {
       default:
         throw new Error(`Unknown collection: ${collection}`);
     }
-    
+
     // Insert many with ordered: false to continue on errors
     const result = await model.insertMany(data, { ordered: false });
     return {
       success: true,
       inserted: result.length,
-      collection
+      collection,
     };
   } catch (error) {
     // If the error was a bulk write error, some documents may have been inserted
@@ -122,10 +121,10 @@ const importFromCSV = async (data, collection) => {
         inserted: error.insertedDocs?.length || 0,
         failed: error.writeErrors?.length || 0,
         collection,
-        error: error.message
+        error: error.message,
       };
     }
-    
+
     console.error(`Error importing ${collection}:`, error);
     throw error;
   }
@@ -133,5 +132,5 @@ const importFromCSV = async (data, collection) => {
 
 module.exports = {
   getStats,
-  importFromCSV
+  importFromCSV,
 };

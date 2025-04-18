@@ -9,7 +9,7 @@ interface ApiResponse {
 
 // Fix the interface to only omit fields that need a different type
 // and explicitly declare properties with different types
-interface MongoDBEvent extends Omit<Event, "id" | "slideshowImages" | "startDate" | "endDate"> {
+interface MongoDBEvent extends Omit<Event, 'id' | 'slideshowImages' | 'startDate' | 'endDate'> {
   _id?: string;
   id?: string;
   startDate: Date | string;
@@ -27,7 +27,7 @@ const logEventData = (event: any, prefix: string = '') => {
     coverImage: event.coverImage?.substring(0, 30),
     coverImageUrl: event.coverImageUrl?.substring(0, 30),
     hasSlideshow: Array.isArray(event.slideshowImages),
-    slideshowCount: Array.isArray(event.slideshowImages) ? event.slideshowImages.length : 0
+    slideshowCount: Array.isArray(event.slideshowImages) ? event.slideshowImages.length : 0,
   });
   console.log(`${prefix} Location:`, {
     location: event.location,
@@ -54,7 +54,7 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
 
     // Always force refresh in dev mode
     const opts = {
-      forceRefresh: process.env.NODE_ENV === 'development' || options.forceRefresh
+      forceRefresh: process.env.NODE_ENV === 'development' || options.forceRefresh,
     };
 
     // Add timestamp to prevent caching
@@ -131,7 +131,7 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
           longitude: event.longitude || 0,
           latitudeDelta: event.latitudeDelta || 0.01,
           longitudeDelta: event.longitudeDelta || 0.01,
-          color: event.color || '#4285F4' // Provide a default color
+          color: event.color || '#4285F4', // Provide a default color
         } as Event;
       });
 
@@ -174,7 +174,7 @@ export async function getEventById(eventId: string): Promise<Event | null> {
         .map((url: string) => url.trim())
         .filter((url: string) => url.length > 0);
     } else if (event.coverImageUrl || event.coverImage) {
-      slideshowImages = [(event.coverImageUrl || event.coverImage || '')];
+      slideshowImages = [event.coverImageUrl || event.coverImage || ''];
     }
 
     // Normalize fields just like in getEvents
@@ -185,17 +185,15 @@ export async function getEventById(eventId: string): Promise<Event | null> {
       slideshowImages,
       startDate: new Date(event.startDate || Date.now()),
       endDate: new Date(event.endDate || Date.now()),
-      status: event.status || calculateStatus(
-        new Date(event.startDate || Date.now()),
-        new Date(event.endDate || Date.now())
-      ),
+      status:
+        event.status || calculateStatus(new Date(event.startDate || Date.now()), new Date(event.endDate || Date.now())),
       // Ensure location fields exist
       location: event.location || 'Location not specified',
       latitude: event.latitude || 0,
       longitude: event.longitude || 0,
       latitudeDelta: event.latitudeDelta || 0.01,
       longitudeDelta: event.longitudeDelta || 0.01,
-      color: event.color || '#4285F4' // Provide a default color
+      color: event.color || '#4285F4', // Provide a default color
     } as Event;
 
     return normalizedEvent;

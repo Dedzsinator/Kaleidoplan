@@ -1,36 +1,36 @@
 // Centralized error handling middleware
 const errorHandler = (err, req, res, next) => {
-    console.error('API Error:', err);
-    
-    // MongoDB Validation Error
-    if (err.name === 'ValidationError') {
-      return res.status(400).json({
-        error: 'Validation Error',
-        details: Object.values(err.errors).map(e => e.message)
-      });
-    }
-    
-    // MongoDB Duplicate Key Error
-    if (err.code === 11000) {
-      return res.status(400).json({
-        error: 'Duplicate Key Error',
-        details: `Duplicate value for ${Object.keys(err.keyValue).join(', ')}`
-      });
-    }
-    
-    // Firebase Auth Error
-    if (err.code && err.code.startsWith('auth/')) {
-      return res.status(401).json({
-        error: 'Authentication Error',
-        details: err.message
-      });
-    }
-    
-    // Default error response
-    return res.status(err.status || 500).json({
-      error: err.message || 'Internal Server Error',
-      path: req.path
+  console.error('API Error:', err);
+
+  // MongoDB Validation Error
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      error: 'Validation Error',
+      details: Object.values(err.errors).map((e) => e.message),
     });
-  };
-  
-  module.exports = errorHandler;
+  }
+
+  // MongoDB Duplicate Key Error
+  if (err.code === 11000) {
+    return res.status(400).json({
+      error: 'Duplicate Key Error',
+      details: `Duplicate value for ${Object.keys(err.keyValue).join(', ')}`,
+    });
+  }
+
+  // Firebase Auth Error
+  if (err.code && err.code.startsWith('auth/')) {
+    return res.status(401).json({
+      error: 'Authentication Error',
+      details: err.message,
+    });
+  }
+
+  // Default error response
+  return res.status(err.status || 500).json({
+    error: err.message || 'Internal Server Error',
+    path: req.path,
+  });
+};
+
+module.exports = errorHandler;
