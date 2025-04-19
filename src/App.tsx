@@ -13,6 +13,7 @@ import EventAnalytics from './app/screen/EventAnalyticsScreen';
 import AdminPanel from './app/screen/AdminPanelScreen';
 import UserManagement from './app/screen/UserManagementScreen';
 import EventManagement from './app/screen/EventManagementScreen';
+import EventDetailScreen from './app/screen/EventDetailScreen';
 
 // Import Firebase configuration to ensure it's initialized
 import './app/config/firebase';
@@ -28,6 +29,7 @@ function App() {
           <Route path="/events" element={<GuestScreen />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/events/:eventId" element={<EventDetailScreen />} />
 
           {/* Protected routes - any authenticated user */}
           <Route

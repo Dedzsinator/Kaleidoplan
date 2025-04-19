@@ -1,20 +1,21 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEvents } from '../../services/eventService';
-import { fetchWithAuth } from '../../services/api';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
-import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay'; // Import the overlay component
+import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import '../styles/Guest.css';
 
 // Event type import
 import { Event } from '../models/types';
+import { hexToRgb, interpolateColors } from '../hooks/useColor';
 
 // Constants
 const DEFAULT_IMAGE_URL =
   'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1000&q=80';
 const HEADER_OFFSET = 100;
+const DEFAULT_COLOR = '#3357FF';
 const PLACEHOLDER_IMAGES = [
   'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
   'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1080&auto=format&fit=crop',
@@ -35,6 +36,23 @@ const GuestScreen = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('card'); // Default to card view
   const [isRadioPlaying, setIsRadioPlaying] = useState(false); // State for radio player
   const [isOverlayExpanded, setIsOverlayExpanded] = useState(false); // State for overlay expansion
+
+  // Gradient transition states
+  const [backgroundGradient, setBackgroundGradient] = useState('linear-gradient(to bottom, rgba(51, 87, 255, 0.2), rgba(51, 87, 255, 0.05))');
+  const [currentColor, setCurrentColor] = useState(DEFAULT_COLOR);
+  const [nextColor, setNextColor] = useState(DEFAULT_COLOR);
+  const [transitionProgress, setTransitionProgress] = useState(0);
+
+  const visibleEventsRef = useRef<{
+    [id: string]: {
+      element: HTMLElement,
+      color: string,
+      top: number,
+      height: number,
+      visible: boolean
+    }
+  }>({});
+
   const navigate = useNavigate();
 
   // Use ref for currentVisibleEvent to avoid triggering renders
@@ -56,13 +74,20 @@ const GuestScreen = () => {
     // Create a shallow copy to avoid mutating the original
     const validatedEvent = { ...event };
 
+    if (!validatedEvent.id && validatedEvent._id) {
+      validatedEvent.id = validatedEvent._id;
+    }
+
     // Ensure we have a playlistId for Spotify integration
     if (!validatedEvent.playlistId) {
       validatedEvent.playlistId = `pl-${validatedEvent.id || `temp-${index}`}`;
     }
 
     if (!validatedEvent.id) {
-      validatedEvent.id = `temp-id-${index}`;
+      // Generate a valid MongoDB-like ID (24 hex chars)
+      const randomId = Array.from({ length: 24 }, () =>
+        Math.floor(Math.random() * 16).toString(16)).join('');
+      validatedEvent.id = `demo-${randomId}`;
     }
 
     if (!validatedEvent.name) {
@@ -79,6 +104,13 @@ const GuestScreen = () => {
       validatedEvent.coverImageUrl.trim() === ''
     ) {
       validatedEvent.coverImageUrl = PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length];
+    }
+
+    // Ensure every event has a color
+    if (!validatedEvent.color) {
+      // Generate a consistent color based on the event ID or index
+      const colors = ['#3357FF', '#FF5733', '#33FF57', '#FF33A8', '#33A8FF', '#A833FF'];
+      validatedEvent.color = colors[index % colors.length];
     }
 
     if (validatedEvent.slideshowImages) {
@@ -142,7 +174,8 @@ const GuestScreen = () => {
         coverImageUrl: PLACEHOLDER_IMAGES[0],
         slideshowImages: [PLACEHOLDER_IMAGES[0]],
         status: 'upcoming',
-        playlistId: 'pl-demo-1', // Ensure demo events have playlist IDs
+        playlistId: 'pl-demo-1',
+        color: '#3357FF',
       },
       {
         id: 'demo-2',
@@ -155,6 +188,7 @@ const GuestScreen = () => {
         slideshowImages: [PLACEHOLDER_IMAGES[1]],
         status: 'upcoming',
         playlistId: 'pl-demo-2',
+        color: '#FF5733',
       },
       {
         id: 'demo-3',
@@ -167,13 +201,13 @@ const GuestScreen = () => {
         slideshowImages: [PLACEHOLDER_IMAGES[2]],
         status: 'upcoming',
         playlistId: 'pl-demo-3',
+        color: '#33FF57',
       },
     ] as Event[];
 
     setEvents(demoEvents);
   }, []);
 
-  // Define fetchEvents after validateEvent and createDemoEvents are defined
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
@@ -189,39 +223,13 @@ const GuestScreen = () => {
           .map((event, index) => validateEvent(event, index))
           .filter(Boolean) as Event[];
 
+        // Store all events in session storage for detail view
+        sessionStorage.setItem('all-events', JSON.stringify(validatedEvents));
         setEvents(validatedEvents);
       } else {
-        // If no events from the main API, try the public endpoint directly
-        console.log('No events from main API, trying public endpoint');
-        try {
-          const response = await fetch('/api/public/events');
-          if (response.ok) {
-            const data = await response.json();
-            console.log('Public API response:', data);
-
-            if (data.events && data.events.length > 0) {
-              const publicEvents = data.events;
-              console.log('Received public events:', publicEvents.length);
-
-              // Validate and format each event
-              const validatedEvents = publicEvents
-                .map((event: any, index: number) => validateEvent(event, index))
-                .filter(Boolean) as Event[];
-
-              setEvents(validatedEvents);
-            } else {
-              console.log('No events available from public endpoint either');
-              // Create some demo events if nothing is available
-              createDemoEvents();
-            }
-          } else {
-            console.error('Public API returned error:', response.status);
-            createDemoEvents();
-          }
-        } catch (error) {
-          console.error('Error fetching from public endpoint:', error);
-          createDemoEvents();
-        }
+        // If no events from the main API, use demo events as fallback
+        console.log('No events available, creating demo events');
+        createDemoEvents();
       }
     } catch (err) {
       console.error('Error fetching events:', err);
@@ -232,39 +240,102 @@ const GuestScreen = () => {
     }
   }, [validateEvent, createDemoEvents]);
 
-  // Visibility change handler with stable reference
-  const handleVisibilityChange = useCallback(
-    (isVisible: boolean, eventId: string) => {
-      // Skip if we don't have an event ID
-      if (!eventId) return;
+  const handleVisibilityChange = useCallback((isVisible: boolean, eventId: string, element: HTMLElement | null) => {
+    if (!eventId || !element) return;
 
-      if (isVisible) {
-        setActiveEventId((prevId) => {
-          // Only update if changed
-          if (prevId !== eventId) {
-            // Reset radio state when changing events
-            setIsRadioPlaying(false);
-            setIsOverlayExpanded(false);
-            return eventId;
-          }
-          return prevId;
-        });
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
 
-        // Update ref instead of state to avoid re-renders
-        const event = events.find((e) => e.id === eventId);
-        if (event && currentVisibleEventRef.current.id !== eventId) {
-          currentVisibleEventRef.current = {
-            id: eventId,
-            name: event.name || 'Unknown Event',
-          };
-        }
+    const eventColor = event.color || DEFAULT_COLOR;
+    const rect = element.getBoundingClientRect();
+
+    // Update our reference of visible events
+    visibleEventsRef.current[eventId] = {
+      element,
+      color: eventColor,
+      top: rect.top,
+      height: rect.height,
+      visible: isVisible
+    };
+
+    if (isVisible) {
+      setActiveEventId(eventId);
+    }
+
+    // Update colors based on visible events
+    updateGradientColors();
+  }, [events]);
+
+  // Update gradient colors based on visible events
+  const updateGradientColors = useCallback(() => {
+    const visibleEvents = Object.values(visibleEventsRef.current).filter(e => e.visible);
+    if (visibleEvents.length === 0) return;
+
+    // Sort by position (top to bottom)
+    visibleEvents.sort((a, b) => a.top - b.top);
+
+    // Find which event is most centered in the viewport
+    const viewportCenter = window.innerHeight / 2;
+    let closestEvent = visibleEvents[0];
+    let minDistance = Math.abs(closestEvent.top - viewportCenter);
+
+    for (const event of visibleEvents) {
+      const distance = Math.abs(event.top - viewportCenter);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestEvent = event;
       }
-      // Modified: No longer reset activeEventId when scrolling away
-      // This allows the music to keep playing as user scrolls
-      // User must explicitly stop it via the overlay controls
-    },
-    [events], // Removed activeEventId from dependencies since we're not using it here anymore
-  );
+    }
+
+    // Find next event (if any)
+    const currentIndex = visibleEvents.indexOf(closestEvent);
+    const hasNextEvent = currentIndex < visibleEvents.length - 1;
+    const nextEvent = hasNextEvent ? visibleEvents[currentIndex + 1] : null;
+
+    // Calculate transition progress between current and next event
+    if (nextEvent) {
+      const currentEventPosition = closestEvent.top + closestEvent.height / 2;
+      const nextEventPosition = nextEvent.top + nextEvent.height / 2;
+      const totalDistance = nextEventPosition - currentEventPosition;
+
+      // If the events are far apart, only start transition when closer
+      const transitionZone = Math.min(totalDistance, window.innerHeight * 0.7);
+      const viewportCenter = window.scrollY + window.innerHeight / 2;
+
+      let progress = 0;
+      if (viewportCenter > currentEventPosition) {
+        progress = Math.min(1, (viewportCenter - currentEventPosition) / transitionZone);
+      }
+
+      setCurrentColor(closestEvent.color);
+      setNextColor(nextEvent.color);
+      setTransitionProgress(progress);
+    } else {
+      // Just use the current event's color
+      setCurrentColor(closestEvent.color);
+      setNextColor(closestEvent.color);
+      setTransitionProgress(0);
+    }
+  }, [scrollPosition]);
+
+  // Update the gradient effect whenever colors or transition progress changes
+  useEffect(() => {
+    try {
+      const startRgb = hexToRgb(currentColor) || hexToRgb(DEFAULT_COLOR);
+      const endRgb = hexToRgb(nextColor) || hexToRgb(DEFAULT_COLOR);
+
+      if (startRgb && endRgb) {
+        const interpolatedColor = interpolateColors(startRgb, endRgb, transitionProgress);
+        const gradient = `linear-gradient(to bottom, 
+          rgba(${interpolatedColor.r}, ${interpolatedColor.g}, ${interpolatedColor.b}, 0.2), 
+          rgba(${interpolatedColor.r}, ${interpolatedColor.g}, ${interpolatedColor.b}, 0.05))`;
+
+        setBackgroundGradient(gradient);
+      }
+    } catch (error) {
+      console.error('Error updating gradient:', error);
+    }
+  }, [currentColor, nextColor, transitionProgress]);
 
   // Scroll handler with throttling
   useEffect(() => {
@@ -273,9 +344,20 @@ const GuestScreen = () => {
       const newOpacity = Math.min(0.8 + (position / HEADER_OFFSET) * 0.2, 1);
       setHeaderOpacity(newOpacity);
       setScrollPosition(position);
+
+      // Update event visibility measurements
+      Object.keys(visibleEventsRef.current).forEach(id => {
+        const eventInfo = visibleEventsRef.current[id];
+        if (eventInfo.element) {
+          const rect = eventInfo.element.getBoundingClientRect();
+          eventInfo.top = rect.top;
+        }
+      });
+
+      // Update color gradient
+      updateGradientColors();
     };
 
-    // Throttle scroll events
     let ticking = false;
     const handleScroll = () => {
       if (!ticking) {
@@ -289,22 +371,50 @@ const GuestScreen = () => {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []); // Empty dependency - only run once
+  }, [updateGradientColors]);
 
-  // Fetch events once on mount - make sure to include fetchEvents in dependencies
+  // Fetch events once on mount
   useEffect(() => {
     if (!hasLoadedEvents.current) {
       fetchEvents();
       hasLoadedEvents.current = true;
     }
-  }, [fetchEvents]); // Add fetchEvents as a dependency
+  }, [fetchEvents]);
 
+  // Navigate to event detail page
   const handleEventClick = useCallback(
     (eventId: string) => {
       navigate(`/events/${eventId}`);
     },
     [navigate],
   );
+
+  const navigateToRandomEvent = useCallback(() => {
+    if (events.length > 0) {
+      const randomIndex = Math.floor(Math.random() * events.length);
+      const randomEvent = events[randomIndex];
+
+      // Ensure the event is stored in session storage before navigating
+      try {
+        const allEventsStr = sessionStorage.getItem('all-events') || '[]';
+        const allEvents = JSON.parse(allEventsStr);
+
+        // If event is not already in storage, add it
+        if (!allEvents.find((e: any) => e.id === randomEvent.id)) {
+          allEvents.push(randomEvent);
+          sessionStorage.setItem('all-events', JSON.stringify(allEvents));
+        }
+      } catch (e) {
+        // Fallback - just store this event
+        sessionStorage.setItem('all-events', JSON.stringify([randomEvent]));
+      }
+
+      console.log(`Navigating to random event: ${randomEvent.id}`);
+      navigate(`/events/${randomEvent.id}`);
+    } else {
+      window.scrollTo({ top: 600, behavior: 'smooth' });
+    }
+  }, [events, navigate]);
 
   const handleImageError = useCallback((eventId: string) => {
     console.log(`Failed to load image for event: ${eventId}`);
@@ -317,11 +427,11 @@ const GuestScreen = () => {
 
   // New handlers for Spotify Radio Overlay
   const handleToggleRadioPlay = useCallback(() => {
-    setIsRadioPlaying(prev => !prev);
+    setIsRadioPlaying((prev) => !prev);
   }, []);
 
   const handleToggleOverlayExpand = useCallback(() => {
-    setIsOverlayExpanded(prev => !prev);
+    setIsOverlayExpanded((prev) => !prev);
   }, []);
 
   // Memoize event items creation to prevent unnecessary re-creation
@@ -341,7 +451,7 @@ const GuestScreen = () => {
   }, [events, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
 
   // Find the event object for the activeEventId
-  const currentActiveEvent = events.find(event => event.id === activeEventId);
+  const currentActiveEvent = events.find((event) => event.id === activeEventId);
 
   if (loading) {
     return (
@@ -358,13 +468,28 @@ const GuestScreen = () => {
 
   return (
     <div className="guest-screen">
+      {/* Gradient background overlay - this is the missing element */}
+      <div
+        className="color-gradient-background"
+        style={{
+          background: backgroundGradient,
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: -1,
+          transition: 'background 0.8s ease-out'
+        }}
+      />
+
       {/* Hero Section */}
       <div className="hero-section" style={{ backgroundImage: `url(${heroImageUrl})` }}>
         <div className="hero-overlay"></div>
         <div className="hero-content">
           <h1 className="hero-title">Discover Amazing Events</h1>
           <p className="hero-subtitle">Find the perfect event for your interests</p>
-          <button className="hero-button" onClick={() => window.scrollTo({ top: 600, behavior: 'smooth' })}>
+          <button className="hero-button" onClick={navigateToRandomEvent}>
             Explore Events
           </button>
         </div>
@@ -421,7 +546,7 @@ const GuestScreen = () => {
           expanded={isOverlayExpanded}
         />
       )}
-        */}
+      */}
 
       {/* Footer */}
       <Footer />

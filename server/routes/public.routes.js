@@ -58,7 +58,7 @@ router.get('/events', async (req, res, next) => {
         eventObj.startDate = new Date();
         console.log(`Added default startDate to event: ${eventObj.name}`);
       }
-      
+
       if (!eventObj.endDate) {
         // Default end date is 5 days after start date
         const endDate = new Date(eventObj.startDate);
@@ -83,20 +83,26 @@ router.get('/events', async (req, res, next) => {
       if (!eventObj.coverImageUrl && eventObj.coverImage) {
         eventObj.coverImageUrl = eventObj.coverImage;
       }
-      
+
       if (!eventObj.coverImageUrl) {
         // Consistently assign the same image for the same event
         eventObj.coverImageUrl = DEFAULT_IMAGES[index % DEFAULT_IMAGES.length];
       }
-      
+
       // Ensure slideshowImages is an array
-      if (!eventObj.slideshowImages || !Array.isArray(eventObj.slideshowImages) || eventObj.slideshowImages.length === 0) {
+      if (
+        !eventObj.slideshowImages ||
+        !Array.isArray(eventObj.slideshowImages) ||
+        eventObj.slideshowImages.length === 0
+      ) {
         eventObj.slideshowImages = [eventObj.coverImageUrl];
       }
 
       // Add debugging info
-      console.log(`Event: ${eventObj.name}, Start: ${eventObj.startDate}, End: ${eventObj.endDate}, PlaylistId: ${eventObj.playlistId}`);
-      
+      console.log(
+        `Event: ${eventObj.name}, Start: ${eventObj.startDate}, End: ${eventObj.endDate}, PlaylistId: ${eventObj.playlistId}`,
+      );
+
       return eventObj;
     });
 
@@ -118,12 +124,12 @@ router.get('/events', async (req, res, next) => {
 router.get('/events/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     // Handle demo IDs that won't be in the database
     if (id.startsWith('demo-') || id.startsWith('temp-')) {
       const demoEvents = createDemoEvents();
-      const demoEvent = demoEvents.find(event => event.id === id || event._id === id);
-      
+      const demoEvent = demoEvents.find((event) => event.id === id || event._id === id);
+
       if (demoEvent) {
         return res.json(demoEvent);
       }
@@ -147,24 +153,24 @@ router.get('/events/:id', async (req, res, next) => {
 
     // Process the event in the same way as in the list endpoint
     const now = new Date();
-    
+
     // Ensure ID is set
     if (!eventObj.id) {
       eventObj.id = eventObj._id.toString();
     }
-    
+
     // Add default dates if missing
     if (!eventObj.startDate) {
       eventObj.startDate = new Date();
     }
-    
+
     if (!eventObj.endDate) {
       // Default end date is 5 days after start date
       const endDate = new Date(eventObj.startDate);
       endDate.setDate(endDate.getDate() + 5);
       eventObj.endDate = endDate;
     }
-    
+
     // Ensure we have a playlist ID
     if (!eventObj.playlistId) {
       eventObj.playlistId = `pl${eventObj.id}`;
@@ -185,13 +191,17 @@ router.get('/events/:id', async (req, res, next) => {
     if (!eventObj.coverImageUrl && eventObj.coverImage) {
       eventObj.coverImageUrl = eventObj.coverImage;
     }
-    
+
     if (!eventObj.coverImageUrl) {
       eventObj.coverImageUrl = DEFAULT_IMAGES[0];
     }
-    
+
     // Ensure slideshowImages is an array
-    if (!eventObj.slideshowImages || !Array.isArray(eventObj.slideshowImages) || eventObj.slideshowImages.length === 0) {
+    if (
+      !eventObj.slideshowImages ||
+      !Array.isArray(eventObj.slideshowImages) ||
+      eventObj.slideshowImages.length === 0
+    ) {
       eventObj.slideshowImages = [eventObj.coverImageUrl];
     }
 
@@ -252,7 +262,7 @@ function createDemoEvents() {
       status: 'upcoming',
       playlistId: 'pl-demo-3',
       color: '#33FF57',
-    }
+    },
   ];
 }
 

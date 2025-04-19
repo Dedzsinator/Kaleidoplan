@@ -15,6 +15,7 @@ interface EventPrimaryContentProps {
     themeColor?: string;
   };
   onImageError: (eventId: string) => void;
+  onClick?: () => void;
 }
 
 const formatEventDate = (date: string | Date | undefined) => {
@@ -53,7 +54,7 @@ const getStatusColor = (status: string | undefined) => {
   }
 };
 
-const EventPrimaryContent = ({ event, onImageError }: EventPrimaryContentProps) => {
+const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryContentProps) => {
   const navigate = useNavigate();
   const hasImage = !!event.coverImageUrl;
   const themeColor = event.themeColor || '#3B82F6';
@@ -124,7 +125,7 @@ const EventPrimaryContent = ({ event, onImageError }: EventPrimaryContentProps) 
         <button
           className="event-button"
           style={{ backgroundColor: themeColor }}
-          onClick={() => navigate(`/events/${event.id}`)}
+          onClick={onClick}
         >
           View Details
         </button>

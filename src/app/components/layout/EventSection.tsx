@@ -20,16 +20,16 @@ interface NavigationProps {
 
 interface EventSectionProps {
   event: Event;
-  navigation: NavigationProps;
-  onImageError: (eventId: string) => void;
+  navigation: { navigate: (path: string) => void };
+  onVisibilityChange?: (isVisible: boolean, eventId: string, element: HTMLElement | null) => void;
+  onImageError?: (eventId: string) => void;
   index: number;
   scrollY: number;
-  sectionY: number;
-  onVisibilityChange?: (isVisible: boolean, eventId: string) => void;
+  sectionY?: number;
 }
 
 const EventSection = memo(
-  ({ event, navigation, onImageError, index, scrollY, sectionY, onVisibilityChange }: EventSectionProps) => {
+  ({ event, navigation, onImageError, index, scrollY, sectionY = 0, onVisibilityChange }: EventSectionProps) => {
     const delay = index * 150;
     const containerRef = useRef<HTMLDivElement>(null);
     const isVisibleRef = useRef(false);
@@ -48,7 +48,7 @@ const EventSection = memo(
     // Measure the section height for visibility calculations
     useEffect(() => {
       if (containerRef.current) {
-        const observer = new ResizeObserver(entries => {
+        const observer = new ResizeObserver((entries) => {
           for (const entry of entries) {
             setSectionHeight(entry.contentRect.height);
           }
@@ -59,32 +59,28 @@ const EventSection = memo(
       }
     }, []);
 
-    // Visibility detection with Intersection Observer
     useEffect(() => {
-      if (!onVisibilityChange || !containerRef.current || !eventIdRef.current) return;
-
-      const eventId = eventIdRef.current;
-
       const observer = new IntersectionObserver(
-        (entries) => {
-          // Use the first entry as we're only observing one element
-          const isVisible = entries[0]?.isIntersecting ?? false;
-
-          if (isVisible !== isVisibleRef.current) {
-            isVisibleRef.current = isVisible;
-            onVisibilityChange(isVisible, eventId);
+        ([entry]) => {
+          if (onVisibilityChange) {
+            // Use the containerRef.current as the element
+            onVisibilityChange(entry.isIntersecting, event.id, containerRef.current);
           }
         },
-        {
-          threshold: 0.25, // Trigger when 25% of the element is visible
-          rootMargin: '0px' // No margin
-        }
+        { threshold: [0.1, 0.5, 0.9] }
       );
 
-      observer.observe(containerRef.current);
+      // Use containerRef instead of undefined ref
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
 
-      return () => observer.disconnect();
-    }, [onVisibilityChange]);
+      return () => {
+        if (containerRef.current) {
+          observer.unobserve(containerRef.current);
+        }
+      };
+    }, [event.id, onVisibilityChange]);
 
     // Get location for map - with optimization
     useEffect(() => {
@@ -167,12 +163,18 @@ const EventSection = memo(
       );
     }
 
-    // Prepare slideshow images
     const slideshowImages = Array.isArray(event.slideshowImages)
       ? event.slideshowImages
       : event.coverImageUrl
         ? [event.coverImageUrl]
         : [];
+
+    // Handle image error safely
+    const handleImageError = () => {
+      if (onImageError) {
+        onImageError(event.id);
+      }
+    };
 
     return (
       <div className="event-section-container" ref={containerRef}>
@@ -181,7 +183,31 @@ const EventSection = memo(
             {/* Left column */}
             <div className="event-left-column">
               <AnimatedSection scrollY={scrollY} sectionY={sectionY} delay={delay}>
-                <EventPrimaryContent event={event} onImageError={() => onImageError(event.id)} />
+                <EventPrimaryContent
+                  event={event}
+                  onImageError={handleImageError}
+                  onClick={() => {
+                    console.log('Navigating to event:', event.id);
+                    // Store current events in session storage before navigating
+                    try {
+                      const existingEvents = sessionStorage.getItem('all-events');
+                      if (!existingEvents) {
+                        sessionStorage.setItem('all-events', JSON.stringify([event]));
+                      } else {
+                        const events = JSON.parse(existingEvents);
+                        // If event is not already in storage, add it
+                        if (!events.find((e: any) => e.id === event.id)) {
+                          events.push(event);
+                          sessionStorage.setItem('all-events', JSON.stringify(events));
+                        }
+                      }
+                    } catch (e) {
+                      console.error('Error storing event in session storage:', e);
+                    }
+
+                    navigation.navigate(`/events/${event.id}`);
+                  }}
+                />
 
                 {slideshowImages.length > 0 && (
                   <div className="slideshow-container">

@@ -399,3 +399,34 @@
     padding: 10px;
   }
 }
+
+/* Add this to ensure the gradient background is visible */
+.color-gradient-background {
+  pointer-events: none;
+  will-change: background;
+  z-index: -1;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: background 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.guest-screen {
+  position: relative;
+  min-height: 100vh;
+}
+
+.events-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Make sure event cards appear above the gradient background */
+.event-card {
+  position: relative;
+  z-index: 2;
+  /* Add a subtle shadow to help events stand out against the gradient */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}

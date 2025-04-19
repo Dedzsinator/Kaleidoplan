@@ -148,57 +148,26 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
 }
 
 // Get single event by ID - MongoDB only implementation
-export async function getEventById(eventId: string): Promise<Event | null> {
+export const getEventById = async (eventId: string): Promise<Event> => {
+  console.log(`EventService: Fetching event ${eventId}`);
+
   try {
-    console.log(`EventService: Fetching event ${eventId} from MongoDB`);
+    const eventData = await fetchEventByIdFromApi(eventId);
 
-    // Add timestamp to prevent caching
-    const timestamp = new Date().getTime();
-    const event = await fetchEventByIdFromApi(eventId, { timestamp });
+    // Log the structure to debug
+    console.log('Event data received:', {
+      id: eventData.id || eventData._id,
+      name: eventData.name,
+      hasPerformers: Boolean(eventData.performers?.length),
+      performerCount: eventData.performers?.length || 0,
+      hasSponsorIds: Boolean(eventData.sponsorIds?.length),
+      hasLatLong: Boolean(eventData.latitude && eventData.longitude)
+    });
 
-    if (!event) {
-      console.warn(`EventService: Event ${eventId} not found in MongoDB`);
-      return null;
-    }
-
-    // Log full event data for debugging
-    logEventData(event, 'Single event:');
-
-    // Normalize fields
-    let slideshowImages: string[] = [];
-    if (Array.isArray(event.slideshowImages)) {
-      slideshowImages = event.slideshowImages;
-    } else if (typeof event.slideshowImages === 'string' && event.slideshowImages.trim() !== '') {
-      slideshowImages = event.slideshowImages
-        .split(',')
-        .map((url: string) => url.trim())
-        .filter((url: string) => url.length > 0);
-    } else if (event.coverImageUrl || event.coverImage) {
-      slideshowImages = [event.coverImageUrl || event.coverImage || ''];
-    }
-
-    // Normalize fields just like in getEvents
-    const normalizedEvent = {
-      ...event,
-      id: event.id || (event._id ? event._id.toString() : eventId),
-      coverImageUrl: event.coverImageUrl || event.coverImage || '',
-      slideshowImages,
-      startDate: new Date(event.startDate || Date.now()),
-      endDate: new Date(event.endDate || Date.now()),
-      status:
-        event.status || calculateStatus(new Date(event.startDate || Date.now()), new Date(event.endDate || Date.now())),
-      // Ensure location fields exist
-      location: event.location || 'Location not specified',
-      latitude: event.latitude || 0,
-      longitude: event.longitude || 0,
-      latitudeDelta: event.latitudeDelta || 0.01,
-      longitudeDelta: event.longitudeDelta || 0.01,
-      color: event.color || '#4285F4', // Provide a default color
-    } as Event;
-
-    return normalizedEvent;
+    // Return the full object without modifications
+    return eventData;
   } catch (error) {
     console.error(`Error fetching event ${eventId}:`, error);
-    return null;
+    throw error;
   }
-}
+};

@@ -70,10 +70,10 @@ export interface SpotifyTrack {
   // Change preview_url to possibly be null (to match Spotify API)
   preview_url: string | null;
   album?: {
-    images?: Array<{url: string}>;
+    images?: Array<{ url: string }>;
   };
   // Add artists array to the interface
-  artists?: Array<{name: string}>;
+  artists?: Array<{ name: string }>;
 }
 
 export interface Playlist {
@@ -86,16 +86,6 @@ export interface Playlist {
   updatedAt: string;
   // Support different track formats
   tracks: Record<string, Track> | string[] | string | any;
-}
-
-export interface Performer {
-  _id: string;
-  id?: string; // For compatibility
-  name: string;
-  bio: string;
-  image: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface error {
@@ -126,5 +116,26 @@ export interface Event {
   longitude?: number;
   latitudeDelta?: number;
   longitudeDelta?: number;
+  sponsorIds? : string[];
   [key: string]: any;
+}
+
+export interface Sponsor {
+  id: string;
+  name: string;
+  description?: string;
+  logoUrl?: string;
+  website?: string;
+  level?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Performer {
+  _id?: string;
+  name?: string;
+  bio?: string;
+  image?: string;
+  createdAt: string;
+  updatedAt: string;
 }

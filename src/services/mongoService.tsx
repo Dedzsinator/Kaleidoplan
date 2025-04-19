@@ -69,14 +69,16 @@ export const generateId = async (): Promise<string> => {
     const array = new Uint8Array(12);
     window.crypto.getRandomValues(array);
     return Array.from(array)
-      .map(b => b.toString(16).padStart(2, '0'))
+      .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
 
   // Fallback to Math.random if Web Crypto API is not available
-  return Math.random().toString(36).substring(2, 15) +
+  return (
     Math.random().toString(36).substring(2, 15) +
-    Math.random().toString(36).substring(2, 15);
+    Math.random().toString(36).substring(2, 15) +
+    Math.random().toString(36).substring(2, 15)
+  );
 };
 
 // Rest of your mongoService.tsx file remains the same...

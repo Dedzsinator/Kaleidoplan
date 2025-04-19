@@ -11,9 +11,7 @@ exports.getPublicEvents = async (req, res, next) => {
     console.log(`Total events in database: ${totalEvents}`);
 
     // Just get all events without filtering
-    const events = await Event.find({})
-      .sort({ startDate: 1 })
-      .limit(15);
+    const events = await Event.find({}).sort({ startDate: 1 }).limit(15);
 
     console.log(`Found ${events.length} events`);
 
@@ -25,24 +23,24 @@ exports.getPublicEvents = async (req, res, next) => {
     }
 
     // Process events to match our expected structure
-    const processedEvents = events.map(event => {
+    const processedEvents = events.map((event) => {
       const eventObj = event.toObject();
-      
+
       // Make sure we have required fields from data.csv structure
       if (!eventObj.id && eventObj._id) {
         eventObj.id = eventObj._id.toString();
       }
-      
+
       // Ensure we have a playlist ID that matches our naming convention
       if (!eventObj.playlistId) {
         eventObj.playlistId = `pl${eventObj.id}`;
       }
-      
+
       // Set default startDate and endDate if missing
       if (!eventObj.startDate) {
         eventObj.startDate = new Date();
       }
-      
+
       if (!eventObj.endDate) {
         const endDate = new Date(eventObj.startDate);
         endDate.setDate(endDate.getDate() + 5);
@@ -60,16 +58,17 @@ exports.getPublicEvents = async (req, res, next) => {
           eventObj.status = 'completed';
         }
       }
-      
+
       // Ensure coverImageUrl is set
       if (!eventObj.coverImageUrl && eventObj.coverImage) {
         eventObj.coverImageUrl = eventObj.coverImage;
       }
-      
+
       if (!eventObj.coverImageUrl) {
-        eventObj.coverImageUrl = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop';
+        eventObj.coverImageUrl =
+          'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop';
       }
-      
+
       return eventObj;
     });
 
@@ -98,7 +97,9 @@ function createDemoEvents() {
       startDate: tomorrow,
       endDate: nextWeek,
       coverImageUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
-      slideshowImages: ['https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop'],
+      slideshowImages: [
+        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
+      ],
       status: 'upcoming',
       playlistId: 'pl-demo-1',
       color: '#3357FF',
@@ -112,7 +113,9 @@ function createDemoEvents() {
       startDate: tomorrow,
       endDate: nextWeek,
       coverImageUrl: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1080&auto=format&fit=crop',
-      slideshowImages: ['https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1080&auto=format&fit=crop'],
+      slideshowImages: [
+        'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1080&auto=format&fit=crop',
+      ],
       status: 'upcoming',
       playlistId: 'pl-demo-2',
       color: '#FF5733',
@@ -126,11 +129,13 @@ function createDemoEvents() {
       startDate: tomorrow,
       endDate: nextWeek,
       coverImageUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=1080&auto=format&fit=crop',
-      slideshowImages: ['https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=1080&auto=format&fit=crop'],
+      slideshowImages: [
+        'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=1080&auto=format&fit=crop',
+      ],
       status: 'upcoming',
       playlistId: 'pl-demo-3',
       color: '#33FF57',
-    }
+    },
   ];
 }
 

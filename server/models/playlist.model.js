@@ -16,7 +16,7 @@ const spotifyPlaylistSchema = new Schema(
     // Add a string playlistId field to support non-ObjectId IDs
     playlistId: {
       type: String,
-      index: true
+      index: true,
     },
     userId: {
       type: String,
@@ -35,7 +35,7 @@ const spotifyPlaylistSchema = new Schema(
     // Allow tracks to be an array of track objects OR a simple array of track IDs
     tracks: {
       type: Schema.Types.Mixed,
-      default: []
+      default: [],
     },
     public: {
       type: Boolean,

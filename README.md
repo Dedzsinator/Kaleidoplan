@@ -93,6 +93,7 @@ Kaleidoplan employs a modern web application architecture with distinct frontend
   - API Client: Axios (configured in `mongoService.tsx`) for communication with the Node.js backend.
   - Spotify Client: Wrapper around Spotify Web API (`spotify-web-api.js`).
 - **Backend (`/server`)**:
+
   - Runtime: Node.js
   - Framework: Express.js
   - Database: MongoDB with Mongoose ODM (`server/models/`)
@@ -132,13 +133,13 @@ Kaleidoplan employs a modern web application architecture with distinct frontend
    cd server
    npm install
    cd ..
-    ```
+   ```
 
 4. **Configure Environment Variables:**
-  Create `.env` files in both the project root (`/Kaleidoplan/.env`) and the server directory (`/Kaleidoplan/server/.env`). See [Configuration](#configuration).
+   Create `.env` files in both the project root (`/Kaleidoplan/.env`) and the server directory (`/Kaleidoplan/server/.env`). See [Configuration](#configuration).
 
 5. **Place Firebase Service Account Key:**
-  Put your downloaded `serviceAccountKey.json` file into the `/Kaleidoplan/server/config/` directory.
+   Put your downloaded `serviceAccountKey.json` file into the `/Kaleidoplan/server/config/` directory.
 
 6. **Start the backend server:**
 
@@ -146,10 +147,10 @@ Kaleidoplan employs a modern web application architecture with distinct frontend
    cd server
    npm run dev # Or the appropriate script from server/package.json
    cd ..
-    ```
+   ```
 
 7. **Start the frontend development server:**
-  (Check your root `package.json` scripts - it might be `npm start` or `craco start`)
+   (Check your root `package.json` scripts - it might be `npm start` or `craco start`)
 
    ```bash
    npm start
@@ -161,52 +162,52 @@ Kaleidoplan employs a modern web application architecture with distinct frontend
 
 Create a `.env` file in the root of the project:
 
-   ```env
-   # Firebase Configuration (Obtain from your Firebase project settings - Web App)
+```env
+# Firebase Configuration (Obtain from your Firebase project settings - Web App)
 
-   REACT_APP_FIREBASE_API_KEY="YOUR_FIREBASE_WEB_API_KEY"
-   REACT_APP_FIREBASE_AUTH_DOMAIN="YOUR_FIREBASE_AUTH_DOMAIN"
-   REACT_APP_FIREBASE_PROJECT_ID="YOUR_FIREBASE_PROJECT_ID"
-   REACT_APP_FIREBASE_STORAGE_BUCKET="YOUR_FIREBASE_STORAGE_BUCKET"
-   REACT_APP_FIREBASE_MESSAGING_SENDER_ID="YOUR_FIREBASE_MESSAGING_SENDER_ID"
-   REACT_APP_FIREBASE_APP_ID="YOUR_FIREBASE_WEB_APP_ID"
-   REACT_APP_FIREBASE_MEASUREMENT_ID="YOUR_FIREBASE_MEASUREMENT_ID" # Optional
+REACT_APP_FIREBASE_API_KEY="YOUR_FIREBASE_WEB_API_KEY"
+REACT_APP_FIREBASE_AUTH_DOMAIN="YOUR_FIREBASE_AUTH_DOMAIN"
+REACT_APP_FIREBASE_PROJECT_ID="YOUR_FIREBASE_PROJECT_ID"
+REACT_APP_FIREBASE_STORAGE_BUCKET="YOUR_FIREBASE_STORAGE_BUCKET"
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID="YOUR_FIREBASE_MESSAGING_SENDER_ID"
+REACT_APP_FIREBASE_APP_ID="YOUR_FIREBASE_WEB_APP_ID"
+REACT_APP_FIREBASE_MEASUREMENT_ID="YOUR_FIREBASE_MEASUREMENT_ID" # Optional
 
-   # Backend API Configuration
+# Backend API Configuration
 
-   REACT_APP_API_URL="http://localhost:3000/api" # URL where your Node.js backend runs
+REACT_APP_API_URL="http://localhost:3000/api" # URL where your Node.js backend runs
 
-   # Spotify Configuration (If needed client-side)
+# Spotify Configuration (If needed client-side)
 
-   REACT_APP_SPOTIFY_CLIENT_ID="YOUR_SPOTIFY_CLIENT_ID"
-   ```
+REACT_APP_SPOTIFY_CLIENT_ID="YOUR_SPOTIFY_CLIENT_ID"
+```
 
 ### Backend (`/Kaleidoplan/server/.env`)
 
 Create a `.env` file in the `/server` directory:
 
-  ```env
-   # Server Configuration
-   PORT=3000 # Port the backend server will run on
+```env
+ # Server Configuration
+ PORT=3000 # Port the backend server will run on
 
-   # MongoDB Configuration
-   MONGODB_URI="mongodb://localhost:27017/kaleidoplan" # Your MongoDB connection string
-   MONGODB_DB_NAME="kaleidoplan" # Your database name
+ # MongoDB Configuration
+ MONGODB_URI="mongodb://localhost:27017/kaleidoplan" # Your MongoDB connection string
+ MONGODB_DB_NAME="kaleidoplan" # Your database name
 
-   # Firebase Admin Configuration (Can use GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT)
-   # Option 1: Path to the key file
-   GOOGLE_APPLICATION_CREDENTIALS="./config/serviceAccountKey.json"
-   # Option 2: JSON content as a string (useful for some deployment environments)
-   # FIREBASE_SERVICE_ACCOUNT='{"type": "service_account", "project_id": "...", ...}'
+ # Firebase Admin Configuration (Can use GOOGLE_APPLICATION_CREDENTIALS or FIREBASE_SERVICE_ACCOUNT)
+ # Option 1: Path to the key file
+ GOOGLE_APPLICATION_CREDENTIALS="./config/serviceAccountKey.json"
+ # Option 2: JSON content as a string (useful for some deployment environments)
+ # FIREBASE_SERVICE_ACCOUNT='{"type": "service_account", "project_id": "...", ...}'
 
-   # JWT Secret (If used for custom tokens or sessions)
-   # JWT_SECRET="YOUR_SECRET_KEY"
+ # JWT Secret (If used for custom tokens or sessions)
+ # JWT_SECRET="YOUR_SECRET_KEY"
 
-   # Spotify Configuration (For backend interactions)
-   SPOTIFY_CLIENT_ID="YOUR_SPOTIFY_CLIENT_ID"
-   SPOTIFY_CLIENT_SECRET="YOUR_SPOTIFY_CLIENT_SECRET"
-   SPOTIFY_REDIRECT_URI="http://localhost:3000/api/auth/spotify/callback" # Adjust port if needed
-   ```
+ # Spotify Configuration (For backend interactions)
+ SPOTIFY_CLIENT_ID="YOUR_SPOTIFY_CLIENT_ID"
+ SPOTIFY_CLIENT_SECRET="YOUR_SPOTIFY_CLIENT_SECRET"
+ SPOTIFY_REDIRECT_URI="http://localhost:3000/api/auth/spotify/callback" # Adjust port if needed
+```
 
 **Notes:**
 
@@ -284,47 +285,47 @@ The Node.js/Express backend provides RESTful APIs for core data operations, prim
 - **Performer (`performer.model.js`?)**: Stores performer details, potentially linked to Spotify.
 - **Playlist (`playlist.model.js`?)**: Stores playlist metadata, possibly linking tracks or a Spotify Playlist ID.
 
-*(Note: The frontend hook `useFirebase.ts` defines `Event` and `EventInput` types that differ slightly from the backend model, particularly regarding `status` values and image handling. This suggests direct Firestore interaction might be used for some specific event-related features or was part of a previous implementation. The primary data source for events appears to be MongoDB via the backend API, as used in `eventService.tsx`.)*
+_(Note: The frontend hook `useFirebase.ts` defines `Event` and `EventInput` types that differ slightly from the backend model, particularly regarding `status` values and image handling. This suggests direct Firestore interaction might be used for some specific event-related features or was part of a previous implementation. The primary data source for events appears to be MongoDB via the backend API, as used in `eventService.tsx`.)_
 
 ## Development Guide
 
 ### Project Structure
 
-  /home/deginandor/Documents/Programming/Kaleidoplan/
-  ├── public/     # Static assets and index.html for CRA frontend
-  ├── server/     # Node.js/Express Backend
-  │ ├── config/   # DB, Firebase Admin, Spotify config
-  │ ├── controllers/  # Route handlers
-  │ ├── middleware/   # Express middleware (e.g., auth)
-  │ ├── models/   # Mongoose schemas/models
-  │ ├── routes/   # Express route definitions
-  │ ├── services/   # Business logic services (if any)
-  │ ├── app.js    # Express app setup
-  │ ├── package.json  # Backend dependencies
-  │ └── .env    # Backend environment variables
-  ├── src/      # React Frontend
-  │ ├── app/
-  │ │ ├── components/ # UI components
-  │ │ ├── contexts/   # React Contexts
-  │ │ ├── hooks/    # Custom Hooks (including useFirebase)
-  │ │ ├── models/   # Frontend TypeScript types
-  │ │ ├── screen/   # Page components
-  │ │ ├── services/   # Frontend services (api, auth, event, mongo, spotify)
-  │ │ └── config/   # Frontend config (e.g., firebase client)
-  │ ├── assets/     # Frontend static assets
-  │ ├── styles/     # CSS
-  │ ├── App.tsx     # Main frontend component
-  │ ├── index.tsx   # Frontend entry point
-  │ └── setupTests.js   # Jest setup
-  ├── .env      # Frontend environment variables
-  ├── .eslintrc.js    # ESLint config
-  ├── .prettierrc.json  # Prettier config
-  ├── babel.config.cjs  # Babel config
-  ├── craco.config.cjs  # Craco config (if used)
-  ├── jest.config.cjs   # Jest config
-  ├── package.json    # Frontend dependencies & scripts
-  ├── tsconfig.json   # TypeScript config
-  └── README.md
+/home/deginandor/Documents/Programming/Kaleidoplan/
+├── public/ # Static assets and index.html for CRA frontend
+├── server/ # Node.js/Express Backend
+│ ├── config/ # DB, Firebase Admin, Spotify config
+│ ├── controllers/ # Route handlers
+│ ├── middleware/ # Express middleware (e.g., auth)
+│ ├── models/ # Mongoose schemas/models
+│ ├── routes/ # Express route definitions
+│ ├── services/ # Business logic services (if any)
+│ ├── app.js # Express app setup
+│ ├── package.json # Backend dependencies
+│ └── .env # Backend environment variables
+├── src/ # React Frontend
+│ ├── app/
+│ │ ├── components/ # UI components
+│ │ ├── contexts/ # React Contexts
+│ │ ├── hooks/ # Custom Hooks (including useFirebase)
+│ │ ├── models/ # Frontend TypeScript types
+│ │ ├── screen/ # Page components
+│ │ ├── services/ # Frontend services (api, auth, event, mongo, spotify)
+│ │ └── config/ # Frontend config (e.g., firebase client)
+│ ├── assets/ # Frontend static assets
+│ ├── styles/ # CSS
+│ ├── App.tsx # Main frontend component
+│ ├── index.tsx # Frontend entry point
+│ └── setupTests.js # Jest setup
+├── .env # Frontend environment variables
+├── .eslintrc.js # ESLint config
+├── .prettierrc.json # Prettier config
+├── babel.config.cjs # Babel config
+├── craco.config.cjs # Craco config (if used)
+├── jest.config.cjs # Jest config
+├── package.json # Frontend dependencies & scripts
+├── tsconfig.json # TypeScript config
+└── README.md
 
 ### Key Frontend Components & Services
 
@@ -349,29 +350,29 @@ The Node.js/Express backend provides RESTful APIs for core data operations, prim
 
 ### Running Linters/Formatters
 
-   ```bash
-   # Check frontend linting issues (adjust command based on package.json)
-   npm run lint
-   # or
-   npm run validate:js
+```bash
+# Check frontend linting issues (adjust command based on package.json)
+npm run lint
+# or
+npm run validate:js
 
-   # Automatically format frontend code
-   npm run format
+# Automatically format frontend code
+npm run format
 
-   # Check backend linting (if configured in server/package.json)
-   # cd server && npm run lint && cd ..
+# Check backend linting (if configured in server/package.json)
+# cd server && npm run lint && cd ..
 
-   ### Running Tests
+### Running Tests
 
-   # Run frontend tests using the script defined in package.json
-   npm test
+# Run frontend tests using the script defined in package.json
+npm test
 
-   # Run frontend tests with coverage
-   npm test -- --coverage
+# Run frontend tests with coverage
+npm test -- --coverage
 
-   # Run backend tests (if configured in server/package.json)
-   # cd server && npm test && cd ..
-   ```
+# Run backend tests (if configured in server/package.json)
+# cd server && npm test && cd ..
+```
 
 ## Deployment
 
@@ -399,7 +400,7 @@ Deploying requires handling both the frontend (static files) and the backend (No
 
    - Deploy the contents of the `build/` directory generated in the previous step.
    - Configure the hosting to handle client-side routing (rewrite all paths to `index.html`).
-   - Ensure the `REACT_APP_API_URL` environment variable during the frontend build process points to the *publicly accessible URL* of your deployed backend.
+   - Ensure the `REACT_APP_API_URL` environment variable during the frontend build process points to the _publicly accessible URL_ of your deployed backend.
 
 3. **Combined Deployment (e.g., Monorepo platforms, Docker):**
 

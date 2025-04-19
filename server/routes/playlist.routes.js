@@ -57,34 +57,32 @@ router.get('/:id', async (req, res, next) => {
 
     if (id.startsWith('pl-temp-') || id.startsWith('pl-demo-')) {
       console.log(`Creating mock playlist for temporary ID: ${id}`);
-      
+
       // VERIFIED working track IDs with previews
       const trackSelection = [
-        "7ouMYWpwJ422jRcDASZB7P", // Drake - God's Plan
-        "0e7ipj03S05BNilyu5bRzt", // Taylor Swift - Cruel Summer
-        "1zi7xx7UVEFkmKfv06H8x0", // Drake & 21 Savage - Rich Flex
-        "0V3wPSX9ygBnCm8psDIegu", // Taylor Swift - Anti-Hero
-        "4Dvkj6JhhA12EX05fT7y2e" // Harry Styles - As It Was
+        '7ouMYWpwJ422jRcDASZB7P', // Drake - God's Plan
+        '0e7ipj03S05BNilyu5bRzt', // Taylor Swift - Cruel Summer
+        '1zi7xx7UVEFkmKfv06H8x0', // Drake & 21 Savage - Rich Flex
+        '0V3wPSX9ygBnCm8psDIegu', // Taylor Swift - Anti-Hero
+        '4Dvkj6JhhA12EX05fT7y2e', // Harry Styles - As It Was
       ];
-      
+
       // Select 3 random tracks from the selection
       const shuffledTracks = [...trackSelection].sort(() => 0.5 - Math.random());
       const selectedTracks = shuffledTracks.slice(0, 3);
-      
+
       // Create the mock playlist with valid track IDs
       const mockPlaylist = {
         _id: id,
         playlistId: id,
-        name: id.startsWith('pl-demo') 
-          ? `Demo Playlist ${id.split('-')[2]}`
-          : `Playlist ${id.split('-')[2]}`,
+        name: id.startsWith('pl-demo') ? `Demo Playlist ${id.split('-')[2]}` : `Playlist ${id.split('-')[2]}`,
         description: 'Auto-generated playlist with popular tracks',
         tracks: selectedTracks,
         public: true,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
-      
+
       return res.json(mockPlaylist);
     }
 
@@ -93,16 +91,12 @@ router.get('/:id', async (req, res, next) => {
     try {
       // First attempt to find by _id as ObjectId
       playlist = await Playlist.findOne({
-        $or: [
-          { _id: id }, 
-          { playlistId: id }
-        ]
+        $or: [{ _id: id }, { playlistId: id }],
       }).populate('eventId', 'name startDate endDate');
     } catch (error) {
       // If ObjectId cast fails, try string matching only on playlistId
       console.log(`ID cast failed, trying string match: ${error.message}`);
-      playlist = await Playlist.findOne({ playlistId: id })
-        .populate('eventId', 'name startDate endDate');
+      playlist = await Playlist.findOne({ playlistId: id }).populate('eventId', 'name startDate endDate');
     }
 
     if (!playlist) {

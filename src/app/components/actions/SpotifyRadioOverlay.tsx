@@ -70,8 +70,12 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
           const tracks: Track[] = [];
 
           // If tracks is already a Record<string, Track>, convert to array
-          if (typeof playlist.tracks === 'object' && !Array.isArray(playlist.tracks) && !('length' in playlist.tracks)) {
-            Object.values(playlist.tracks).forEach(track => {
+          if (
+            typeof playlist.tracks === 'object' &&
+            !Array.isArray(playlist.tracks) &&
+            !('length' in playlist.tracks)
+          ) {
+            Object.values(playlist.tracks).forEach((track) => {
               tracks.push(track as Track);
             });
           }
@@ -90,7 +94,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
                     artist: spotifyTrack.artists?.[0]?.name || 'Unknown Artist',
                     spotifyId: trackId,
                     previewUrl: spotifyTrack.preview_url || undefined,
-                    albumArt: spotifyTrack.album?.images?.[0]?.url
+                    albumArt: spotifyTrack.album?.images?.[0]?.url,
                   };
                   tracks.push(track);
                 }
@@ -125,7 +129,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
                     artist: spotifyTrack.artists?.[0]?.name || 'Unknown Artist',
                     spotifyId: trackId,
                     previewUrl: spotifyTrack.preview_url || undefined,
-                    albumArt: spotifyTrack.album?.images?.[0]?.url
+                    albumArt: spotifyTrack.album?.images?.[0]?.url,
                   };
                   tracks.push(track);
                 }
@@ -195,7 +199,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
               .then(() => {
                 setIsLoading(false);
               })
-              .catch(error => {
+              .catch((error) => {
                 console.error('Error playing track:', error);
                 setPlaybackError(`Couldn't play track: ${error.message}`);
                 setIsLoading(false);
@@ -261,7 +265,11 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   if (playlistLoading) {
     return (
       <div className="spotify-overlay mini-player">
-        <img src={currentEvent?.coverImageUrl || "https://via.placeholder.com/50"} className="mini-image" alt="Loading" />
+        <img
+          src={currentEvent?.coverImageUrl || 'https://via.placeholder.com/50'}
+          className="mini-image"
+          alt="Loading"
+        />
         <div className="mini-info">
           <span className="mini-title">Loading music...</span>
           <span className="mini-artist">Please wait</span>
@@ -276,7 +284,11 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   if (!currentTrack) {
     return (
       <div className="spotify-overlay mini-player">
-        <img src={currentEvent?.coverImageUrl || "https://via.placeholder.com/50"} className="mini-image" alt="Event cover" />
+        <img
+          src={currentEvent?.coverImageUrl || 'https://via.placeholder.com/50'}
+          className="mini-image"
+          alt="Event cover"
+        />
         <div className="mini-info">
           <span className="mini-title" title={currentEvent?.name || 'Loading event'}>
             {currentEvent?.name || 'Loading event'}
@@ -306,7 +318,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
 
       <div className="expanded-player">
         <img
-          src={currentTrack.albumArt || currentEvent.coverImageUrl || "https://via.placeholder.com/200"}
+          src={currentTrack.albumArt || currentEvent.coverImageUrl || 'https://via.placeholder.com/200'}
           className="album-art"
           alt={`Album art for ${currentTrack.name}`}
         />
@@ -338,7 +350,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     <div className="spotify-overlay mini-player">
       <div className="mini-image-container" onClick={onExpand}>
         <img
-          src={currentTrack.albumArt || currentEvent.coverImageUrl || "https://via.placeholder.com/50"}
+          src={currentTrack.albumArt || currentEvent.coverImageUrl || 'https://via.placeholder.com/50'}
           className="mini-image"
           alt="Album cover"
         />

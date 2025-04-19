@@ -17,7 +17,7 @@ const TokenStorage = {
   },
   async removeItem(key: string): Promise<void> {
     localStorage.removeItem(key);
-  }
+  },
 };
 
 // Convert Spotify preview URLs to our proxy URLs
@@ -40,36 +40,41 @@ function convertToProxyUrl(previewUrl: string | null): string | null {
 // Use preview URLs that are confirmed to work
 const mockTracks: Record<string, any> = {
   // Updated with verified working previews
-  "7ouMYWpwJ422jRcDASZB7P": { // Drake - God's Plan
+  '7ouMYWpwJ422jRcDASZB7P': {
+    // Drake - God's Plan
     name: "God's Plan",
-    artists: [{ name: "Drake" }],
-    album: { images: [{ url: "https://i.scdn.co/image/ab67616d0000b273f907de96b9a4fbc04accc0d5" }] },
-    preview_url: "/api/spotify/preview/7699132dd7c55c9055ac6e2b9107dbd0e46cd4ff"
+    artists: [{ name: 'Drake' }],
+    album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b273f907de96b9a4fbc04accc0d5' }] },
+    preview_url: '/api/spotify/preview/7699132dd7c55c9055ac6e2b9107dbd0e46cd4ff',
   },
-  "0e7ipj03S05BNilyu5bRzt": { // Taylor Swift - Cruel Summer
-    name: "Cruel Summer",
-    artists: [{ name: "Taylor Swift" }],
-    album: { images: [{ url: "https://i.scdn.co/image/ab67616d0000b273a7f4a25ec130e506b01955c6" }] },
-    preview_url: "/api/spotify/preview/31f1d3534b3908cbbd68b6e889a3b5e504b24888"
+  '0e7ipj03S05BNilyu5bRzt': {
+    // Taylor Swift - Cruel Summer
+    name: 'Cruel Summer',
+    artists: [{ name: 'Taylor Swift' }],
+    album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b273a7f4a25ec130e506b01955c6' }] },
+    preview_url: '/api/spotify/preview/31f1d3534b3908cbbd68b6e889a3b5e504b24888',
   },
-  "1zi7xx7UVEFkmKfv06H8x0": { // Drake & 21 Savage - Rich Flex
-    name: "Rich Flex",
-    artists: [{ name: "Drake, 21 Savage" }],
-    album: { images: [{ url: "https://i.scdn.co/image/ab67616d0000b2734dce95fdb76259e7621cacac" }] },
-    preview_url: "/api/spotify/preview/c0950bcccb003b284b83a69867f4b919c60889cc"
+  '1zi7xx7UVEFkmKfv06H8x0': {
+    // Drake & 21 Savage - Rich Flex
+    name: 'Rich Flex',
+    artists: [{ name: 'Drake, 21 Savage' }],
+    album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b2734dce95fdb76259e7621cacac' }] },
+    preview_url: '/api/spotify/preview/c0950bcccb003b284b83a69867f4b919c60889cc',
   },
-  "0V3wPSX9ygBnCm8psDIegu": { // Taylor Swift - Anti-Hero
-    name: "Anti-Hero",
-    artists: [{ name: "Taylor Swift" }],
-    album: { images: [{ url: "https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5" }] },
-    preview_url: "/api/spotify/preview/2617bc6ae380605b9ff81c9f9d2a7e4e59c9fb60"
+  '0V3wPSX9ygBnCm8psDIegu': {
+    // Taylor Swift - Anti-Hero
+    name: 'Anti-Hero',
+    artists: [{ name: 'Taylor Swift' }],
+    album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b273bb54dde68cd23e2a268ae0f5' }] },
+    preview_url: '/api/spotify/preview/2617bc6ae380605b9ff81c9f9d2a7e4e59c9fb60',
   },
-  "4Dvkj6JhhA12EX05fT7y2e": { // Harry Styles - As It Was
-    name: "As It Was",
-    artists: [{ name: "Harry Styles" }],
-    album: { images: [{ url: "https://i.scdn.co/image/ab67616d0000b273b46f74097655d7f353caab14" }] },
-    preview_url: "/api/spotify/preview/e4d7c272d8a397702d8411f280e652adfa89b71c"
-  }
+  '4Dvkj6JhhA12EX05fT7y2e': {
+    // Harry Styles - As It Was
+    name: 'As It Was',
+    artists: [{ name: 'Harry Styles' }],
+    album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b273b46f74097655d7f353caab14' }] },
+    preview_url: '/api/spotify/preview/e4d7c272d8a397702d8411f280e652adfa89b71c',
+  },
 };
 
 class SpotifyService {
@@ -132,19 +137,15 @@ class SpotifyService {
       // Get client credentials token
       const authString = base64Encode(`${CLIENT_ID}:${CLIENT_SECRET}`);
 
-      const response = await axios.post(
-        'https://accounts.spotify.com/api/token',
-        'grant_type=client_credentials',
-        {
-          headers: {
-            Authorization: `Basic ${authString}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
+      const response = await axios.post('https://accounts.spotify.com/api/token', 'grant_type=client_credentials', {
+        headers: {
+          Authorization: `Basic ${authString}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
 
       this.accessToken = response.data.access_token;
-      this.expiresAt = Date.now() + (response.data.expires_in * 1000);
+      this.expiresAt = Date.now() + response.data.expires_in * 1000;
       await this.saveTokens();
 
       console.log('New Spotify token acquired');
