@@ -6,6 +6,8 @@ const dotenv = require('dotenv');
 const { initFirebaseAdmin } = require('./config/firebase');
 const { connectToMongoDB } = require('./config/mongodb');
 const errorHandler = require('./middleware/errorHandler');
+const { scheduleWeeklyEmails } = require('./services/subscription.service');
+
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +22,9 @@ const playlistRoutes = require('./routes/playlist.routes');
 const userRoutes = require('./routes/user.routes');
 const publicRoutes = require('./routes/public.routes');
 const adminRoutes = require('./routes/admin.routes');
+const subscriptionRoutes = require('./routes/subscription.routes');
+
+scheduleWeeklyEmails();
 
 // Initialize Express app
 const app = express();
@@ -69,6 +74,7 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

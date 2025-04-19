@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import '../../styles/EventSecondaryContent.css';
 
 interface EventSecondaryContentProps {
@@ -19,22 +20,47 @@ const EventSecondaryContent = ({ event }: EventSecondaryContentProps) => {
 
   const [email, setEmail] = useState('');
   const [notifyMe, setNotifyMe] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const themeColor = event?.themeColor ?? '#3B82F6';
 
-  const handleNotifyMe = () => {
+  const handleNotifyMe = async () => {
+    // Reset error state
+    setError(null);
+
     if (!email.trim()) {
-      alert('Email Required: Please enter your email to get notifications.');
+      setError('Email Required: Please enter your email to get notifications.');
       return;
     }
 
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      alert('Invalid Email: Please enter a valid email address.');
+      setError('Invalid Email: Please enter a valid email address.');
       return;
     }
 
-    // Here you would normally send the email to your backend
-    alert(`Notification Set: We'll notify you about updates for "${event.name}"`);
-    setNotifyMe(true);
+    try {
+      setIsSubmitting(true);
+
+      // Call the subscription endpoint
+      const response = await axios.post('/api/subscriptions', {
+        email: email.trim(),
+        eventId: event.id
+      });
+
+      // Handle success
+      console.log('Subscription response:', response.data);
+      setNotifyMe(true);
+
+      // Show success message
+      alert(`Thank you! We've sent a confirmation email to ${email}. Please check your inbox to complete your subscription.`);
+
+    } catch (err: any) {
+      console.error('Subscription error:', err);
+      setError(err.response?.data?.error || 'Failed to set up notifications. Please try again.');
+      setNotifyMe(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -71,15 +97,18 @@ const EventSecondaryContent = ({ event }: EventSecondaryContentProps) => {
           placeholder="Your email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          disabled={notifyMe || isSubmitting}
         />
+
+        {error && <p className="error-message">{error}</p>}
 
         <button
           className="notify-button"
           style={{ backgroundColor: notifyMe ? '#059669' : themeColor }}
           onClick={handleNotifyMe}
-          disabled={notifyMe}
+          disabled={notifyMe || isSubmitting}
         >
-          {notifyMe ? 'Notifications Enabled' : 'Notify Me'}
+          {isSubmitting ? 'Submitting...' : notifyMe ? 'Notifications Enabled' : 'Notify Me'}
           {notifyMe && <i className="fa fa-check-circle" style={{ marginLeft: '8px' }}></i>}
         </button>
       </div>

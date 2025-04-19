@@ -12,7 +12,7 @@ import {
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db, storage } from './firebase';
+import { db, storage } from './a';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 export interface Performer {

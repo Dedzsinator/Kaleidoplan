@@ -14,6 +14,7 @@ import AdminPanel from './app/screen/AdminPanelScreen';
 import UserManagement from './app/screen/UserManagementScreen';
 import EventManagement from './app/screen/EventManagementScreen';
 import EventDetailScreen from './app/screen/EventDetailScreen';
+import ConfirmationPage from './app/components/user/ConfirmationPage';
 
 // Import Firebase configuration to ensure it's initialized
 import './app/config/firebase';
@@ -30,6 +31,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/events/:eventId" element={<EventDetailScreen />} />
+          <Route path="/confirm-subscription/:token" element={<ConfirmationPage />} />
 
           {/* Protected routes - any authenticated user */}
           <Route

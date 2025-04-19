@@ -79,12 +79,6 @@
   transform: translateY(-5px);
 }
 
-.event-image {
-  position: relative;
-  height: 150px;
-  overflow: hidden;
-}
-
 .event-image img {
   width: 100%;
   height: 100%;

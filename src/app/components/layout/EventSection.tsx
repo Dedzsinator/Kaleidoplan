@@ -211,7 +211,6 @@ const EventSection = memo(
 
                 {slideshowImages.length > 0 && (
                   <div className="slideshow-container">
-                    <h3 className="section-title">Event Gallery</h3>
                     <ImageSlideshow images={slideshowImages} height={200} interval={5000} showGradient={true} />
                   </div>
                 )}
