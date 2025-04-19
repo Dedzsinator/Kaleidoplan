@@ -173,3 +173,165 @@ hr {
     font-size: 20px;
   }
 }
+
+/* Modern Search Bar Styling */
+.navbar-search {
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 280px;
+  height: 40px;
+  margin: 0 20px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border-radius: 24px;
+  background-color: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.navbar-search.focused {
+  width: 350px;
+  background-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.navbar-search input {
+  flex: 1;
+  height: 100%;
+  padding: 0 45px 0 18px;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  border: none;
+  background-color: transparent;
+  color: white;
+  transition: all 0.25s ease;
+}
+
+.navbar-search input:focus {
+  outline: none;
+}
+
+.navbar-search input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s ease;
+}
+
+.navbar-search.focused input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.search-button {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.navbar-search.focused .search-button {
+  background-color: rgba(52, 152, 219, 0.8);
+  color: white;
+}
+
+.search-button:hover {
+  background-color: rgba(52, 152, 219, 0.9);
+  color: white;
+}
+
+/* Add a subtle reveal effect when typing */
+.navbar-search input:not(:placeholder-shown) + .search-button {
+  background-color: rgba(52, 152, 219, 0.8);
+  color: white;
+}
+
+/* Make it more responsive */
+@media (max-width: 992px) {
+  .navbar-search {
+    width: 220px;
+  }
+  
+  .navbar-search.focused {
+    width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-container {
+    flex-wrap: wrap;
+  }
+  
+  .navbar-search {
+    order: 3;
+    width: 100%;
+    margin: 10px 0;
+    max-width: none;
+  }
+  
+  .navbar-search.focused {
+    width: 100%;
+  }
+}
+
+/* Around Me Button */
+.around-me-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.around-me-button:hover {
+  color: #3498db;
+}
+
+.around-me-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.around-me-button.loading {
+  color: #3498db;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.around-me-button i {
+  color: #e74c3c;
+}
+
+.location-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: location-spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes location-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

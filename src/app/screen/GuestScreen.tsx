@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getEvents } from '../../services/eventService';
+import { filterEventsByProximity, getCurrentLocation, Coordinates } from '../../services/filterService';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
@@ -33,9 +34,18 @@ const GuestScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [headerOpacity, setHeaderOpacity] = useState(0.8);
   const [scrollPosition, setScrollPosition] = useState(0);
-  const [viewMode, setViewMode] = useState<ViewMode>('card'); // Default to card view
-  const [isRadioPlaying, setIsRadioPlaying] = useState(false); // State for radio player
-  const [isOverlayExpanded, setIsOverlayExpanded] = useState(false); // State for overlay expansion
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
+  const [isRadioPlaying, setIsRadioPlaying] = useState(false);
+  const [isOverlayExpanded, setIsOverlayExpanded] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [filterApplied, setFilterApplied] = useState(false);
+  const [filterCriteria, setFilterCriteria] = useState<{
+    search?: string;
+    nearbyLocation?: Coordinates;
+    radius?: number;
+  }>({});
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
 
   // Gradient transition states
   const [backgroundGradient, setBackgroundGradient] = useState('linear-gradient(to bottom, rgba(51, 87, 255, 0.2), rgba(51, 87, 255, 0.05))');
@@ -208,6 +218,50 @@ const GuestScreen = () => {
     setEvents(demoEvents);
   }, []);
 
+  const applyFilters = useCallback(() => {
+    // Start with all events
+    let filtered = [...events];
+    let hasFilter = false;
+
+    // Apply search filter if present
+    const searchTerm = searchParams.get('search');
+    if (searchTerm) {
+      filtered = filtered.filter(event =>
+        event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (event.location && event.location.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      hasFilter = true;
+      setFilterCriteria(prev => ({ ...prev, search: searchTerm }));
+    }
+
+    // Apply location filter if present
+    const hasNearbyFilter = searchParams.get('near') === 'true';
+    const lat = searchParams.get('lat');
+    const lng = searchParams.get('lng');
+    const radius = searchParams.get('radius');
+
+    if (hasNearbyFilter && lat && lng) {
+      const userLocation = {
+        latitude: parseFloat(lat),
+        longitude: parseFloat(lng)
+      };
+
+      const radiusValue = radius ? parseInt(radius) : 300;
+
+      filtered = filterEventsByProximity(filtered, userLocation, radiusValue);
+      hasFilter = true;
+      setFilterCriteria(prev => ({
+        ...prev,
+        nearbyLocation: userLocation,
+        radius: radiusValue
+      }));
+    }
+
+    setFilteredEvents(filtered);
+    setFilterApplied(hasFilter);
+  }, [events, searchParams]);
+
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
@@ -266,7 +320,6 @@ const GuestScreen = () => {
     updateGradientColors();
   }, [events]);
 
-  // Update gradient colors based on visible events
   const updateGradientColors = useCallback(() => {
     const visibleEvents = Object.values(visibleEventsRef.current).filter(e => e.visible);
     if (visibleEvents.length === 0) return;
@@ -318,7 +371,130 @@ const GuestScreen = () => {
     }
   }, [scrollPosition]);
 
-  // Update the gradient effect whenever colors or transition progress changes
+  const handleAroundMe = useCallback(() => {
+    setIsLocationLoading(true);
+
+    // Show a visible loading indicator
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'location-toast';
+    loadingToast.innerHTML = `
+    <div class="location-toast-inner">
+      <div class="location-spinner"></div>
+      <span>Finding your location...</span>
+    </div>
+  `;
+    document.body.appendChild(loadingToast);
+
+    // Function to apply location filter
+    const applyLocationFilter = (latitude: number, longitude: number, source: string) => {
+      console.log(`Got location from ${source}: ${latitude}, ${longitude}`);
+
+      // Filter events by proximity
+      const filtered = filterEventsByProximity(
+        events,
+        { latitude, longitude },
+        300
+      );
+
+      // Update state
+      setFilteredEvents(filtered);
+      setFilterApplied(true);
+      setFilterCriteria(prev => ({
+        ...prev,
+        nearbyLocation: { latitude, longitude },
+        radius: 300
+      }));
+
+      // Update URL params
+      setSearchParams({
+        near: 'true',
+        lat: latitude.toString(),
+        lng: longitude.toString(),
+        radius: '300'
+      });
+
+      // Clean up
+      document.body.removeChild(loadingToast);
+      setIsLocationLoading(false);
+    };
+
+    // Function to handle failure
+    const handleFailure = (error: any) => {
+      console.error('Error getting location:', error);
+
+      // Try IP-based geolocation as last resort
+      fetch('https://ipapi.co/json/')
+        .then(response => response.json())
+        .then(data => {
+          if (data.latitude && data.longitude) {
+            applyLocationFilter(data.latitude, data.longitude, 'IP geolocation');
+
+            // Show notification about less accurate location
+            const noticeToast = document.createElement('div');
+            noticeToast.className = 'notice-toast';
+            noticeToast.innerHTML = `
+            <div class="notice-toast-inner">
+              <i class="fa fa-info-circle"></i>
+              <span>Using approximate location based on your IP address.</span>
+              <button class="close-toast">×</button>
+            </div>
+          `;
+            document.body.appendChild(noticeToast);
+
+            noticeToast.querySelector('.close-toast')?.addEventListener('click', () => {
+              document.body.removeChild(noticeToast);
+            });
+
+            setTimeout(() => {
+              if (document.body.contains(noticeToast)) {
+                document.body.removeChild(noticeToast);
+              }
+            }, 8000);
+          } else {
+            showErrorMessage("Couldn't determine your location automatically.");
+          }
+        })
+        .catch(() => {
+          showErrorMessage("Couldn't determine your location. Please try again later.");
+        });
+    };
+
+    // Function to show error message
+    const showErrorMessage = (message: string) => {
+      document.body.removeChild(loadingToast);
+      setIsLocationLoading(false);
+
+      const errorToast = document.createElement('div');
+      errorToast.className = 'error-toast';
+      errorToast.innerHTML = `
+      <div class="error-toast-inner">
+        <i class="fa fa-exclamation-circle"></i>
+        <span>${message}</span>
+        <button class="close-toast">×</button>
+      </div>
+    `;
+      document.body.appendChild(errorToast);
+
+      errorToast.querySelector('.close-toast')?.addEventListener('click', () => {
+        document.body.removeChild(errorToast);
+      });
+
+      setTimeout(() => {
+        if (document.body.contains(errorToast)) {
+          document.body.removeChild(errorToast);
+        }
+      }, 8000);
+    };
+
+    // Try browser geolocation first
+    getCurrentLocation()
+      .then(coords => {
+        applyLocationFilter(coords.latitude, coords.longitude, 'browser geolocation');
+      })
+      .catch(handleFailure);
+
+  }, [events, setSearchParams, filterEventsByProximity]);
+
   useEffect(() => {
     try {
       const startRgb = hexToRgb(currentColor) || hexToRgb(DEFAULT_COLOR);
@@ -337,7 +513,6 @@ const GuestScreen = () => {
     }
   }, [currentColor, nextColor, transitionProgress]);
 
-  // Scroll handler with throttling
   useEffect(() => {
     const throttledScroll = () => {
       const position = window.scrollY;
@@ -373,7 +548,6 @@ const GuestScreen = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [updateGradientColors]);
 
-  // Fetch events once on mount
   useEffect(() => {
     if (!hasLoadedEvents.current) {
       fetchEvents();
@@ -381,7 +555,10 @@ const GuestScreen = () => {
     }
   }, [fetchEvents]);
 
-  // Navigate to event detail page
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters, events, searchParams]);
+
   const handleEventClick = useCallback(
     (eventId: string) => {
       navigate(`/events/${eventId}`);
@@ -434,9 +611,16 @@ const GuestScreen = () => {
     setIsOverlayExpanded((prev) => !prev);
   }, []);
 
-  // Memoize event items creation to prevent unnecessary re-creation
+  const eventsToDisplay = filterApplied ? filteredEvents : events;
+
+  const clearFilters = useCallback(() => {
+    setSearchParams({});
+    setFilterApplied(false);
+    setFilterCriteria({});
+  }, [setSearchParams]);
+
   const renderEventItems = useCallback(() => {
-    return events.map((event, index) => (
+    return eventsToDisplay.map((event, index) => (
       <EventSection
         key={event.id}
         event={event}
@@ -448,9 +632,8 @@ const GuestScreen = () => {
         onVisibilityChange={handleVisibilityChange}
       />
     ));
-  }, [events, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
+  }, [eventsToDisplay, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
 
-  // Find the event object for the activeEventId
   const currentActiveEvent = events.find((event) => event.id === activeEventId);
 
   if (loading) {
@@ -495,8 +678,14 @@ const GuestScreen = () => {
         </div>
       </div>
 
-      {/* Fixed NavBar */}
-      <NavBar opacity={headerOpacity} />
+      <NavBar
+        opacity={headerOpacity}
+        onSearch={(term) => {
+          setSearchParams({ search: term });
+        }}
+        onAroundMe={handleAroundMe}
+        isLocationLoading={isLocationLoading}
+      />
 
       {/* Main Content */}
       <main className="main-content">
@@ -522,11 +711,70 @@ const GuestScreen = () => {
               <span className="label">Detailed View</span>
             </button>
           </div>
+
+          {filterApplied && (
+            <div className="filter-indicators">
+              {filterCriteria.search && (
+                <div className="filter-badge">
+                  <i className="fa fa-search"></i>
+                  <span>{filterCriteria.search}</span>
+                  <button
+                    className="clear-filter"
+                    onClick={() => {
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.delete('search');
+                      setSearchParams(newParams);
+                    }}
+                    aria-label="Clear search filter"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {filterCriteria.nearbyLocation && (
+                <div className="filter-badge">
+                  <i className="fa fa-map-marker-alt"></i>
+                  <span>
+                    Within {filterCriteria.radius}km
+                    {isLocationLoading && <span className="loading-dot-animation"></span>}
+                  </span>
+                  <button
+                    className="clear-filter"
+                    onClick={() => {
+                      const newParams = new URLSearchParams(searchParams);
+                      newParams.delete('near');
+                      newParams.delete('lat');
+                      newParams.delete('lng');
+                      newParams.delete('radius');
+                      setSearchParams(newParams);
+                    }}
+                    aria-label="Clear location filter"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              <button className="clear-all-filters" onClick={clearFilters}>
+                <i className="fa fa-times-circle"></i>
+                Clear All
+              </button>
+            </div>
+          )}
+
         </div>
 
-        {events.length === 0 ? (
+        {eventsToDisplay.length === 0 ? (
           <div className="no-events-container">
-            <p className="no-events-text">No events found. Check back soon for new events!</p>
+            {filterApplied ? (
+              <>
+                <p className="no-events-text">No events match your search criteria.</p>
+                <button className="clear-filters-button" onClick={clearFilters}>Clear Filters</button>
+              </>
+            ) : (
+              <p className="no-events-text">No events found. Check back soon for new events!</p>
+            )}
           </div>
         ) : (
           <div className={viewMode === 'card' ? 'card-events-container' : 'detailed-events-container'}>
