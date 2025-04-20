@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRolesTab } from '../components/ui/UserRolesTab';
 import { AdminTabs } from '../components/ui/AdminTabs';
 import { AnalyticsTab } from '../components/ui/AnalyticsTab';
 import { CrudOperationsTab } from '../components/ui/CrudOperationsTab';
+import { EventOrganizersTab } from '../components/ui/EventOrganizersTab';
 import '../styles/AdminPanel.css';
 
 const AdminPanelScreen: React.FC = () => {
@@ -34,6 +35,7 @@ const AdminPanelScreen: React.FC = () => {
 
       {activeTab === 'analytics' && <AnalyticsTab />}
       {activeTab === 'roles' && <UserRolesTab />}
+      {activeTab === 'organizers' && <EventOrganizersTab />} {/* Add this line */}
       {activeTab === 'crud' && <CrudOperationsTab />}
     </div>
   );

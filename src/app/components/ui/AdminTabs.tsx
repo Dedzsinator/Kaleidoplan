@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 
 interface TabsProps {
   activeTab: string;
@@ -18,6 +18,11 @@ export const AdminTabs: React.FC<TabsProps> = ({ activeTab, setActiveTab }) => {
         <span className="tab-text">User Roles</span>
       </button>
 
+      <button className={`tab ${activeTab === 'organizers' ? 'active' : ''}`} onClick={() => setActiveTab('organizers')}>
+        <span className="tab-icon">🔑</span>
+        <span className="tab-text">Event Organizers</span>
+      </button>
+
       <button className={`tab ${activeTab === 'crud' ? 'active' : ''}`} onClick={() => setActiveTab('crud')}>
         <span className="tab-icon">⚙️</span>
         <span className="tab-text">Data Management</span>
@@ -25,5 +30,3 @@ export const AdminTabs: React.FC<TabsProps> = ({ activeTab, setActiveTab }) => {
     </div>
   );
 };
-
-export default AdminTabs;

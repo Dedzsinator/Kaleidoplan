@@ -1,6 +1,7 @@
-// Events controller for managing event data with MongoDB
 const Event = require('../models/event.model');
 const EventSponsor = require('../models/event-sponsor.model');
+const EventInterest = require('../models/event-interest.model'); 
+const OrganizerEvent = require('../models/organizer-event.model');
 const mongoose = require('mongoose');
 const { admin } = require('../config/firebase');
 
@@ -318,6 +319,82 @@ const getEventInterests = async (req, res, next) => {
   }
 };
 
+const getManagedEvents = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const userId = req.user.uid;
+    console.log('Controller: Fetching events managed by organizer', userId);
+    
+    // If user is admin, return all events
+    if (req.user.role === 'admin') {
+      console.log('Admin user - returning all events');
+      return getAllEvents(req, res, next);
+    }
+    
+    // Find all event assignments for this user
+    const organizedEvents = await OrganizerEvent.find({ userId });
+    console.log(`Found ${organizedEvents.length} organizer assignments for user ${userId}`);
+    
+    if (organizedEvents.length === 0) {
+      return res.json({ events: [] });
+    }
+    
+    // Separate permanent and temporary event IDs
+    const permanentEventIds = [];
+    const temporaryEvents = [];
+    
+    organizedEvents.forEach(assignment => {
+      if (assignment.isTemporary || assignment.eventId.startsWith('temp-')) {
+        // For temporary events, we'll create placeholder objects
+        temporaryEvents.push({
+          id: assignment.eventId,
+          name: `Draft Event (${assignment.eventId.substring(0, 8)}...)`,
+          status: 'draft',
+          isTemporary: true,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 86400000), // +1 day
+          color: '#CCCCCC'
+        });
+      } else if (mongoose.Types.ObjectId.isValid(assignment.eventId)) {
+        permanentEventIds.push(mongoose.Types.ObjectId(assignment.eventId));
+      }
+    });
+    
+    // Find all permanent events
+    const permanentEvents = permanentEventIds.length > 0 
+      ? await Event.find({ _id: { $in: permanentEventIds } })
+      : [];
+    
+    console.log(`Found ${permanentEvents.length} permanent events and ${temporaryEvents.length} temporary events`);
+    
+    // Calculate status for permanent events
+    const now = new Date();
+    const eventsWithStatus = permanentEvents.map((event) => {
+      const eventObj = event.toObject();
+      
+      // Ensure event has status
+      if (event.startDate <= now && event.endDate >= now) {
+        eventObj.status = 'ongoing';
+      } else if (event.startDate > now) {
+        eventObj.status = 'upcoming';
+      } else {
+        eventObj.status = 'completed';
+      }
+      
+      return eventObj;
+    });
+    
+    // Combine permanent and temporary events
+    res.json({ events: [...eventsWithStatus, ...temporaryEvents] });
+  } catch (error) {
+    console.error('Error fetching managed events:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   getAllEvents,
   getEventById,
@@ -325,4 +402,5 @@ module.exports = {
   updateEvent,
   deleteEvent,
   getEventInterests,
+  getManagedEvents
 };

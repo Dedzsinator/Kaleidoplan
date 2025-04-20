@@ -1,4 +1,4 @@
-// Centralized error handling middleware
+// Enhanced error handler to provide more detailed errors
 const errorHandler = (err, req, res, next) => {
   console.error('API Error:', err);
 
@@ -12,9 +12,18 @@ const errorHandler = (err, req, res, next) => {
 
   // MongoDB Duplicate Key Error
   if (err.code === 11000) {
-    return res.status(400).json({
+    return res.status(409).json({
       error: 'Duplicate Key Error',
       details: `Duplicate value for ${Object.keys(err.keyValue).join(', ')}`,
+      message: 'This organizer is already assigned to this event'
+    });
+  }
+
+  // Cast Error (invalid ObjectId)
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      error: 'Invalid ID Format',
+      details: err.message
     });
   }
 

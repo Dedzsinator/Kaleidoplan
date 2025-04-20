@@ -149,7 +149,7 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
 };
 
 // Helper for GET requests
-export const get = async (endpoint: string, options?: RequestInit): Promise<any> => {
+const get = async (endpoint: string, options?: RequestInit): Promise<any> => {
   const response = await fetchWithAuth(endpoint, {
     method: 'GET',
     ...options,
@@ -162,26 +162,65 @@ export const get = async (endpoint: string, options?: RequestInit): Promise<any>
   return response.json();
 };
 
-// Helper for POST requests
-export const post = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
-  const response = await fetchWithAuth(endpoint, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    ...options,
-  });
+// Improve the post method to handle non-JSON responses better
+const post = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+  try {
+    const headers = new Headers(options?.headers);
+    headers.set('Content-Type', 'application/json');
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    console.log(`Making POST request to ${endpoint}`, data);
+
+    const response = await fetchWithAuth(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+      ...options,
+    });
+
+    // Check for error status
+    if (!response.ok) {
+      // Try to get detailed error from response
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || `API error: ${response.status}`);
+      } catch (parseError) {
+        // If we can't parse JSON, provide a better error message
+        throw new Error(`Server error (${response.status}): ${response.statusText}`);
+      }
+    }
+
+    // For successful responses, try to parse as JSON, but handle non-JSON responses gracefully
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        return await response.json();
+      } catch (parseError) {
+        console.warn('Response was not valid JSON:', parseError);
+        return { success: true, message: 'Operation completed' };
+      }
+    } else {
+      // For non-JSON responses, return a simple success object
+      const text = await response.text();
+      return {
+        success: true,
+        message: text || 'Operation completed',
+        statusCode: response.status
+      };
+    }
+  } catch (error) {
+    console.error('API POST request failed:', error);
+    throw error;
   }
-
-  return response.json();
 };
 
-// Helper for PUT requests
-export const put = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+const put = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+  const headers = new Headers(options?.headers);
+  headers.set('Content-Type', 'application/json');
+
   const response = await fetchWithAuth(endpoint, {
     method: 'PUT',
     body: JSON.stringify(data),
+    headers,
     ...options,
   });
 
@@ -192,7 +231,24 @@ export const put = async (endpoint: string, data: any, options?: RequestInit): P
   return response.json();
 };
 
-// Helper for DELETE requests
+const patch = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+  const headers = new Headers(options?.headers);
+  headers.set('Content-Type', 'application/json');
+
+  const response = await fetchWithAuth(endpoint, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+    headers,
+    ...options,
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+};
+
 export const del = async (endpoint: string, options?: RequestInit): Promise<any> => {
   const response = await fetchWithAuth(endpoint, {
     method: 'DELETE',
@@ -205,3 +261,28 @@ export const del = async (endpoint: string, options?: RequestInit): Promise<any>
 
   return response.json();
 };
+
+const deleteRequest = async (endpoint: string, options?: RequestInit): Promise<any> => {
+  const response = await fetchWithAuth(endpoint, {
+    method: 'DELETE',
+    ...options,
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+const api = {
+  get,
+  post,
+  put,
+  patch,
+  delete: deleteRequest
+};
+
+export default api;
+
+export { get, post, put, patch, deleteRequest as delete };

@@ -1,14 +1,42 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
 const eventsController = require('../controllers/events.controller');
+const authMiddleware = require('../middleware/auth');
 
-// Protected routes (require authentication)
-router.use(authMiddleware.verifyToken); // Use verifyToken instead of authenticateFirebaseToken
+router.get('/managed', 
+  authMiddleware.verifyToken, 
+  eventsController.getManagedEvents
+);
+
+router.get('/all', 
+  authMiddleware.verifyToken, 
+  authMiddleware.attachUserData, 
+  authMiddleware.requireAdmin, 
+  eventsController.getAllEvents
+);
+
+// Regular event routes with parameters - must come AFTER special routes
 router.get('/', eventsController.getAllEvents);
 router.get('/:id', eventsController.getEventById);
-router.post('/', authMiddleware.requireOrganizerOrAdmin, eventsController.createEvent);
-router.put('/:id', authMiddleware.checkEventOwnership, eventsController.updateEvent);
-router.delete('/:id', authMiddleware.checkEventOwnership, eventsController.deleteEvent);
+router.post('/', 
+  authMiddleware.verifyToken, 
+  authMiddleware.attachUserData, 
+  eventsController.createEvent
+);
+router.put('/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.attachUserData, 
+  eventsController.updateEvent
+);
+router.delete('/:id', 
+  authMiddleware.verifyToken, 
+  authMiddleware.attachUserData, 
+  eventsController.deleteEvent
+);
+router.get('/:id/interests', 
+  authMiddleware.verifyToken, 
+  authMiddleware.attachUserData, 
+  eventsController.getEventInterests
+);
 
 module.exports = router;

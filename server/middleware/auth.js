@@ -1,36 +1,6 @@
 const admin = require('../config/firebase');
 const User = require('../models/user.model');
-
-// Verify Firebase token and attach user to request
-exports.verifyToken = async (req, res, next) => {
-  try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    // Verify token
-    const decodedToken = await admin.auth().verifyIdToken(token);
-
-    // Set uid and user on request object
-    req.uid = decodedToken.uid;
-    req.user = decodedToken;
-
-    next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    res.status(401).json({ error: 'Invalid or expired token' });
-  }
-};
-
-exports.attachUserData = async (req, res, next) => {
-  // For Firebase-only approach, we don't need to attach MongoDB user data
-  // The user info is already available in req.user from verifyToken
-  next();
-};
+const OrganizerEvent = require('../models/organizer-event.model');
 
 exports.requireAdmin = (req, res, next) => {
   console.log('Checking admin privileges for user:', req.user?.email);
@@ -56,21 +26,52 @@ exports.requireAdmin = (req, res, next) => {
   });
 };
 
+exports.verifyToken = async (req, res, next) => {
+  try {
+    // Get token from header
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('No auth token provided');
+      return res.status(401).json({ error: 'No authentication token provided' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    
+    // Verify token with Firebase
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    req.uid = decodedToken.uid; // Ensure this is set correctly
+    
+    console.log(`Token verified for user: ${decodedToken.email}, UID: ${decodedToken.uid}`);
+    next();
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return res.status(401).json({ error: 'Invalid authentication token' });
+  }
+};
+
 exports.attachUserData = async (req, res, next) => {
   try {
-    // Skip if no authenticated user
     if (!req.uid) {
+      console.log('No UID found in request, skipping user data attachment');
       return next();
     }
 
     // Find user in MongoDB
+    const User = require('../models/user.model');
     let user = await User.findOne({ uid: req.uid });
+    
+    console.log(`Looking for user with uid: ${req.uid}, found: ${user ? 'yes' : 'no'}`);
 
     // Create new user if not found
     if (!user) {
-      // First check if email exists to avoid errors
+      console.log('User not found in MongoDB, creating...');
+      
+      // Only create if we have email from Firebase
       if (!req.user || !req.user.email) {
-        console.log('Warning: No email found in token, skipping user creation');
+        console.log('No email found in token, skipping user creation');
+        req.userData = null;
         return next();
       }
 
@@ -80,32 +81,33 @@ exports.attachUserData = async (req, res, next) => {
           email: req.user.email,
           displayName: req.user.name || req.user.email.split('@')[0],
           photoURL: req.user.picture || null,
-          role: 'user', // Default role is 'user'
-          lastLogin: new Date(),
+          role: req.user.role || 'user',
+          managedEvents: [],
+          lastLogin: new Date()
         });
 
         await user.save();
-
-        // Also set the custom claim in Firebase
-        await admin.auth().setCustomUserClaims(req.uid, { role: 'user' });
+        console.log('Created new user in database:', user.email);
       } catch (createError) {
         console.error('Failed to create new user:', createError);
-        // Continue without the user data rather than failing the request
         req.userData = null;
         return next();
       }
-    } else {
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
     }
 
     // Attach MongoDB user data to request
     req.userData = user;
+    
+    console.log('User data attached:', {
+      uid: user.uid,
+      email: user.email,
+      role: user.role,
+      managedEvents: user.managedEvents || []
+    });
+    
     next();
   } catch (error) {
     console.error('Error attaching user data:', error);
-    // Continue without the user data rather than failing the request
     req.userData = null;
     next();
   }
@@ -167,38 +169,70 @@ exports.requireAdmin = (req, res, next) => {
   });
 };
 
-// Special middleware for organizer-or-admin routes
-exports.requireOrganizerOrAdmin = (req, res, next) => {
-  if (req.userData && ['organizer', 'admin'].includes(req.userData.role)) {
-    return next();
+exports.requireOrganizerOrAdmin = async (req, res, next) => {
+  try {
+    console.log('Checking organizer/admin privileges for user:', req.user?.email);
+    
+    // Admin can always access
+    if (req.user && req.user.role === 'admin') {
+      console.log('User is admin - access granted');
+      return next();
+    }
+    
+    // For organizers, check both in Firebase token claims and MongoDB
+    if (req.user && req.user.role === 'organizer') {
+      console.log('User is organizer in Firebase claims');
+      return next();
+    }
+    
+    // Also check MongoDB user record
+    const user = await User.findOne({ uid: req.user.uid });
+    if (user && user.role === 'organizer') {
+      console.log('User is organizer in MongoDB');
+      return next();
+    }
+    
+    // Final check - see if they have any event assignments
+    const hasEvents = await OrganizerEvent.exists({ userId: req.user.uid });
+    if (hasEvents) {
+      console.log('User has organizer event assignments');
+      return next();
+    }
+    
+    console.log('User is not an organizer or admin');
+    return res.status(403).json({ error: 'Forbidden: Requires organizer or admin role' });
+  } catch (error) {
+    console.error('Error in requireOrganizerOrAdmin middleware:', error);
+    return res.status(500).json({ error: 'Server error checking permissions' });
   }
-  return res.status(403).json({ error: 'Forbidden: Requires organizer or admin role' });
 };
 
-// Event ownership middleware - checks if user is admin or an organizer of a specific event
+// Update checkEventOwnership middleware
 exports.checkEventOwnership = async (req, res, next) => {
   try {
     // Admin can access any event
-    if (req.userData && req.userData.role === 'admin') {
+    if (req.user && req.user.role === 'admin') {
       return next();
     }
 
-    // Check if user is organizer
-    if (req.userData && req.userData.role === 'organizer') {
-      const eventId = req.params.id || req.body.eventId;
+    const eventId = req.params.id || req.body.eventId;
+    if (!eventId) {
+      return res.status(400).json({ error: 'Bad request: Event ID is required' });
+    }
 
-      if (!eventId) {
-        return res.status(400).json({ error: 'Bad request: Event ID is required' });
-      }
-
-      // Check if user is organizer of this event
-      if (req.userData.managedEvents && req.userData.managedEvents.some((id) => id.toString() === eventId.toString())) {
-        return next();
-      }
+    // Check if user is organizer of this specific event
+    const isOrganizer = await OrganizerEvent.exists({ 
+      userId: req.user.uid,
+      eventId: eventId
+    });
+    
+    if (isOrganizer) {
+      return next();
     }
 
     return res.status(403).json({ error: 'Forbidden: You do not manage this event' });
   } catch (error) {
+    console.error('Error checking event ownership:', error);
     next(error);
   }
 };
