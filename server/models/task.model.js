@@ -3,10 +3,15 @@ const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema(
   {
+    id: {
+      type: String,
+      index: true  // Add index for faster lookups
+    },
     eventId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: mongoose.Schema.Types.Mixed,  // Allow for both String and ObjectId
       ref: 'Event',
       required: [true, 'Event ID is required'],
+      index: true  // Add index for faster lookups
     },
     name: {
       type: String,

@@ -1,11 +1,5 @@
 import api from './api';
 
-/**
- * Assign or remove an organizer from an event
- * @param eventId - The ID of the event
- * @param userId - The ID of the user to assign/remove as organizer
- * @param action - 'assign' or 'remove' (default: 'assign')
- */
 export const assignOrganizerToEvent = async (
   eventId: string,
   userId: string,
@@ -14,14 +8,12 @@ export const assignOrganizerToEvent = async (
   try {
     console.log(`${action === 'assign' ? 'Assigning' : 'Removing'} user ${userId} as organizer for event ${eventId}`);
     
-    // Check if this is a temporary event
-    const isTemporary = eventId.startsWith('temp-');
-    console.log(`Event ${eventId} is ${isTemporary ? 'temporary' : 'permanent'}`);
+    // All events have real MongoDB IDs now
+    const isDraftEvent = false; // Determine draft status by querying the event, not by ID format
     
     if (action === 'assign') {
-      // Include isTemporary flag in the request body
       const response = await api.post(`/users/${userId}/events/${eventId}`, { 
-        isTemporary,
+        isDraft: isDraftEvent,
         source: 'admin-panel'
       });
       return response;

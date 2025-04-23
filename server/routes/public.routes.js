@@ -27,14 +27,12 @@ router.get('/events', async (req, res, next) => {
     // Process events to match frontend expectations
     const processedEvents = events.map((event, index) => {
       const eventObj = event.toObject();
-
-      // Generate a proper ID if missing
-      if (!eventObj.id && eventObj._id) {
+    
+      // Always use MongoDB _id as id, never use temp-
+      if (eventObj._id) {
         eventObj.id = eventObj._id.toString();
-      } else if (!eventObj.id) {
-        eventObj.id = `temp-${index + 1}`;
       }
-
+    
       // Make sure name is properly set
       if (!eventObj.name && eventObj.eventId) {
         eventObj.name = `Event ${eventObj.eventId}`;

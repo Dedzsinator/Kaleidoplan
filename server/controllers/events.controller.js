@@ -5,46 +5,31 @@ const OrganizerEvent = require('../models/organizer-event.model');
 const mongoose = require('mongoose');
 const { admin } = require('../config/firebase');
 
-/**
- * Get all events with optional filtering
- */
-// Simplified version of getAllEvents that just returns all events without any populate calls
 const getAllEvents = async (req, res, next) => {
   try {
-    console.log('Controller: Fetching ALL events (with no filters or populate)');
+    console.log('Controller: Fetching ALL events');
 
-    // Execute query to get all events WITHOUT trying to populate performers
-    const events = await Event.find({}).sort({ startDate: 1 });
+    // Fetch all events from MongoDB
+    const events = await Event.find({}); // No filters, just fetch all
 
-    console.log(`Found ${events.length} total events in database`);
+    console.log(`Found ${events.length} events in the database`);
 
-    // Calculate status based on dates
-    const now = new Date();
-    const eventsWithStatus = events.map((event) => {
+    // Transform events to include proper ID handling
+    const formattedEvents = events.map(event => {
+      // Convert to plain object
       const eventObj = event.toObject();
-
-      // Ensure we always have status for each event
-      if (event.startDate <= now && event.endDate >= now) {
-        eventObj.status = 'ongoing';
-      } else if (event.startDate > now) {
-        eventObj.status = 'upcoming';
-      } else {
-        eventObj.status = 'completed';
-      }
-
-      return eventObj;
+      
+      // Create a new object with MongoDB _id used for the id field
+      // IMPORTANT: Put id and _id AFTER the spread to prevent being overwritten
+      return {
+        ...eventObj,
+        id: event.id.toString(), // Ensure string format of ObjectId
+        _id: event._id.toString() // Keep _id for backward compatibility
+      };
     });
 
-    // Debug output to show fields in first event (if any)
-    if (eventsWithStatus.length > 0) {
-      console.log('First event fields:', Object.keys(eventsWithStatus[0]));
-    }
-
-    // Return all events directly
-    console.log(`Returning ${eventsWithStatus.length} events to client`);
-    res.json({
-      events: eventsWithStatus,
-    });
+    // Return formatted events
+    res.json(formattedEvents);
   } catch (error) {
     console.error('Error fetching events:', error);
     next(error);

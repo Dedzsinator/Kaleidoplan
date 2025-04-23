@@ -74,7 +74,6 @@ const GuestScreen = () => {
   // Flag to control re-fetches
   const hasLoadedEvents = useRef(false);
 
-  // Define validateEvent before fetchEvents since fetchEvents depends on it
   const validateEvent = useCallback((event: any, index: number): Event | null => {
     if (!event) {
       console.error(`Invalid event data at position ${index}`);
@@ -84,8 +83,14 @@ const GuestScreen = () => {
     // Create a shallow copy to avoid mutating the original
     const validatedEvent = { ...event };
 
+    // Always use MongoDB _id if available
     if (!validatedEvent.id && validatedEvent._id) {
-      validatedEvent.id = validatedEvent._id;
+      validatedEvent.id = validatedEvent._id.toString();
+    } else if (!validatedEvent.id) {
+      // Generate a proper MongoDB-like ID (24 hex chars)
+      const randomId = Array.from({ length: 24 }, () =>
+        Math.floor(Math.random() * 16).toString(16)).join('');
+      validatedEvent.id = randomId; // No temp- prefix
     }
 
     // Ensure we have a playlistId for Spotify integration

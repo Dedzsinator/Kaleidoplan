@@ -47,7 +47,6 @@ const calculateStatus = (startDate: Date, endDate: Date): string => {
   }
 };
 
-// Get all events (for guest view) - MongoDB only implementation
 export async function getEvents(options: { forceRefresh?: boolean } = {}): Promise<Event[]> {
   try {
     console.log('EventService: Fetching events from MongoDB server');
@@ -68,14 +67,9 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
       // Handle both { events: [...] } and direct array formats
       let eventsData: any[] = [];
       if (Array.isArray(response)) {
-        console.log('Response is array with length:', response.length);
         eventsData = response;
-      } else if (response && typeof response === 'object') {
-        console.log('Response is object with keys:', Object.keys(response));
-        if ('events' in response && Array.isArray(response.events)) {
-          console.log('Found events array in response with length:', response.events.length);
-          eventsData = response.events;
-        }
+      } else if (response && typeof response === 'object' && 'events' in response) {
+        eventsData = response.events;
       }
 
       if (!eventsData || eventsData.length === 0) {
@@ -84,17 +78,11 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
       }
 
       console.log('EventService: Successfully got MongoDB data with', eventsData.length, 'events');
-      console.log('Sample event fields:', Object.keys(eventsData[0] || {}));
-
-      // Log the first event to debug structure issues
-      if (eventsData[0]) {
-        logEventData(eventsData[0], 'First event:');
-      }
 
       // Map and normalize all events
       const normalizedEvents = eventsData.map((event: any) => {
-        // Ensure we have a stable ID
-        const eventId = event.id || (event._id ? event._id.toString() : `temp-${Math.random()}`);
+        // Use MongoDB `_id` as the `id` field
+        const eventId = event._id ? event._id.toString() : event.id;
 
         // Normalize image URLs
         const coverImageUrl = event.coverImageUrl || event.coverImage || '';
@@ -119,13 +107,12 @@ export async function getEvents(options: { forceRefresh?: boolean } = {}): Promi
         // Create normalized event object
         return {
           ...event,
-          id: eventId,
+          id: eventId, // Ensure `id` is set to `_id`
           coverImageUrl,
           slideshowImages,
           startDate,
           endDate,
           status: event.status || calculateStatus(startDate, endDate),
-          // Ensure location fields exist
           location: event.location || 'Location not specified',
           latitude: event.latitude || 0,
           longitude: event.longitude || 0,

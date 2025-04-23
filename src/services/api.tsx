@@ -20,30 +20,42 @@ export const getAuthToken = async (): Promise<string | null> => {
   return null;
 };
 
+// In api.tsx or wherever fetchWithAuth is defined
 export const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
-  // Remove the double prefix bug:
-  // If endpoint already starts with /api/, don't add another /api/
-  const url = endpoint.startsWith('/api/') ? endpoint : `/api${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
+  try {
+    const token = await getAuthToken();
 
-  console.log(`Fetching from: ${url}`);
+    const requestOptions: RequestInit = {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json',
+      },
+    };
 
-  const authToken = await getAuthToken();
+    console.log(`Making API request to: ${endpoint}`);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
 
-  // Create new headers object to avoid readonly issues
-  const headers = new Headers(options.headers);
+    if (!response.ok) {
+      console.error(`API request failed: ${endpoint}`, {
+        status: response.status,
+        statusText: response.statusText
+      });
+      // Try to get response body even for errors
+      try {
+        const errorData = await response.json();
+        console.error('Error response body:', errorData);
+      } catch (e) {
+        // Ignore parse errors on error response
+      }
+    }
 
-  // Set Authorization header if we have a token
-  if (authToken) {
-    headers.set('Authorization', `Bearer ${authToken}`);
+    return response;
+  } catch (error) {
+    console.error(`API request exception for ${endpoint}:`, error);
+    throw error;
   }
-
-  // Create new options object with the updated headers
-  const updatedOptions = {
-    ...options,
-    headers,
-  };
-
-  return fetch(url, updatedOptions);
 };
 
 /**
@@ -98,7 +110,7 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
   const auth = getAuth();
   const endpoint = auth.currentUser
     ? `/api/events${queryString ? `?${queryString}` : ''}`
-    : `/api/public/events${queryString ? `?${queryString}` : ''}`;
+    : `/public/events${queryString ? `?${queryString}` : ''}`;
 
   // Debug output - log the whole endpoint URL
   console.log(`Complete API URL: ${API_BASE_URL}${endpoint}`);

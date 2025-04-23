@@ -79,8 +79,12 @@ export const EventOrganizersTab: React.FC = () => {
     try {
       setLoading(true);
       setError(''); // Clear any previous errors
-      const isTemporaryEvent = selectedEvent.startsWith('temp-');
-      console.log(`Assigning user ${selectedUser} to ${isTemporaryEvent ? 'temporary' : 'permanent'} event ${selectedEvent}`);
+
+      // For draft events, MongoDB still has _id but we can identify them by status
+      const selectedEventObj = events.find(e => e.id === selectedEvent);
+      const isDraftEvent = selectedEventObj?.status === 'draft';
+
+      console.log(`Assigning user ${selectedUser} to ${isDraftEvent ? 'draft' : 'published'} event ${selectedEvent}`);
 
       // First ensure user has organizer role
       const selectedUserObj = users.find(user => getUserId(user) === selectedUser);
@@ -95,13 +99,6 @@ export const EventOrganizersTab: React.FC = () => {
       console.log(`Making API call to assign user ${selectedUser} to event ${selectedEvent}`);
       try {
         await assignOrganizerToEvent(selectedEvent, selectedUser);
-
-        if (isTemporaryEvent) {
-          // Show a notice about temporary events
-          setSuccess(`Successfully assigned organizer to draft event. Note: This event is still in draft mode.`);
-        } else {
-          setSuccess(`Successfully assigned organizer to event.`);
-        }
 
         // Update local state
         setOrganizerAssignments(prev => ({

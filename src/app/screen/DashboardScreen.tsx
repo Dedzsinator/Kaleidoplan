@@ -64,7 +64,7 @@ const DashboardScreen: React.FC = () => {
         setUserEvents(registeredData.events || []);
 
         // Fetch upcoming events
-        const upcomingResponse = await fetchWithAuth('/api/events?status=upcoming&limit=5');
+        const upcomingResponse = await fetchWithAuth('/api/events');
 
         if (!upcomingResponse.ok) {
           throw new Error('Failed to fetch upcoming events');

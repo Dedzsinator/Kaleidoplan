@@ -4,6 +4,10 @@ const mongoose = require('mongoose');
 const eventSchema = new mongoose.Schema(
   {
     // Use _id from MongoDB or imported ID for compatibility
+    id : {
+      type: String,
+      index: true, // Index for faster lookups
+    },
     name: {
       type: String,
       required: [true, 'Event name is required'],

@@ -26,8 +26,7 @@ const subscribe = async (req, res, next) => {
     let eventName = 'this event';
     let eventObject = null;
 
-    // Try to find the event, handling temporary IDs properly
-    if (eventId && !eventId.startsWith('temp-')) {
+    if (eventId) {
       try {
         // Try ObjectId first
         if (mongoose.Types.ObjectId.isValid(eventId)) {
@@ -46,9 +45,6 @@ const subscribe = async (req, res, next) => {
         console.error(`Error finding event ${eventId}:`, err);
         // Continue with just the ID if event lookup fails
       }
-    } else if (eventId && eventId.startsWith('temp-')) {
-      console.log(`Temporary event ID: ${eventId}, not looking up in database`);
-      // For temporary events, still store the ID but don't try to look it up
     }
 
     if (subscription) {

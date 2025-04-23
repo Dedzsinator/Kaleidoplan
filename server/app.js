@@ -74,6 +74,7 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/user/events', userRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 
 // Health check endpoint
