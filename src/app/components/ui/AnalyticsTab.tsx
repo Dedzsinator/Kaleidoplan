@@ -98,9 +98,7 @@ export const AnalyticsTab: React.FC = () => {
             };
           });
 
-        // Try to fetch real data, fall back to mock data
         try {
-          // Try to get stats from API
           const statsResponse = await fetchWithAuth('/admin/stats');
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
@@ -126,7 +124,9 @@ export const AnalyticsTab: React.FC = () => {
             const usersData = await usersResponse.json();
             setActiveUsers(usersData.users);
           } else {
-            console.log('Error');
+            console.log('Using mock login activity data');
+            // Use empty array for active users as fallback
+            setActiveUsers([]);
           }
         } catch (error) {
           console.error('Error fetching analytics data:', error);

@@ -1,0 +1,13 @@
+# Frontend codebase
+/src/ @your-username
+
+# Backend codebase
+/server/ @your-username
+
+# Configuration files
+*.json @your-username
+*.js @your-username
+*.ts @your-username
+
+# GitHub Actions
+.github/workflows/ @your-username

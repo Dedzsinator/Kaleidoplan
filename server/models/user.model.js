@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 // In your user schema, change the userId field to uid and make it required
 const userSchema = new mongoose.Schema({
-  uid: {
+  userId: {
     type: String,
     required: true,
     unique: true

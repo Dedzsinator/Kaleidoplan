@@ -9,7 +9,11 @@
     "test": "jest",
     "lint-html": "html-validate --max-warnings=0 --ext .html .",
     "lint": "eslint --no-error-on-unmatched-pattern --max-warnings=0 --ext .js,.mjs,.cjs .",
-    "format": "prettier --write ."
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,css,html}\"",
+    "validate:js": "eslint --fix \"**/*.{js,jsx,ts,tsx}\"",
+    "validate:html": "html-validate \"**/*.html\"",
+    "validate": "npm run validate:js && npm run validate:html",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "axios": "^0.27.2",

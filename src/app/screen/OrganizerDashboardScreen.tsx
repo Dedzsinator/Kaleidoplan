@@ -1,30 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ManagedEvent, Task, TaskStatus } from '../models/types';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../../services/api'
 import { fetchWithAuth } from '../../services/api';
 import '../styles/DashboardScreen.css';
-
-interface ManagedEvent {
-  _id: string;
-  id: string;
-  name: string;
-  description?: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-  attendeeCount: number;
-  location?: string;
-}
-
-interface Task {
-  _id: string;
-  name: string;
-  status: 'pending' | 'in-progress' | 'completed';
-  deadline: string;
-  eventId: string | { _id: string; id?: string } | any; // Fixed to handle different eventId formats
-  priority: 'low' | 'medium' | 'high';
-}
 
 const OrganizerDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -34,6 +14,11 @@ const OrganizerDashboard: React.FC = () => {
   const [taskCompletingIds, setTaskCompletingIds] = useState<string[]>([]); // Track tasks being completed
   const [error, setError] = useState('');
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
+
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [currentTask, setCurrentTask] = useState<Partial<Task> | null>(null);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [taskSubmitting, setTaskSubmitting] = useState(false);
 
   const relevantTasks = React.useMemo(() => {
     if (!managedEvents || !tasks) return [];
@@ -50,7 +35,7 @@ const OrganizerDashboard: React.FC = () => {
       if (typeof task.eventId === 'string' || typeof task.eventId === 'number') {
         taskEventId = String(task.eventId);
       } else if (task.eventId && typeof task.eventId === 'object') {
-        taskEventId = String(task.eventId._id || task.eventId.id || '');
+        taskEventId = String(task.eventId._id);
       }
 
       // Check if this task belongs to any of the managed events
@@ -58,7 +43,6 @@ const OrganizerDashboard: React.FC = () => {
     });
   }, [tasks, managedEvents]);
 
-  // Count metrics based on relevant tasks only
   const taskMetrics = React.useMemo(() => {
     return {
       total: relevantTasks.length,
@@ -81,7 +65,7 @@ const OrganizerDashboard: React.FC = () => {
       taskEventId = String(task.eventId);
     } else if (typeof task.eventId === 'object') {
       // Object with potential _id or id property
-      taskEventId = String(task.eventId?._id || task.eventId?.id || '');
+      taskEventId = String(task.eventId?._id);
     }
 
     if (!taskEventId) {
@@ -100,7 +84,6 @@ const OrganizerDashboard: React.FC = () => {
     return acc;
   }, {} as Record<string, Task[]>);
 
-  // Toggle expanded state for an event
   const toggleEventExpanded = (eventId: string) => {
     setExpandedEvents(prev => ({
       ...prev,
@@ -118,6 +101,8 @@ const OrganizerDashboard: React.FC = () => {
       // Use api.put with the correct endpoint format
       await api.put(`/tasks/${taskId}`, {
         status: 'completed',
+        updatedBy: currentUser?.uid,
+        updatedAt: new Date().toISOString()
       });
 
       console.log(`Task ${taskId} marked as completed`);
@@ -125,7 +110,12 @@ const OrganizerDashboard: React.FC = () => {
       // Update local task state
       setTasks(prevTasks => prevTasks.map(task =>
         task._id === taskId
-          ? { ...task, status: 'completed' }
+          ? {
+            ...task,
+            status: 'completed',
+            updatedBy: currentUser?.uid,
+            updatedAt: new Date().toISOString()
+          }
           : task
       ));
     } catch (err: any) {
@@ -133,6 +123,99 @@ const OrganizerDashboard: React.FC = () => {
       console.error('Error completing task:', err);
     } finally {
       setTaskCompletingIds(prev => prev.filter(id => id !== taskId));
+    }
+  };
+
+  const handleCreateTask = (eventId: string) => {
+    // Find the event to get its name
+    const event = managedEvents.find(e => e.id === eventId || e._id === eventId);
+
+    setIsCreatingTask(true);
+    setCurrentTask({
+      eventId: eventId,
+      eventName: event?.name || '',
+      status: 'pending' as TaskStatus,
+      priority: 'medium',
+      assignedTo: currentUser?.uid || '',
+      createdBy: currentUser?.uid || '',
+      createdAt: new Date().toISOString(),
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleViewTask = (task: Task) => {
+    setIsCreatingTask(false);
+    setCurrentTask(task);
+    setIsTaskModalOpen(true);
+  };
+
+  const handleTaskInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setCurrentTask(prev => prev ? { ...prev, [name]: value } : null);
+  };
+
+  const handleTaskSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentTask) return;
+
+    try {
+      setTaskSubmitting(true);
+      setError('');
+
+      // Ensure we have all required fields for Task type
+      const taskData: Partial<Task> = {
+        ...currentTask,
+        assignedTo: currentTask.assignedTo || currentUser?.uid || '',
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser?.uid
+      };
+
+      if (isCreatingTask) {
+        // Add creation fields for new tasks
+        taskData.createdAt = new Date().toISOString();
+        taskData.createdBy = currentUser?.uid || '';
+
+        // Find the event to include the event name
+        if (taskData.eventId) {
+          const event = managedEvents.find(
+            e => e.id === taskData.eventId || e._id === taskData.eventId
+          );
+          if (event) {
+            taskData.eventName = event.name;
+          }
+        }
+
+        // Create new task
+        const response = await api.post('/tasks', taskData);
+
+        // Add the new task to state
+        if (response && (response._id || response.taskId)) {
+          setTasks(prev => [...prev, response as Task]);
+        } else {
+          // Refresh all tasks to ensure we get the latest data
+          const tasksData = await api.get('/tasks');
+          setTasks(tasksData?.tasks || tasksData || []);
+        }
+      } else {
+        // Update existing task - use taskId instead of _id if available
+        const idToUse = currentTask._id;
+        await api.put(`/tasks/${idToUse}`, taskData);
+
+        // Update task in state
+        setTasks(prev => prev.map(task =>
+          (task._id === idToUse) ? { ...task, ...taskData } : task
+        ));
+      }
+
+      // Close modal on success
+      setIsTaskModalOpen(false);
+      setCurrentTask(null);
+    } catch (err: any) {
+      setError(`Failed to ${isCreatingTask ? 'create' : 'update'} task: ${err.message || 'Unknown error'}`);
+      console.error(`Error ${isCreatingTask ? 'creating' : 'updating'} task:`, err);
+    } finally {
+      setTaskSubmitting(false);
     }
   };
 
@@ -184,15 +267,128 @@ const OrganizerDashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  // Debug logging
-  useEffect(() => {
-    console.log("Tasks by event:", tasksByEvent);
-    console.log("All tasks:", tasks);
-    console.log("Managed events:", managedEvents);
-  }, [tasksByEvent, tasks, managedEvents]);
-
   return (
     <div className="dashboard-container organizer-dashboard">
+      {/* Task Creation/Edit Modal */}
+      {isTaskModalOpen && currentTask && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <h3>{isCreatingTask ? 'Create New Task' : 'Edit Task'}</h3>
+              <button
+                className="close-button"
+                onClick={() => {
+                  setIsTaskModalOpen(false);
+                  setCurrentTask(null);
+                }}
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleTaskSubmit}>
+              <div className="form-group">
+                <label htmlFor="name">Task Name:</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={currentTask.name || ''}
+                  onChange={handleTaskInputChange}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="description">Description:</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={currentTask.description || ''}
+                  onChange={handleTaskInputChange}
+                  rows={4}
+                ></textarea>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="assignedTo">Assigned To:</label>
+                <input
+                  type="text"
+                  id="assignedTo"
+                  name="assignedTo"
+                  value={currentTask.assignedTo || currentUser?.uid || ''}
+                  onChange={handleTaskInputChange}
+                  placeholder="Firebase UID of assignee"
+                />
+                <small className="helper-text">Leave empty to assign to yourself</small>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="priority">Priority:</label>
+                  <select
+                    id="priority"
+                    name="priority"
+                    value={currentTask.priority || 'medium'}
+                    onChange={handleTaskInputChange}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="status">Status:</label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={currentTask.status || 'pending'}
+                    onChange={handleTaskInputChange}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="deadline">Deadline:</label>
+                <input
+                  type="date"
+                  id="deadline"
+                  name="deadline"
+                  value={currentTask.deadline ? currentTask.deadline.toString().split('T')[0] : ''}
+                  onChange={handleTaskInputChange}
+                  required
+                />
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="cancel-button"
+                  onClick={() => {
+                    setIsTaskModalOpen(false);
+                    setCurrentTask(null);
+                  }}
+                  disabled={taskSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="submit-button"
+                  disabled={taskSubmitting}
+                >
+                  {taskSubmitting ? 'Saving...' : isCreatingTask ? 'Create Task' : 'Update Task'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <h1>Organizer Dashboard</h1>
       <h2>Welcome, {currentUser?.displayName || 'Organizer'}</h2>
 
@@ -265,17 +461,24 @@ const OrganizerDashboard: React.FC = () => {
                     <div className="event-details">
                       <div className="task-section">
                         <h4>Tasks</h4>
-                        {/* Check for tasks using both ID formats */}
+                        {/* Add create task button in the header */}
+                        <button
+                          className="add-task-btn"
+                          onClick={() => handleCreateTask(eventId)}
+                        >
+                          + Add Task
+                        </button>
+
                         {(!tasksByEvent[eventId] && !tasksByEvent[event._id]) ||
                           (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
                           <p className="no-tasks">No tasks assigned to this event</p>
                         ) : (
                           <ul className="task-list">
-                            {/* Try both event ID formats for task lookup */}
                             {(tasksByEvent[eventId] || tasksByEvent[event._id] || []).map(task => (
                               <li
                                 key={task._id}
                                 className={`task-item ${task.status}`}
+                                onClick={() => handleViewTask(task)}
                               >
                                 <div className="task-name">
                                   {task.status === 'completed' ? '✓ ' : ''}
@@ -303,11 +506,23 @@ const OrganizerDashboard: React.FC = () => {
                                     {taskCompletingIds.includes(task._id) ? 'Working...' : 'Complete'}
                                   </button>
                                 )}
+
+                                {/* Add Edit button */}
+                                <button
+                                  className="edit-button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewTask(task);
+                                  }}
+                                >
+                                  Edit
+                                </button>
                               </li>
                             ))}
                           </ul>
                         )}
 
+                        {/* Keep existing action links */}
                         <div className="task-actions">
                           <Link to={`/tasks?eventId=${eventId}`} className="view-tasks">
                             Manage Tasks

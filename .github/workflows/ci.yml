@@ -1,4 +1,4 @@
-name: Node.js CI
+name: Kaleidoplan CI/CD
 
 on:
   push:
@@ -7,43 +7,121 @@ on:
     branches: [main, develop]
 
 jobs:
-  build_and_test:
+  lint-and-test:
+    name: Lint & Test
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x] # Specify Node.js versions to test against
-
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm" # Enable caching for npm dependencies
+          node-version: "18"
+          cache: "npm"
 
-      - name: Install Frontend Dependencies
-        run: npm ci # Use ci for faster, reliable installs in CI
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Install Backend Dependencies
-        run: cd server && npm ci
+      - name: Lint code
+        run: npm run lint || npm run validate
 
-      - name: Run Linters (Frontend & Backend)
-        run: |
-          npm run lint # Assumes lint script in root package.json checks both if needed, or add server lint separately
-          # If server has its own lint script: cd server && npm run lint
-          npm run format -- --check # Check formatting
+      - name: Check formatting
+        run: npx prettier --check "**/*.{js,jsx,ts,tsx,json,md,css,scss,html}"
 
-      - name: Run TypeScript Type Check (Frontend)
-        run: npm run typecheck # Assumes typecheck script in root package.json
+      - name: Check TypeScript types
+        run: npm run typecheck
 
-      - name: Run Frontend Tests
-        run: npm test -- --watchAll=false # Run frontend tests non-interactively
+      - name: Run unit tests
+        run: npm test -- --coverage
 
-      - name: Run Backend Tests
-        run: cd server && npm test # Assumes test script in server/package.json
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
-      - name: Build Frontend
-        run: npm run build # Run the production build script
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: build
+          retention-days: 7
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "./server/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Check TypeScript types
+        working-directory: ./server
+        run: npm run typecheck
+
+      - name: Lint code
+        working-directory: ./server
+        run: npm run lint
+
+      - name: Run tests
+        working-directory: ./server
+        run: npm test
+
+  lighthouse:
+    name: Lighthouse Web Vitals
+    runs-on: ubuntu-latest
+    needs: build-frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+
+      - name: Download build
+        uses: actions/download-artifact@v3
+        with:
+          name: build-output
+          path: build
+
+      - name: Run Lighthouse CI
+        run: lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}

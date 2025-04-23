@@ -204,8 +204,8 @@ Create a `.env` file in the `/server` directory:
  # JWT_SECRET="YOUR_SECRET_KEY"
 
  # Spotify Configuration (For backend interactions)
- SPOTIFY_CLIENT_ID="YOUR_SPOTIFY_CLIENT_ID"
- SPOTIFY_CLIENT_SECRET="YOUR_SPOTIFY_CLIENT_SECRET"
+ REACT_APP_SPOTIFY_CLIENT_ID="YOUR_SPOTIFY_CLIENT_ID"
+ REACT_APP_SPOTIFY_CLIENT_SECRET="YOUR_SPOTIFY_CLIENT_SECRET"
  SPOTIFY_REDIRECT_URI="http://localhost:3000/api/auth/spotify/callback" # Adjust port if needed
 ```
 

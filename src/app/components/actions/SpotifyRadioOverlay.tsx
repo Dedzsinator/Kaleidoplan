@@ -168,8 +168,8 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
         setPlaybackError(null);
 
         try {
-          // Use track.spotifyId instead of track.id
-          const previewUrl = await spotifyService.playTrack(track.spotifyId);
+          // Get either the proxy URL or direct Spotify URL
+          let previewUrl = await spotifyService.playTrack(track.spotifyId);
           console.log(`Got preview URL: ${previewUrl}`);
 
           if (!previewUrl) {
@@ -181,6 +181,28 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
             console.error('Audio error:', e);
             setPlaybackError(`Audio error: ${audioRef.current?.error?.message || 'Unknown error'}`);
             setIsLoading(false);
+
+            // If using proxy URL and it fails, try direct Spotify URL as fallback
+            if (previewUrl?.startsWith('/api/spotify/preview/')) {
+              const previewId = previewUrl.split('/api/spotify/preview/')[1];
+              const directUrl = `https://p.scdn.co/mp3-preview/${previewId}`;
+              console.log(`Fallback: trying direct Spotify URL: ${directUrl}`);
+
+              // Try the direct URL
+              audioRef.current!.src = directUrl;
+              audioRef.current!.load();
+
+              // Try playing with the direct URL
+              audioRef.current!.play().catch(directError => {
+                console.error('Error with direct URL fallback:', directError);
+                onTogglePlay(); // Turn off play state if all fallbacks fail
+                setTimeout(() => nextTrack(), 1000); // Try next track
+              });
+
+              return; // Exit error handler if we're trying the fallback
+            }
+
+            // If we're already using a direct URL or if we can't parse the preview ID
             onTogglePlay(); // Turn off the play state
             // Try next track
             setTimeout(() => nextTrack(), 1000);
@@ -203,8 +225,28 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
                 console.error('Error playing track:', error);
                 setPlaybackError(`Couldn't play track: ${error.message}`);
                 setIsLoading(false);
-                onTogglePlay(); // Turn off the play state
 
+                // If using proxy URL and it fails, try direct Spotify URL as fallback
+                if (previewUrl?.startsWith('/api/spotify/preview/')) {
+                  const previewId = previewUrl.split('/api/spotify/preview/')[1];
+                  const directUrl = `https://p.scdn.co/mp3-preview/${previewId}`;
+                  console.log(`Fallback: trying direct Spotify URL: ${directUrl}`);
+
+                  // Try the direct URL
+                  audioRef.current!.src = directUrl;
+                  audioRef.current!.load();
+
+                  // Try playing with the direct URL
+                  audioRef.current!.play().catch(directError => {
+                    console.error('Error with direct URL fallback:', directError);
+                    onTogglePlay(); // Turn off play state if all fallbacks fail
+                    setTimeout(() => nextTrack(), 1000); // Try next track
+                  });
+
+                  return; // Exit error handler if we're trying the fallback
+                }
+
+                onTogglePlay(); // Turn off the play state if no fallback
                 // Try the next track automatically
                 setTimeout(() => nextTrack(), 1000);
               });

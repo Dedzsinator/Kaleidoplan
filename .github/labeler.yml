@@ -2,7 +2,8 @@
 # https://github.com/actions/labeler
 
 client:
-  - client/**/*
+  - src/**/*
+  - public/**/*
 
 server:
   - server/**/*
@@ -18,6 +19,10 @@ documentation:
 workflow:
   - .github/**/*
 
-# Add 'dependencies' label to any changes to requirements.txt
+# Add 'dependencies' label to any changes to package files
 dependencies:
-  - requirements.txt
+  - package.json
+  - package-lock.json
+  - server/package.json
+  - server/package-lock.json
+  - yarn.lock

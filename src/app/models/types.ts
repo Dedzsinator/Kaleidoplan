@@ -26,20 +26,33 @@ export type TaskStatus = 'pending' | 'in-progress' | 'completed';
 // Task action type
 export type TaskAction = 'created' | 'updated' | 'completed';
 
+export interface ManagedEvent {
+  _id: string;
+  id: string;
+  name: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  attendeeCount: number;
+  location?: string;
+}
+
 // Task model
 export interface Task {
-  taskId: string;
+  _id: string;
   name: string;
   description: string;
   deadline: Date | string;
   status: TaskStatus;
   assignedTo: string; // Firebase UID
-  eventId: string;
   eventName: string;
   createdBy: string; // Firebase UID
   createdAt: Date | string;
   updatedAt?: Date | string;
   updatedBy?: string; // Firebase UID
+  priority: 'low' | 'medium' | 'high';
+  eventId: string | { _id: string; id?: string } | any;
 }
 
 // Task log model

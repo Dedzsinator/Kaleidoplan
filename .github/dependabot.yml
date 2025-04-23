@@ -1,24 +1,40 @@
-# filepath: .github/dependabot.yml
 version: 2
 updates:
   # Frontend dependencies
   - package-ecosystem: "npm"
-    directory: "/" # Root directory for frontend
+    directory: "/"
     schedule:
       interval: "weekly"
-    # Add reviewers/assignees if desired
-    # reviewers:
-    #   - "your-username"
-    # assignees:
-    #   - "your-username"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      testing:
+        patterns:
+          - "jest*"
+          - "@testing-library/*"
+      typescript:
+        patterns:
+          - "typescript"
+          - "@types/*"
 
   # Backend dependencies
   - package-ecosystem: "npm"
-    directory: "/server" # Directory for backend
+    directory: "/server"
     schedule:
       interval: "weekly"
-    # Add reviewers/assignees if desired
-    # reviewers:
-    #   - "your-username"
-    # assignees:
-    #   - "your-username"
+    groups:
+      express:
+        patterns:
+          - "express*"
+      mongodb:
+        patterns:
+          - "mongodb*"
+          - "mongoose*"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

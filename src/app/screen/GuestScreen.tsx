@@ -789,7 +789,7 @@ const GuestScreen = () => {
       </main>
 
 
-      {/* Spotify Radio Overlay 
+      {/* Spotify Radio Overlay
       {currentActiveEvent && (
         <SpotifyRadioOverlay
           currentEvent={currentActiveEvent}
