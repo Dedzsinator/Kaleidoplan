@@ -8,10 +8,10 @@ const { admin } = require('../config/firebase');
 const getAllEvents = async (req, res, next) => {
   try {
     console.log('Controller: Fetching ALL events');
+    const { includeOrganizers } = req.query;
 
     // Fetch all events from MongoDB
-    const events = await Event.find({}); // No filters, just fetch all
-
+    const events = await Event.find({});
     console.log(`Found ${events.length} events in the database`);
 
     // Transform events to include proper ID handling
@@ -20,18 +20,40 @@ const getAllEvents = async (req, res, next) => {
       const eventObj = event.toObject();
       
       // Create a new object with MongoDB _id used for the id field
-      // IMPORTANT: Put id and _id AFTER the spread to prevent being overwritten
       return {
         ...eventObj,
-        id: event.id.toString(), // Ensure string format of ObjectId
-        _id: event._id.toString() // Keep _id for backward compatibility
+        id: event.id.toString(), 
       };
     });
 
-    // Return formatted events
-    res.json(formattedEvents);
+    // If organizers are requested, fetch and include them
+    if (includeOrganizers === 'true') {
+      console.log('Including organizer information with events');
+      
+      // Fetch all organizer-event relationships
+      const organizerEvents = await OrganizerEvent.find({});
+      
+      // Create a map of eventId -> organizer array
+      const organizerMap = {};
+      organizerEvents.forEach(oe => {
+        if (!organizerMap[oe.eventId]) {
+          organizerMap[oe.eventId] = [];
+        }
+        organizerMap[oe.eventId].push(oe.userId);
+      });
+      
+      // Add organizers to each event
+      formattedEvents.forEach(event => {
+        const eventId = event.id || event._id;
+        event.organizers = organizerMap[eventId] || [];
+      });
+      
+      console.log('Added organizer information to events');
+    }
+
+    res.json({ events: formattedEvents });
   } catch (error) {
-    console.error('Error fetching events:', error);
+    console.error('Error in getAllEvents:', error);
     next(error);
   }
 };
@@ -380,6 +402,114 @@ const getManagedEvents = async (req, res, next) => {
   }
 };
 
+const toggleEventInterest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { interestLevel = 'interested' } = req.body;
+    
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const userId = req.user.uid;
+    
+    // Validate interest level
+    if (!['interested', 'attending'].includes(interestLevel)) {
+      return res.status(400).json({ 
+        error: 'Invalid interest level. Must be "interested" or "attending"'
+      });
+    }
+    
+    // Check if the event exists
+    const event = await Event.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id },
+        { id: id }
+      ]
+    });
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Check if interest already exists
+    const existingInterest = await EventInterest.findOne({ 
+      userId, 
+      eventId: event._id.toString() 
+    });
+    
+    if (existingInterest) {
+      // If interest level is the same, remove the interest (toggle off)
+      if (existingInterest.interestLevel === interestLevel) {
+        await EventInterest.deleteOne({ _id: existingInterest._id });
+        return res.json({ status: 'removed', interestLevel: null });
+      } 
+      // Otherwise update the interest level
+      else {
+        existingInterest.interestLevel = interestLevel;
+        await existingInterest.save();
+        return res.json({ status: 'updated', interestLevel });
+      }
+    } 
+    // Create new interest
+    else {
+      const newInterest = new EventInterest({
+        userId,
+        eventId: event._id.toString(),
+        interestLevel
+      });
+      
+      await newInterest.save();
+      return res.status(201).json({ status: 'added', interestLevel });
+    }
+  } catch (error) {
+    console.error('Error toggling event interest:', error);
+    next(error);
+  }
+};
+
+/**
+ * Check if user is interested in an event
+ */
+const checkEventInterest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    const userId = req.user.uid;
+    
+    // Check if the event exists
+    const event = await Event.findOne({
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id },
+        { id: id }
+      ]
+    });
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Find interest
+    const interest = await EventInterest.findOne({ 
+      userId, 
+      eventId: event._id.toString() 
+    });
+    
+    if (interest) {
+      return res.json({ status: 'found', interestLevel: interest.interestLevel });
+    } else {
+      return res.json({ status: 'not-found', interestLevel: null });
+    }
+  } catch (error) {
+    console.error('Error checking event interest:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   getAllEvents,
   getEventById,
@@ -387,5 +517,7 @@ module.exports = {
   updateEvent,
   deleteEvent,
   getEventInterests,
-  getManagedEvents
+  getManagedEvents,
+  toggleEventInterest,
+  checkEventInterest
 };

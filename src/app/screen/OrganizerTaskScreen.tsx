@@ -101,7 +101,7 @@ const OrganizerTaskScreen: React.FC = () => {
   // Fetch events
   const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetchWithAuth('/api/events/managed');
+      const response = await fetchWithAuth('/events/managed');
 
       if (!response.ok) {
         throw new Error(`Failed to fetch events: ${response.status}`);

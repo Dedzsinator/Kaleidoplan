@@ -40,7 +40,7 @@ const UserManagementScreen: React.FC = () => {
         setLoading(true);
         setError('');
 
-        let url = `/api/users?page=${page}`;
+        let url = `/user?page=${page}`;
         if (roleFilter) {
           url += `&role=${roleFilter}`;
         }
@@ -68,7 +68,7 @@ const UserManagementScreen: React.FC = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await fetchWithAuth('/api/events');
+        const response = await fetchWithAuth('/events');
 
         if (!response.ok) {
           throw new Error('Failed to fetch events');
@@ -87,7 +87,7 @@ const UserManagementScreen: React.FC = () => {
   // Handle role change
   const changeUserRole = async (userId: string, newRole: string) => {
     try {
-      const response = await fetchWithAuth(`/api/users/${userId}/role`, {
+      const response = await fetchWithAuth(`/user/${userId}/role`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +123,7 @@ const UserManagementScreen: React.FC = () => {
     if (!eventId) return;
 
     try {
-      const response = await fetchWithAuth(`/api/users/${userId}/events/${eventId}`, {
+      const response = await fetchWithAuth(`/user/${userId}/events/${eventId}`, {
         method: 'POST',
       });
 
@@ -166,7 +166,7 @@ const UserManagementScreen: React.FC = () => {
   // Remove event from organizer
   const removeEvent = async (userId: string, eventId: string) => {
     try {
-      const response = await fetchWithAuth(`/api/users/${userId}/events/${eventId}`, {
+      const response = await fetchWithAuth(`/user/${userId}/events/${eventId}`, {
         method: 'DELETE',
       });
 

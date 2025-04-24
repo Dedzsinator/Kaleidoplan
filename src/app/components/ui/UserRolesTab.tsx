@@ -9,6 +9,7 @@ import {
   DraggableStateSnapshot,
   DropResult,
 } from 'react-beautiful-dnd';
+import '../../styles/UserRolesTab.css';
 
 // Define role mappings between frontend containers and backend role values
 const ROLE_MAPPINGS: Record<string, string> = {
@@ -53,7 +54,7 @@ export const UserRolesTab: React.FC = () => {
 
         console.log('Fetching users from Firebase...');
         // Try users endpoint
-        let response = await fetchWithAuth('/users?limit=100');
+        let response = await fetchWithAuth('/user?limit=100');
 
         if (!response.ok) {
           console.error('Failed to fetch users with status:', response.status);
@@ -171,9 +172,9 @@ export const UserRolesTab: React.FC = () => {
       try {
         // Update user role in the backend - try with uid which is the Firebase ID
         const userId = userToMove.uid;
-        console.log(`Sending PATCH request to /users/${userId}/role with role ${newRole}`);
+        console.log(`Sending PATCH request to /user/${userId}/role with role ${newRole}`);
 
-        const response = await fetchWithAuth(`/users/${userId}/role`, {
+        const response = await fetchWithAuth(`/user/${userId}/role`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ role: newRole }),

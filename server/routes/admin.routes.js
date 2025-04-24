@@ -12,5 +12,12 @@ router.use(authMiddleware.requireAdmin);
 router.get('/stats', adminController.getStats);
 router.get('/login-activity', adminController.getLoginActivity);
 router.get('/active-users', adminController.getActiveUsers);
+router.get(
+  '/organizer-assignments',
+  authMiddleware.verifyToken,
+  authMiddleware.attachUserData,
+  authMiddleware.requireAdmin,
+  adminController.getOrganizerAssignments
+);
 
 module.exports = router;

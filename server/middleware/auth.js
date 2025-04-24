@@ -53,62 +53,31 @@ exports.verifyToken = async (req, res, next) => {
 
 exports.attachUserData = async (req, res, next) => {
   try {
-    if (!req.uid) {
-      console.log('No UID found in request, skipping user data attachment');
+    if (!req.user) {
       return next();
     }
-
-    // Find user in MongoDB
-    const User = require('../models/user.model');
-    let user = await User.findOne({ uid: req.uid });
     
-    console.log(`Looking for user with uid: ${req.uid}, found: ${user ? 'yes' : 'no'}`);
-
-    // Create new user if not found
-    if (!user) {
-      console.log('User not found in MongoDB, creating...');
-      
-      // Only create if we have email from Firebase
-      if (!req.user || !req.user.email) {
-        console.log('No email found in token, skipping user creation');
-        req.userData = null;
-        return next();
-      }
-
-      try {
-        user = new User({
-          uid: req.uid,
-          email: req.user.email,
-          displayName: req.user.name || req.user.email.split('@')[0],
-          photoURL: req.user.picture || null,
-          role: req.user.role || 'user',
-          managedEvents: [],
-          lastLogin: new Date()
-        });
-
-        await user.save();
-        console.log('Created new user in database:', user.email);
-      } catch (createError) {
-        console.error('Failed to create new user:', createError);
-        req.userData = null;
-        return next();
-      }
+    // Make sure we set uid properly from the token
+    if (!req.user.uid && req.uid) {
+      req.user.uid = req.uid; // Make sure this line exists
     }
-
-    // Attach MongoDB user data to request
-    req.userData = user;
     
-    console.log('User data attached:', {
-      uid: user.uid,
-      email: user.email,
-      role: user.role,
-      managedEvents: user.managedEvents || []
-    });
+    const user = await User.findOne({ uid: req.uid });
+    console.log(`Looking for user with uid: ${req.uid}, found: ${user ? 'yes' : 'no'}`);
     
+    if (user) {
+      // When attaching MongoDB user data, preserve the original uid!
+      req.userData = user.toObject();
+      req.user = {
+        ...req.userData,
+        uid: req.uid // Ensure uid is kept from Firebase token
+      };
+    }
+    
+    console.log('User data attached:', req.user);
     next();
   } catch (error) {
     console.error('Error attaching user data:', error);
-    req.userData = null;
     next();
   }
 };

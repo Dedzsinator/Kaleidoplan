@@ -73,7 +73,7 @@ export const fetchEventByIdFromApi = async (eventId: string, options: Record<str
 
   // Construct the URL with query string
   const queryString = queryParams.toString();
-  const endpoint = `/api/events/${eventId}${queryString ? `?${queryString}` : ''}`;
+  const endpoint = `/events/${eventId}${queryString ? `?${queryString}` : ''}`;
 
   try {
     const response = await fetchWithAuth(endpoint);
@@ -106,10 +106,9 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
   });
   const queryString = queryParams.toString();
 
-  // Fix: Remove extra /api prefix to prevent /api/api duplication
   const auth = getAuth();
   const endpoint = auth.currentUser
-    ? `/api/events${queryString ? `?${queryString}` : ''}`
+    ? `/events${queryString ? `?${queryString}` : ''}`
     : `/public/events${queryString ? `?${queryString}` : ''}`;
 
   // Debug output - log the whole endpoint URL

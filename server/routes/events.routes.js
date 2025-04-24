@@ -39,4 +39,17 @@ router.get('/:id/interests',
   eventsController.getEventInterests
 );
 
+router.post('/:id/interest', 
+  authMiddleware.verifyToken, 
+  authMiddleware.attachUserData,
+  eventsController.toggleEventInterest
+);
+
+// Check if user is interested in an event
+router.get('/:id/interest',
+  authMiddleware.verifyToken,
+  authMiddleware.attachUserData,
+  eventsController.checkEventInterest
+);
+
 module.exports = router;

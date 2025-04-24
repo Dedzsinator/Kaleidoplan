@@ -243,7 +243,7 @@ Create a `.env` file in the `/server` directory:
 
 - Log in with an account that has the 'admin' role.
 - Access the admin panel at `/admin`.
-- Manage users (roles, details) via `/admin/users` (interacts with backend API/Firebase Auth).
+- Manage users (roles, details) via `/admin/user` (interacts with backend API/Firebase Auth).
 - Manage all events via `/events/manage` or a dedicated admin event management route.
 
 ## Backend Services (`/server`)
@@ -263,8 +263,8 @@ The Node.js/Express backend provides RESTful APIs for core data operations, prim
 ### Key API Endpoints (Examples based on structure)
 
 - `POST /api/auth/firebase` (Verify Firebase token, create/update MongoDB user)
-- `GET /api/users` (Admin)
-- `PUT /api/users/:userId/role` (Admin)
+- `GET /user` (Admin)
+- `PUT /user/:userId/role` (Admin)
 - `GET /api/events` (Public/Authenticated)
 - `POST /api/events` (Organizer/Admin - Creates event in MongoDB)
 - `GET /api/events/:eventId`

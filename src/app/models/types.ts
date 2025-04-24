@@ -109,6 +109,8 @@ export interface error {
 
 export interface Event {
   id: string;
+  _id?: string;
+  normalizedId?: string;
   name: string;
   description?: string;
   startDate: string | Date; // Remove optional since it's used without checks
@@ -131,6 +133,10 @@ export interface Event {
   longitudeDelta?: number;
   sponsorIds? : string[];
   [key: string]: any;
+}
+
+export interface UserEvent extends Event {
+  interestLevel: 'interested' | 'attending';
 }
 
 export interface Sponsor {

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getEvents } from '../../../services/eventService';
+import api from '../../../services/api';
 import { getAllUsers, updateUserRole } from '../../../services/userService';
-import { assignOrganizerToEvent } from '../../../services/adminService';
+import { assignOrganizerToEvent, getEventsWithOrganizers } from '../../../services/adminService';
 import '../../styles/EventOrganizersTab.css';
+import { Event, User } from '../../models/types';
 
 export const EventOrganizersTab: React.FC = () => {
-  const [events, setEvents] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -15,6 +16,18 @@ export const EventOrganizersTab: React.FC = () => {
   const [organizerAssignments, setOrganizerAssignments] = useState<{ [eventId: string]: string[] }>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
+
+  const normalizeEventId = (eventId: string | any): string => {
+    // Convert to string and trim whitespace
+    const idStr = String(eventId || '').trim();
+
+    // For MongoDB ObjectIDs (24-character hex strings), ensure consistent format
+    if (idStr.match(/^[0-9a-f]{24}$/i)) {
+      return idStr.toLowerCase();
+    }
+
+    return idStr;
+  };
 
   const getUserId = (user: any): string => {
     // Firebase uses uid, MongoDB might use _id, and your frontend might use id
@@ -27,37 +40,68 @@ export const EventOrganizersTab: React.FC = () => {
         setLoading(true);
         console.log('Fetching events and users...');
 
-        // Fetch events and users in parallel
+        // Use the updated service that explicitly requests organizer info
         const [eventsData, usersData] = await Promise.all([
-          getEvents({ forceRefresh: true }),
+          getEventsWithOrganizers(),
           getAllUsers()
         ]);
 
         console.log('Events data received:', eventsData);
         console.log('Users data received:', usersData);
 
-        // Initialize organizer assignments from events data
-        const assignments: { [eventId: string]: string[] } = {};
-        eventsData.forEach((event: any) => {
-          if (event.organizers) {
-            assignments[event.id] = event.organizers;
-          } else {
-            assignments[event.id] = [];
-          }
-        });
+        let assignments: { [eventId: string]: string[] } = {};
 
-        // Separate users into organizers and regular users
+        try {
+          const organizerAssignmentsResponse = await api.get('/admin/organizer-assignments');
+          console.log('Organizer assignments response:', organizerAssignmentsResponse);
+
+          // Normalize all assignment keys for consistent lookup
+          if (organizerAssignmentsResponse && organizerAssignmentsResponse.assignments) {
+            Object.keys(organizerAssignmentsResponse.assignments).forEach(eventId => {
+              const normalizedId = normalizeEventId(eventId);
+              assignments[normalizedId] = organizerAssignmentsResponse.assignments[eventId];
+            });
+          }
+        } catch (assignmentsError) {
+          console.error('Error fetching organizer assignments:', assignmentsError);
+        }
+
+        console.log('Final normalized organizer assignments:', assignments);
+
+        // Add this debugging to see the ID mismatch
+        console.log('Available keys in assignments:', Object.keys(assignments));
+
+        // Rest of your function remains the same
         const allNormalizedUsers = usersData.map((user: any) => ({
           ...user,
-          id: getUserId(user) // Ensure all users have an id field
+          id: getUserId(user)
         }));
 
-        // Filter two separate lists - organizers and potential organizers (regular users)
+        // Also normalize the event IDs to be consistent
+        const normalizedEvents = eventsData.map((event: any) => {
+          const normalizedId = normalizeEventId(event._id || event.id);
+          return {
+            ...event,
+            id: event.id || event._id,
+            _id: event._id || event.id,
+            // Add a normalized ID for consistent lookup
+            normalizedId
+          };
+        });
+
+        console.log('Normalized events:', normalizedEvents.map((e: Event) => ({
+          id: e.id,
+          _id: e._id,
+          normalizedId: e.normalizedId,
+          name: e.name
+        })));
+
         const organizers = allNormalizedUsers.filter(user => user.role === 'organizer');
         const regularUsers = allNormalizedUsers.filter(user => user.role === 'user');
 
-        setEvents(eventsData);
-        setUsers([...organizers, ...regularUsers]); // Keep both groups, but organizers first
+        // Use the normalized events instead
+        setEvents(normalizedEvents);
+        setUsers([...organizers, ...regularUsers]);
         setOrganizerAssignments(assignments);
         setLoading(false);
       } catch (err) {
@@ -80,11 +124,20 @@ export const EventOrganizersTab: React.FC = () => {
       setLoading(true);
       setError(''); // Clear any previous errors
 
-      // For draft events, MongoDB still has _id but we can identify them by status
+      // Find the complete event object to get the MongoDB _id
       const selectedEventObj = events.find(e => e.id === selectedEvent);
+
+      if (!selectedEventObj) {
+        setError('Selected event no longer exists.');
+        setLoading(false);
+        return;
+      }
+
+      // Use MongoDB _id if available (for proper ObjectId format), otherwise fall back to id
+      const eventIdForApi = selectedEventObj._id || selectedEventObj.id;
       const isDraftEvent = selectedEventObj?.status === 'draft';
 
-      console.log(`Assigning user ${selectedUser} to ${isDraftEvent ? 'draft' : 'published'} event ${selectedEvent}`);
+      console.log(`Assigning user ${selectedUser} to ${isDraftEvent ? 'draft' : 'published'} event ${eventIdForApi}`);
 
       // First ensure user has organizer role
       const selectedUserObj = users.find(user => getUserId(user) === selectedUser);
@@ -95,19 +148,17 @@ export const EventOrganizersTab: React.FC = () => {
         await updateUserRole(selectedUser, 'organizer');
       }
 
-      // Then assign to event with specific error handling for temporary events
-      console.log(`Making API call to assign user ${selectedUser} to event ${selectedEvent}`);
+      // Then assign to event with the proper MongoDB ID
+      console.log(`Making API call to assign user ${selectedUser} to event ${eventIdForApi}`);
       try {
-        await assignOrganizerToEvent(selectedEvent, selectedUser);
+        await assignOrganizerToEvent(eventIdForApi, selectedUser);
 
-        // Update local state
-        setOrganizerAssignments(prev => ({
-          ...prev,
-          [selectedEvent]: [...(prev[selectedEvent] || []), selectedUser]
-        }));
+        // After successful assignment, reload all assignments from server
+        await reloadOrganizerAssignments();
 
         setSelectedEvent('');
         setSelectedUser('');
+        setSuccess('Organizer assigned successfully!');
       } catch (assignError) {
         console.error('Error in assignOrganizerToEvent:', assignError);
         if (assignError instanceof Error && assignError.message.includes('already an organizer')) {
@@ -147,13 +198,22 @@ export const EventOrganizersTab: React.FC = () => {
   const handleRemoveOrganizer = async (eventId: string, userId: string) => {
     try {
       setLoading(true);
-      await assignOrganizerToEvent(eventId, userId, 'remove');
 
-      // Update local state
-      setOrganizerAssignments(prev => ({
-        ...prev,
-        [eventId]: prev[eventId].filter(id => id !== userId)
-      }));
+      // Find the event to get the proper MongoDB _id
+      const eventObj = events.find(e => e.id === eventId);
+      if (!eventObj) {
+        setError('Event not found. Please refresh the page.');
+        setLoading(false);
+        return;
+      }
+
+      // Use _id if available, otherwise fall back to id
+      const eventIdForApi = eventObj._id || eventObj.id;
+
+      await assignOrganizerToEvent(eventIdForApi, userId, 'remove');
+
+      // After successful removal, reload all assignments from server
+      await reloadOrganizerAssignments();
 
       setSuccess('Organizer removed successfully.');
       setTimeout(() => setSuccess(''), 3000);
@@ -162,6 +222,20 @@ export const EventOrganizersTab: React.FC = () => {
       setError('Failed to remove organizer. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const reloadOrganizerAssignments = async () => {
+    try {
+      // Fetch fresh organizer assignments from the server
+      const organizerAssignmentsResponse = await api.get('/admin/organizer-assignments');
+
+      if (organizerAssignmentsResponse && organizerAssignmentsResponse.assignments) {
+        setOrganizerAssignments(organizerAssignmentsResponse.assignments);
+        console.log('Reloaded organizer assignments:', organizerAssignmentsResponse.assignments);
+      }
+    } catch (assignmentsError) {
+      console.error('Error reloading organizer assignments:', assignmentsError);
     }
   };
 
@@ -265,7 +339,7 @@ export const EventOrganizersTab: React.FC = () => {
                       >
                         <div className="user-avatar">
                           {user.photoURL ? (
-                            <img src={user.photoURL} alt={user.displayName || user.email} />
+                            <img src={user.photoURL || undefined} alt={"DISP"} />
                           ) : (
                             <div className="avatar-placeholder">
                               {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
@@ -296,7 +370,7 @@ export const EventOrganizersTab: React.FC = () => {
                       >
                         <div className="user-avatar">
                           {user.photoURL ? (
-                            <img src={user.photoURL} alt={user.displayName || user.email} />
+                            <img src={user.photoURL} alt={"DISP"} />
                           ) : (
                             <div className="avatar-placeholder">
                               {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
@@ -340,22 +414,44 @@ export const EventOrganizersTab: React.FC = () => {
               </div>
 
               <div className="organizers-list">
-                {!organizerAssignments[event.id] || organizerAssignments[event.id].length === 0 ? (
-                  <p className="no-organizers">No organizers assigned</p>
-                ) : (
-                  organizerAssignments[event.id].map(organizerId => (
-                    <div key={organizerId} className="organizer-item">
-                      <span className="organizer-name">{getOrganizerName(organizerId)}</span>
-                      <button
-                        className="remove-button"
-                        onClick={() => handleRemoveOrganizer(event.id, organizerId)}
-                        title="Remove organizer"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))
-                )}
+                {(() => {
+                  // Get event ID in multiple formats to ensure a match
+                  const eventId = event.id;
+                  const mongoId = event._id;
+                  const normalizedId = event.normalizedId || normalizeEventId(eventId);
+
+                  // Try multiple formats of the ID to find assignments
+                  const assignments =
+                    organizerAssignments[normalizedId] ||
+                    organizerAssignments[eventId] ||
+                    [];
+
+                  // Log each event with its assignments to debug
+                  console.log(`Event ${event.name}:`, {
+                    eventId,
+                    mongoId,
+                    normalizedId,
+                    hasAssignments: assignments.length > 0,
+                    assignments
+                  });
+
+                  return assignments.length === 0 ? (
+                    <p className="no-organizers">No organizers assigned</p>
+                  ) : (
+                    assignments.map(organizerId => (
+                      <div key={organizerId} className="organizer-item">
+                        <span className="organizer-name">{getOrganizerName(organizerId)}</span>
+                        <button
+                          className="remove-button"
+                          onClick={() => handleRemoveOrganizer(event.id, organizerId)}
+                          title="Remove organizer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  );
+                })()}
               </div>
             </div>
           ))

@@ -37,7 +37,7 @@ const EventManagementScreen: React.FC = () => {
         setError('');
 
         // Admin can see all events, organizers only see their managed events
-        const endpoint = isAdmin ? '/api/events/all' : '/api/events/managed';
+        const endpoint = isAdmin ? '/events/all' : '/events/managed';
         const response = await fetchWithAuth(endpoint);
 
         if (!response.ok) {
@@ -105,7 +105,7 @@ const EventManagementScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetchWithAuth(`/api/events/${eventId}`, {
+      const response = await fetchWithAuth(`/events/${eventId}`, {
         method: 'DELETE',
       });
 
@@ -132,7 +132,7 @@ const EventManagementScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetchWithAuth('/api/events/bulk-delete', {
+      const response = await fetchWithAuth('/events/bulk-delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +155,7 @@ const EventManagementScreen: React.FC = () => {
   // Toggle event publish status
   const handleTogglePublish = async (eventId: string, currentStatus: boolean) => {
     try {
-      const response = await fetchWithAuth(`/api/events/${eventId}/publish`, {
+      const response = await fetchWithAuth(`/events/${eventId}/publish`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

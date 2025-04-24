@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, isValid } from 'date-fns';
+import InterestButton from './InterestButton';
 import '../../styles/EventPrimaryContent.css';
 
 interface EventPrimaryContentProps {
@@ -84,6 +85,9 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
 
       <div className="event-content-container">
         <h1 className="event-title">{event.name}</h1>
+        <div className="event-actions">
+          <InterestButton eventId={event.id} size="medium" />
+        </div>
 
         <div className="event-meta-row">
           <i className="event-icon fas fa-calendar"></i>

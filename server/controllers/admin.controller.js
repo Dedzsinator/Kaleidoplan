@@ -1,7 +1,9 @@
 const User = require('../models/user.model');
 const Event = require('../models/event.model');
+const OrganizerEvent = require('../models/organizer-event.model');
 const admin = require('../config/firebase');
 const moment = require('moment');
+const mongoose = require('mongoose');
 
 // Get overall system statistics
 exports.getStats = async (req, res) => {
@@ -108,5 +110,44 @@ exports.getActiveUsers = async (req, res) => {
   } catch (error) {
     console.error('Error getting active users:', error);
     res.status(500).json({ error: 'Failed to fetch active users' });
+  }
+};
+
+exports.getOrganizerAssignments = async (req, res) => {
+  try {
+    // Get all organizer-event relationships
+    const organizerEvents = await OrganizerEvent.find({});
+    console.log(`Found ${organizerEvents.length} organizer assignments`);
+    
+    // Group by eventId and include both _id and string id versions
+    const assignments = {};
+    
+    organizerEvents.forEach(assignment => {
+      try {
+        // Get the event ID - add toString() to ensure consistent format
+        const eventId = assignment.eventId ? assignment.eventId.toString() : '';
+        
+        if (eventId) {
+          if (!assignments[eventId]) {
+            assignments[eventId] = [];
+          }
+          
+          if (!assignments[eventId].includes(assignment.userId)) {
+            assignments[eventId].push(assignment.userId);
+          }
+        }
+      } catch (err) {
+        console.error('Error processing assignment:', err);
+      }
+    });
+    
+    console.log(`Organized into ${Object.keys(assignments).length} event assignments`);
+    
+    res.status(200).json({
+      assignments
+    });
+  } catch (error) {
+    console.error('Error getting organizer assignments:', error);
+    res.status(500).json({ error: 'Failed to get organizer assignments' });
   }
 };

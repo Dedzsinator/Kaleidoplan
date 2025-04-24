@@ -139,7 +139,7 @@ const NavBar: React.FC<NavBarProps> = ({
                     <Link to="/admin" className="dropdown-item">
                       Dashboard
                     </Link>
-                    <Link to="/admin/users" className="dropdown-item">
+                    <Link to="/admin/user" className="dropdown-item">
                       Users
                     </Link>
                     <Link to="/admin/events" className="dropdown-item">

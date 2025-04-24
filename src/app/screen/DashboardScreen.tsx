@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../../services/api';
 import '../styles/DashboardScreen.css';
-import { Event } from '../models/types';
+import { Event, UserEvent } from '../models/types';
 
 const DashboardScreen: React.FC = () => {
-  // Call all hooks at the top level of the component
+  // Update all relevant state types to UserEvent
   const { currentUser, isOrganizer, isAdmin, refreshUserToken } = useAuth();
-  const [userEvents, setUserEvents] = useState<Event[]>([]);
+  const [userEvents, setUserEvents] = useState<UserEvent[]>([]);
+  const [attendingEvents, setAttendingEvents] = useState<UserEvent[]>([]);
+  const [interestedEvents, setInterestedEvents] = useState<UserEvent[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,25 +31,31 @@ const DashboardScreen: React.FC = () => {
       setError('');
 
       try {
-        // First try to get events user is registered for (this might fail with 403)
-        const registeredData = await api.get('/user/events').catch(err => {
-          console.log('User events not accessible, using empty list', err);
-          return { events: [] }; // Return empty array if endpoint fails
-        });
+        // Add /api prefix to match server-side routes
+        const userEventsResponse = await api.get('/user/events');
+        console.log('User events response:', userEventsResponse);
 
-        setUserEvents(registeredData.events || []);
+        // Properly cast the response to UserEvent[]
+        const events = (userEventsResponse.events || []) as UserEvent[];
+
+        if (events.length > 0) {
+          console.log(`Found ${events.length} user events`);
+          setUserEvents(events);
+
+          // Filter events by interest level
+          setAttendingEvents(events.filter(event => event.interestLevel === 'attending'));
+          setInterestedEvents(events.filter(event => event.interestLevel === 'interested'));
+        } else {
+          console.log('No user events found');
+          setUserEvents([]);
+          setAttendingEvents([]);
+          setInterestedEvents([]);
+        }
       } catch (eventsError) {
-        console.error('Error fetching registered events:', eventsError);
+        console.error('Error fetching user events:', eventsError);
         setUserEvents([]);
-      }
-
-      // This events endpoint works fine
-      try {
-        const upcomingData = await api.get('/events');
-        setUpcomingEvents(upcomingData.events || upcomingData || []);
-      } catch (upcomingError) {
-        console.error('Error fetching upcoming events:', upcomingError);
-        setUpcomingEvents([]);
+        setAttendingEvents([]);
+        setInterestedEvents([]);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
@@ -76,6 +84,45 @@ const DashboardScreen: React.FC = () => {
     }
   };
 
+  const renderEventList = (events: (Event | UserEvent)[], emptyMessage: string) => {
+    if (events.length === 0) {
+      return (
+        <div className="empty-state">
+          <p>{emptyMessage}</p>
+          <Link to="/events" className="action-button">
+            Browse Events
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="events-grid">
+        {events.map((event) => (
+          <div key={event.id} className="event-card">
+            <div className="event-image">
+              {event.coverImageUrl && <img src={event.coverImageUrl} alt={event.name} />}
+              <div className={`event-status ${event.status}`}>
+                {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+              </div>
+            </div>
+            <div className="event-content">
+              <h4>{event.name}</h4>
+              <p className="event-date">
+                {new Date(event.startDate).toLocaleDateString()} to {new Date(event.endDate).toLocaleDateString()}
+              </p>
+              <p className="event-location">{event.location}</p>
+              <Link to={`/events/${event.id}`} className="event-link">
+                View Details
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+
   return (
     <div className="dashboard-container">
       <h1>Dashboard</h1>
@@ -102,40 +149,23 @@ const DashboardScreen: React.FC = () => {
         </div>
       )}
 
+      {/* Attending Events Section */}
       <div className="dashboard-section">
-        <h3>Your Registered Events</h3>
+        <h3>Events You're Attending</h3>
         {loading ? (
           <div className="loading-spinner">Loading your events...</div>
-        ) : userEvents.length > 0 ? (
-          <div className="events-grid">
-            {userEvents.map((event) => (
-              <div key={event.id} className="event-card">
-                <div className="event-image">
-                  {event.coverImageUrl && <img src={event.coverImageUrl} alt={event.name} />}
-                  <div className={`event-status ${event.status}`}>
-                    {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-                  </div>
-                </div>
-                <div className="event-content">
-                  <h4>{event.name}</h4>
-                  <p className="event-date">
-                    {new Date(event.startDate).toLocaleDateString()} to {new Date(event.endDate).toLocaleDateString()}
-                  </p>
-                  <p className="event-location">{event.location}</p>
-                  <Link to={`/events/${event.id}`} className="event-link">
-                    View Details
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
         ) : (
-          <div className="empty-state">
-            <p>You haven't registered for any events yet.</p>
-            <Link to="/events" className="action-button">
-              Browse Events
-            </Link>
-          </div>
+          renderEventList(attendingEvents, "You haven't marked any events as attending yet.")
+        )}
+      </div>
+
+      {/* Interested Events Section */}
+      <div className="dashboard-section">
+        <h3>Events You're Interested In</h3>
+        {loading ? (
+          <div className="loading-spinner">Loading your events...</div>
+        ) : (
+          renderEventList(interestedEvents, "You haven't marked any events as interested yet.")
         )}
       </div>
 

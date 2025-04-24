@@ -51,7 +51,7 @@ export const CrudOperationsTab: React.FC = () => {
       switch (activeEntity) {
         case 'users':
           // Remove /api prefix because fetchWithAuth adds it
-          endpoint = `/users?page=${page}`;
+          endpoint = `/user?page=${page}`;
           stateUpdater = (data) => {
             console.log('Users data received:', data);
             // Handle different response formats
@@ -177,13 +177,13 @@ export const CrudOperationsTab: React.FC = () => {
 
           if (roleChanged && !otherFieldsChanged) {
             // If only the role is changing, use the dedicated role update endpoint with PATCH
-            endpoint = `/users/${selectedItem.uid || selectedItem._id}/role`;
+            endpoint = `/user/${selectedItem.uid || selectedItem._id}/role`;
             method = 'PATCH';
             dataToSend = { role: formData.role };
             console.log(`Updating only role with PATCH to ${endpoint}`);
           } else {
             // Otherwise update the whole user
-            endpoint = `/user/${selectedItem.uid || selectedItem._id}`; // Try with /user/ instead of /users/
+            endpoint = `/user/${selectedItem.uid || selectedItem._id}`;
             method = 'PUT';
           }
         } else if (activeEntity === 'events') {
@@ -193,7 +193,7 @@ export const CrudOperationsTab: React.FC = () => {
       } else {
         // Create new item
         if (activeEntity === 'users') {
-          endpoint = '/user'; // Try with /user/ instead of /users/
+          endpoint = '/user';
           method = 'POST';
         } else if (activeEntity === 'events') {
           endpoint = '/events';
@@ -212,7 +212,7 @@ export const CrudOperationsTab: React.FC = () => {
 
       // If first attempt fails with 404, try alternative endpoint format
       if (!response.ok && response.status === 404 && activeEntity === 'users') {
-        const altEndpoint = endpoint.replace('/user/', '/users/').replace('/users/', '/user/');
+        const altEndpoint = endpoint.replace('/user/', '/user/').replace('/user/', '/user/');
         console.log(`First attempt failed, trying alternative endpoint: ${altEndpoint}`);
 
         response = await fetchWithAuth(altEndpoint, {
@@ -278,7 +278,7 @@ export const CrudOperationsTab: React.FC = () => {
 
       if (activeEntity === 'users') {
         // Remove /api prefix because fetchWithAuth adds it
-        endpoint = `/users/${id}`;
+        endpoint = `/user/${id}`;
       } else if (activeEntity === 'events') {
         endpoint = `/events/${id}`;
       }

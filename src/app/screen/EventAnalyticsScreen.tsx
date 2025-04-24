@@ -61,7 +61,7 @@ const EventAnalyticsScreen: React.FC = () => {
         setError('');
 
         // Fetch event details
-        const eventResponse = await fetchWithAuth(`/api/events/${eventId}`);
+        const eventResponse = await fetchWithAuth(`/events/${eventId}`);
 
         if (!eventResponse.ok) {
           throw new Error('Failed to fetch event details');
@@ -71,7 +71,7 @@ const EventAnalyticsScreen: React.FC = () => {
         setEvent(eventData);
 
         // Fetch analytics data
-        const analyticsResponse = await fetchWithAuth(`/api/events/${eventId}/analytics?timeframe=${timeframe}`);
+        const analyticsResponse = await fetchWithAuth(`/events/${eventId}/analytics?timeframe=${timeframe}`);
 
         if (!analyticsResponse.ok) {
           throw new Error('Failed to fetch analytics data');
@@ -191,7 +191,7 @@ const EventAnalyticsScreen: React.FC = () => {
     try {
       setExportLoading(true);
 
-      const response = await fetchWithAuth(`/api/events/${eventId}/analytics/export`, {
+      const response = await fetchWithAuth(`/events/${eventId}/analytics/export`, {
         headers: {
           Accept: 'text/csv',
         },

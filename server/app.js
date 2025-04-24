@@ -8,7 +8,6 @@ const { connectToMongoDB } = require('./config/mongodb');
 const errorHandler = require('./middleware/errorHandler');
 const { scheduleWeeklyEmails } = require('./services/subscription.service');
 
-
 // Load environment variables
 dotenv.config();
 
@@ -62,6 +61,9 @@ require('./models/performer.model');
 require('./models/playlist.model');
 require('./models/user.model');
 require('./models/event.model');
+require('./models/event-interest.model'); // Add this line
+require('./models/event-sponsor.model');  // Add this for completeness
+require('./models/organizer-event.model'); // Add this for completeness
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -71,10 +73,8 @@ app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/events', eventsRoutes);
-app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/user/events', userRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 
 // Health check endpoint

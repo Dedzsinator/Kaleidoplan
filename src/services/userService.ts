@@ -7,8 +7,8 @@ import { getAuth } from 'firebase/auth';
 export const getAllUsers = async (): Promise<any[]> => {
   try {
     console.log('Fetching all users...');
-    // The issue is that api.get() returns direct JSON, not a response object with a data property
-    const response = await api.get('/users');
+    // Use the correct endpoint - the empty string is causing 404
+    const response = await api.get('/user?limit=100');
     
     // Log the actual response to debug
     console.log('Users API response:', response);
@@ -35,7 +35,7 @@ export const getAllUsers = async (): Promise<any[]> => {
 export const updateUserRole = async (userId: string, role: string): Promise<any> => {
   try {
     console.log(`Updating user ${userId} to role: ${role}`);
-    const response = await api.patch(`/users/${userId}/role`, { role });
+    const response = await api.patch(`/user/${userId}/role`, { role });
     return response;
   } catch (error) {
     console.error('Error updating user role:', error);

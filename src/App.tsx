@@ -84,7 +84,7 @@ function App() {
           />
 
           <Route
-            path="/admin/users"
+            path="/admin/user"
             element={
               <ProtectedRoute requiredRole="admin">
                 <UserManagement />

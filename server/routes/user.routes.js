@@ -66,7 +66,7 @@ router.get(
   userController.getUserEvents,
 );
 
-router.get('/user/events', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.getUserEvents);
+router.get('/events', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.getUserEvents);
 
 router.get('/verify-admin', authMiddleware.verifyToken, authMiddleware.attachUserData, (req, res) => {
   console.log('Admin verification request from:', req.user?.email);
