@@ -1,8 +1,11 @@
-// Main Express application entry point for the unified Kaleidoplan API server
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
+const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
+const fs = require('fs');
+const path = require('path');
 const { initFirebaseAdmin } = require('./config/firebase');
 const { connectToMongoDB } = require('./config/mongodb');
 const errorHandler = require('./middleware/errorHandler');
@@ -10,6 +13,62 @@ const { scheduleWeeklyEmails } = require('./services/subscription.service');
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Initialize Firebase Admin SDK
+const admin = require('./config/firebase');
+// Firebase is already initialized when we require the module
+
+// Connect to MongoDB
+connectToMongoDB();
+
+// Schedule weekly email sending
+scheduleWeeklyEmails();
+
+// Create upload directory if it doesn't exist
+const uploadDir = path.join(__dirname, '../uploads/events');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// CORS configuration
+const corsOptions = {
+  origin: ['http://localhost:3001', 'http://localhost:3000', process.env.CORS_ORIGIN].filter(Boolean),
+  credentials: true, // Important for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma', 'Expires'],
+};
+
+// Apply core middleware
+app.use(cors(corsOptions));
+app.use(morgan('dev'));
+app.use(cookieParser());
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// CRITICAL FIX: Add route-specific middleware for file uploads BEFORE body parsers
+// This completely bypasses body parsing for upload routes
+app.use((req, res, next) => {
+  // Strictly match upload routes and multipart content type
+  if (
+    (req.originalUrl === '/api/events/images/upload' || req.originalUrl === '/api/events/images/upload-multiple') &&
+    req.headers['content-type'] &&
+    req.headers['content-type'].includes('multipart/form-data')
+  ) {
+    return next();
+  }
+
+  // Continue to next middleware for all other requests
+  next();
+});
+
+// Apply regular body parsers AFTER the special handling middleware
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -23,46 +82,14 @@ const publicRoutes = require('./routes/public.routes');
 const adminRoutes = require('./routes/admin.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 
-scheduleWeeklyEmails();
-
-// Initialize Express app
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Initialize Firebase Admin SDK
-const admin = require('./config/firebase');
-// Firebase is already initialized when we require the module
-
-// Connect to MongoDB
-connectToMongoDB();
-
-// Middleware
-const corsOptions = {
-  origin: ['http://localhost:3001', 'http://localhost:3000', process.env.CORS_ORIGIN].filter(Boolean),
-  credentials: true, // Important for cookies
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma', 'Expires'],
-};
-
-app.use(cors(corsOptions));
-
-const authMiddleware = require('./middleware/auth');
-
-// Add cookie parser middleware
-const cookieParser = require('cookie-parser');
-app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev')); // Request logging
-
-// models
+// Import models - they should be loaded before routes that use them
 require('./models/performer.model');
 require('./models/playlist.model');
 require('./models/user.model');
 require('./models/event.model');
-require('./models/event-interest.model'); // Add this line
-require('./models/event-sponsor.model'); // Add this for completeness
-require('./models/organizer-event.model'); // Add this for completeness
+require('./models/event-interest.model');
+require('./models/event-sponsor.model');
+require('./models/organizer-event.model');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -85,7 +112,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Error handling middleware
+// Error handling middleware - must be last
 app.use(errorHandler);
 
 // Start server

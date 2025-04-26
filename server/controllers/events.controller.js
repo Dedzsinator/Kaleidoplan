@@ -4,6 +4,180 @@ const EventInterest = require('../models/event-interest.model');
 const OrganizerEvent = require('../models/organizer-event.model');
 const mongoose = require('mongoose');
 const { admin } = require('../config/firebase');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../../uploads/events');
+
+    // Ensure directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const fileExt = path.extname(file.originalname);
+    const eventId = req.body.eventId || 'unknown-event';
+    cb(null, `event-${eventId}-${uniqueSuffix}${fileExt}`);
+  },
+});
+
+// Single image upload middleware
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Only allow image files
+    const allowedFileTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedFileTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+}).single('image');
+
+// Multiple image upload middleware
+const uploadMultiple = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+  },
+  fileFilter: function (req, file, cb) {
+    // Only allow image files
+    const allowedFileTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedFileTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+}).array('images', 10); // Max 10 images
+
+// Single image upload controller
+const uploadEventImage = (req, res) => {
+  upload(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      console.error('Multer error:', err);
+      return res.status(400).json({
+        success: false,
+        message: `Upload error: ${err.message}`,
+      });
+    } else if (err) {
+      console.error('Other upload error:', err);
+      return res.status(500).json({
+        success: false,
+        message: `Server error: ${err.message}`,
+      });
+    }
+
+    // Check if file exists
+    if (!req.file) {
+      console.error('No file in request');
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided',
+      });
+    }
+
+    // Create image URL
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const imageUrl = `${baseUrl}/uploads/events/${req.file.filename}`;
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      message: 'Image uploaded successfully',
+      imageUrl: imageUrl,
+      imageType: req.body.imageType || 'cover',
+    });
+  });
+};
+
+// Multiple image upload controller
+const uploadMultipleEventImages = (req, res) => {
+  uploadMultiple(req, res, async function (err) {
+    if (err instanceof multer.MulterError) {
+      console.error('Multer error:', err);
+      return res.status(400).json({
+        success: false,
+        message: `Upload error: ${err.message}`,
+      });
+    } else if (err) {
+      console.error('Other upload error:', err);
+      return res.status(500).json({
+        success: false,
+        message: `Server error: ${err.message}`,
+      });
+    }
+
+    // Check if files exist
+    if (!req.files || req.files.length === 0) {
+      console.error('No files in request');
+      return res.status(400).json({
+        success: false,
+        message: 'No image files provided',
+      });
+    }
+
+    const { eventId } = req.body;
+
+    if (!eventId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Event ID is required',
+      });
+    }
+
+    try {
+      // Create image URLs
+      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+      const imageUrls = req.files.map((file) => `${baseUrl}/uploads/events/${file.filename}`);
+
+      try {
+        const event = await Event.findById(eventId);
+
+        if (event) {
+          if (!event.slideshowImages) {
+            event.slideshowImages = [];
+          }
+
+          event.slideshowImages = [...event.slideshowImages, ...imageUrls];
+          await event.save();
+        }
+      } catch (eventError) {
+        console.error('Error updating event with new images:', eventError);
+        // Continue anyway - we'll return the image URLs even if we couldn't update the event
+      }
+
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        message: 'Images uploaded successfully',
+        imageUrls: imageUrls,
+      });
+    } catch (error) {
+      console.error('Error in upload handler:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error processing uploaded files',
+      });
+    }
+  });
+};
 
 const getAllEvents = async (req, res, next) => {
   try {
@@ -20,7 +194,8 @@ const getAllEvents = async (req, res, next) => {
       // Create a new object with MongoDB _id used for the id field
       return {
         ...eventObj,
-        id: event.id.toString(),
+        // Safely handle the case where event.id might be undefined
+        id: event._id ? event._id.toString() : event.id ? event.id.toString() : undefined,
       };
     });
 
@@ -40,7 +215,7 @@ const getAllEvents = async (req, res, next) => {
 
       // Add organizers to each event
       formattedEvents.forEach((event) => {
-        const eventId = event.id || event._id;
+        const eventId = event.id || (event._id ? event._id.toString() : '');
         event.organizers = organizerMap[eventId] || [];
       });
     }
@@ -478,4 +653,6 @@ module.exports = {
   getManagedEvents,
   toggleEventInterest,
   checkEventInterest,
+  uploadEventImage,
+  uploadMultipleEventImages,
 };

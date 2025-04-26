@@ -1,14 +1,14 @@
-const globals = require('globals');
-const tseslint = require('@typescript-eslint/eslint-plugin');
-const tsParser = require('@typescript-eslint/parser');
-const reactPlugin = require('eslint-plugin-react');
-const reactHooksPlugin = require('eslint-plugin-react-hooks');
-const prettierPlugin = require('eslint-plugin-prettier');
-const securityPlugin = require('eslint-plugin-security');
-const importPlugin = require('eslint-plugin-import');
-const promisePlugin = require('eslint-plugin-promise');
+import globals from 'globals';
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import reactPlugin from 'eslint-plugin-react';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import prettierPlugin from 'eslint-plugin-prettier';
+import securityPlugin from 'eslint-plugin-security';
+import importPlugin from 'eslint-plugin-import';
+import promisePlugin from 'eslint-plugin-promise';
 
-module.exports = [
+export default [
   {
     // Define global variables
     languageOptions: {

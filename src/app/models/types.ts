@@ -26,7 +26,7 @@ export type TaskStatus = 'pending' | 'in-progress' | 'completed';
 // Task action type
 export type TaskAction = 'created' | 'updated' | 'completed';
 
-export interface ManagedEvent {
+export interface ManagedEvent extends Event {
   _id: string;
   id: string;
   name: string;
@@ -214,4 +214,49 @@ export interface CacheItem<T> {
   data: T;
   timestamp: number;
   expiresAt: number;
+}
+
+export interface ImageUploadResponse {
+  success: boolean;
+  message: string;
+  imageUrl: string;
+}
+
+export interface ImageUploadRequest {
+  eventId: string;
+  imageType: 'cover' | 'slideshow';
+  file: File;
+}
+
+export interface EventImageGallery {
+  eventId: string;
+  images: string[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Add these new interfaces to your types.ts file
+
+// Generic API response structure
+export interface ApiResponseWrapper<T> {
+  success?: boolean;
+  status?: number;
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
+// Specific image upload response types
+export interface ImageUploadApiResponse {
+  imageUrl?: string;
+  url?: string;
+  success?: boolean;
+  message?: string;
+}
+
+export interface MultipleImageUploadApiResponse {
+  imageUrls?: string[];
+  urls?: string[];
+  success?: boolean;
+  message?: string;
 }

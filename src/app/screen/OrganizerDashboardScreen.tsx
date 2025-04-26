@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { ManagedEvent, Task, TaskStatus } from '../models/types';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../../services/api';
-import { fetchWithAuth } from '../../services/api';
+import EventImageUploader from '../components/ui/EventImageUploader';
+import EventImageGallery from '../components/ui/EventImageGallery';
+import { uploadEventImage, uploadEventSlideshowImages } from '../../services/imageUpload';
+import { Event, ImageUploadResponse, EventImageGallery as EventImageGalleryType } from '../models/types';
 import '../styles/DashboardScreen.css';
 
 const OrganizerDashboard: React.FC = () => {
@@ -11,14 +14,192 @@ const OrganizerDashboard: React.FC = () => {
   const [managedEvents, setManagedEvents] = useState<ManagedEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [taskCompletingIds, setTaskCompletingIds] = useState<string[]>([]); // Track tasks being completed
+  const [taskCompletingIds, setTaskCompletingIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
+  const [eventImagesMap, setEventImagesMap] = useState<Record<string, EventImageGalleryType>>({});
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string>('');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Partial<Task> | null>(null);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [taskSubmitting, setTaskSubmitting] = useState(false);
+
+  const updateEventAfterImageUpload = async (
+    eventId: string,
+    imageUrl: string,
+    imageType: 'cover' | 'slideshow',
+  ): Promise<void> => {
+    try {
+      setUploading(true);
+
+      // Create update object based on image type
+      const updateData: Partial<Event> = {};
+
+      if (imageType === 'slideshow') {
+        // First get current event data to append to existing slideshow images
+        const currentEvent = managedEvents.find((e) => e.id === eventId || e._id === eventId);
+
+        if (currentEvent) {
+          // If slideshow images already exist, append the new one
+          // Ensure proper type handling
+          const currentSlideshow = currentEvent.slideshowImages || [];
+          updateData.slideshowImages = Array.isArray(currentSlideshow) ? [...currentSlideshow, imageUrl] : [imageUrl];
+        } else {
+          updateData.slideshowImages = [imageUrl];
+        }
+      }
+
+      // Update the event with the new image data
+      await api.put(`/events/${eventId}`, updateData);
+
+      // Refresh the events data to show the updated images
+      const updatedEventsData = await api.get('/events/managed');
+      const formattedEvents = updatedEventsData?.events || updatedEventsData || [];
+      setManagedEvents(formattedEvents);
+
+      // Add the new image to our local image gallery state
+      setEventImagesMap((prevMap) => {
+        const currentEventGallery = prevMap[eventId] || {
+          eventId,
+          images: [],
+          isLoading: false,
+          error: null,
+        };
+
+        return {
+          ...prevMap,
+          [eventId]: {
+            ...currentEventGallery,
+            images: imageType === 'slideshow' ? [...currentEventGallery.images, imageUrl] : currentEventGallery.images,
+          },
+        };
+      });
+
+      setUploadError('');
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to update event with new image');
+      console.error('Error updating event after image upload:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleMultipleImagesUploaded = async (eventId: string, imageUrls: string[]): Promise<void> => {
+    try {
+      setUploading(true);
+
+      // Get current event data
+      const currentEvent = managedEvents.find((e) => e.id === eventId || e._id === eventId);
+
+      if (currentEvent) {
+        // Prepare update data with new slideshow images
+        const currentSlideshow = currentEvent.slideshowImages || [];
+        const updateData: Partial<Event> = {
+          slideshowImages: Array.isArray(currentSlideshow) ? [...currentSlideshow, ...imageUrls] : imageUrls,
+        };
+
+        // Update the event with the new slideshow images
+        await api.put(`/events/${eventId}`, updateData);
+
+        // Refresh events data
+        const updatedEventsData = await api.get('/events/managed');
+        const formattedEvents = updatedEventsData?.events || updatedEventsData || [];
+        setManagedEvents(formattedEvents);
+
+        // Update local image gallery state
+        setEventImagesMap((prevMap) => {
+          const currentEventGallery = prevMap[eventId] || {
+            eventId,
+            images: [],
+            isLoading: false,
+            error: null,
+          };
+
+          return {
+            ...prevMap,
+            [eventId]: {
+              ...currentEventGallery,
+              images: [...currentEventGallery.images, ...imageUrls],
+            },
+          };
+        });
+      }
+
+      setUploadError('');
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to update event with new images');
+      console.error('Error updating event after multiple image upload:', err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = async (eventId: string, imageIndex: number): Promise<void> => {
+    try {
+      // Get current event data
+      const currentEvent = managedEvents.find((e) => e.id === eventId || e._id === eventId);
+
+      if (currentEvent && currentEvent.slideshowImages && Array.isArray(currentEvent.slideshowImages)) {
+        // Create a copy of the slideshow images and remove the selected image
+        const updatedSlideshow = [...currentEvent.slideshowImages];
+        updatedSlideshow.splice(imageIndex, 1);
+
+        // Update the event with the modified slideshow
+        await api.put(`/events/${eventId}`, { slideshowImages: updatedSlideshow });
+
+        // Refresh events data
+        const updatedEventsData = await api.get('/events/managed');
+        const formattedEvents = updatedEventsData?.events || updatedEventsData || [];
+        setManagedEvents(formattedEvents);
+
+        // Update local image gallery state
+        setEventImagesMap((prevMap) => {
+          const currentEventGallery = prevMap[eventId];
+
+          if (currentEventGallery) {
+            const updatedImages = [...currentEventGallery.images];
+            updatedImages.splice(imageIndex, 1);
+
+            return {
+              ...prevMap,
+              [eventId]: {
+                ...currentEventGallery,
+                images: updatedImages,
+              },
+            };
+          }
+
+          return prevMap;
+        });
+      }
+    } catch (err) {
+      console.error('Error removing image:', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove image');
+    }
+  };
+
+  useEffect(() => {
+    // When events are loaded, initialize the image galleries
+    if (managedEvents.length > 0) {
+      const initialEventImagesMap: Record<string, EventImageGalleryType> = {};
+
+      managedEvents.forEach((event) => {
+        const eventId = event.id || event._id;
+        const slideshowImages = event.slideshowImages || [];
+
+        initialEventImagesMap[eventId] = {
+          eventId,
+          images: Array.isArray(slideshowImages) ? slideshowImages : [],
+          isLoading: false,
+          error: null,
+        };
+      });
+
+      setEventImagesMap(initialEventImagesMap);
+    }
+  }, [managedEvents]);
 
   const relevantTasks = React.useMemo(() => {
     if (!managedEvents || !tasks) return [];
@@ -364,6 +545,7 @@ const OrganizerDashboard: React.FC = () => {
       <h2>Welcome, {currentUser?.displayName || 'Organizer'}</h2>
 
       {error && <div className="error-message">{error}</div>}
+      {uploadError && <div className="error-message">{uploadError}</div>}
 
       <div className="dashboard-summary">
         <div className="summary-card">
@@ -409,6 +591,9 @@ const OrganizerDashboard: React.FC = () => {
               // Get the event ID in both formats
               const eventId = event.id || event._id;
 
+              // Get current slideshow images
+              const slideshowImages = Array.isArray(event.slideshowImages) ? event.slideshowImages : [];
+
               return (
                 <div key={eventId} className="event-container">
                   <div className="event-header" onClick={() => toggleEventExpanded(eventId)}>
@@ -431,6 +616,59 @@ const OrganizerDashboard: React.FC = () => {
 
                   {expandedEvents[eventId] && (
                     <div className="event-details">
+                      {/* Image Management Section */}
+                      <div className="image-management-section">
+                        <h4>Event Images</h4>
+
+                        {/* Cover image display */}
+                        <div className="cover-image-container">
+                          <h5>Cover Image</h5>
+                          {event.coverImageUrl ? (
+                            <img
+                              src={event.coverImageUrl}
+                              alt={`${event.name} cover`}
+                              className="event-cover-thumbnail"
+                            />
+                          ) : (
+                            <div className="no-cover-image">No cover image</div>
+                          )}
+
+                          {/* Cover image uploader */}
+                          <EventImageUploader
+                            eventId={eventId}
+                            imageType="cover"
+                            buttonLabel="Upload Cover Image"
+                            onImageUploaded={(imageUrl) => updateEventAfterImageUpload(eventId, imageUrl, 'cover')}
+                          />
+                        </div>
+
+                        {/* Slideshow images section */}
+                        <div className="slideshow-images-container">
+                          <h5>Event Gallery Images</h5>
+
+                          {/* Display gallery if there are images */}
+                          {Array.isArray(slideshowImages) && slideshowImages.length > 0 ? (
+                            <EventImageGallery
+                              images={slideshowImages}
+                              allowRemove={true}
+                              onRemoveImage={(index) => handleRemoveImage(eventId, index)}
+                            />
+                          ) : (
+                            <div className="no-slideshow-images">No gallery images</div>
+                          )}
+
+                          {/* Slideshow image uploader */}
+                          <EventImageUploader
+                            eventId={eventId}
+                            imageType="slideshow"
+                            allowMultiple={true}
+                            buttonLabel="Add Gallery Images"
+                            onImageUploaded={(imageUrl) => updateEventAfterImageUpload(eventId, imageUrl, 'slideshow')}
+                            onMultipleImagesUploaded={(imageUrls) => handleMultipleImagesUploaded(eventId, imageUrls)}
+                          />
+                        </div>
+                      </div>
+
                       <div className="task-section">
                         <h4>Tasks</h4>
                         {/* Add create task button in the header */}
@@ -443,9 +681,9 @@ const OrganizerDashboard: React.FC = () => {
                           <p className="no-tasks">No tasks assigned to this event</p>
                         ) : (
                           <ul className="task-list">
-                            {(tasksByEvent[eventId] || tasksByEvent[event._id] || []).map((task) => (
+                            {tasksByEvent[eventId]?.map((task) => (
                               <li
-                                key={task._id}
+                                key={task._id || `task-${Math.random()}`}
                                 className={`task-item ${task.status}`}
                                 onClick={() => handleViewTask(task)}
                               >

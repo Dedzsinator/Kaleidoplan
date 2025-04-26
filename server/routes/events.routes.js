@@ -3,8 +3,12 @@ const router = express.Router();
 const eventsController = require('../controllers/events.controller');
 const authMiddleware = require('../middleware/auth');
 
-router.get('/managed', authMiddleware.verifyToken, eventsController.getManagedEvents);
+// Make sure these image upload routes are BEFORE any JSON-parsing middleware
+router.post('/images/upload', authMiddleware.verifyToken, eventsController.uploadEventImage);
+router.post('/images/upload-multiple', authMiddleware.verifyToken, eventsController.uploadMultipleEventImages);
 
+// Other routes
+router.get('/managed', authMiddleware.verifyToken, eventsController.getManagedEvents);
 router.get(
   '/all',
   authMiddleware.verifyToken,

@@ -498,3 +498,113 @@
   align-items: center;
   margin-right: 10px;
 }
+
+/* Add to the end of /home/deginandor/Documents/Programming/Kaleidoplan/src/app/styles/DashboardScreen.css */
+/* Image Management Section */
+.image-management-section {
+  background-color: rgba(250, 250, 250, 0.05);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.image-management-section h4 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+.image-management-section h5 {
+  font-size: 16px;
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #e0e0e0;
+}
+
+.cover-image-container {
+  margin-bottom: 24px;
+}
+
+.event-cover-thumbnail {
+  width: 200px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.no-cover-image {
+  width: 200px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #999;
+  font-size: 14px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.slideshow-images-container {
+  margin-top: 24px;
+}
+
+.no-slideshow-images {
+  width: 100%;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #999;
+  font-size: 14px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+/* Enlarged image view */
+.enlarged-image-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.enlarged-image-container {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.enlarged-image {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.close-enlarged-button {
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  width: 36px;
+  height: 36px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

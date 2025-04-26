@@ -62,13 +62,24 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
   try {
     const token = await getAuthToken();
 
+    // Create headers object first to check content type
+    const headers = new Headers(options.headers || {});
+
+    // Add authorization header
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    // IMPORTANT CHANGE: Don't set Content-Type for /images/upload
+    // AND don't set it for any requests where body is FormData
+    const isFormDataRequest = options.body instanceof FormData;
+    if (!headers.has('Content-Type') && !isFormDataRequest && !endpoint.includes('/images/upload')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
     const requestOptions: RequestInit = {
       ...options,
-      headers: {
-        ...options.headers,
-        Authorization: token ? `Bearer ${token}` : '',
-        'Content-Type': 'application/json',
-      },
+      headers,
     };
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
@@ -78,13 +89,6 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
         status: response.status,
         statusText: response.statusText,
       });
-      // Try to get response body even for errors
-      try {
-        const errorData = await response.json();
-        console.error('Error response body:', errorData);
-      } catch (e) {
-        // Ignore parse errors on error response
-      }
     }
 
     return response;
@@ -127,7 +131,10 @@ export const fetchEventByIdFromApi = async (eventId: string, options: QueryOptio
 export const fetchEventsFromApi = async (options: QueryOptions = {}): Promise<EventsListResponse> => {
   const queryParams = new URLSearchParams();
   Object.entries(options).forEach(([key, value]) => {
-    queryParams.append(key, String(value));
+    if (value !== undefined) {
+      // Add this check to prevent 'toString' of undefined
+      queryParams.append(key, String(value));
+    }
   });
   const queryString = queryParams.toString();
 
@@ -150,13 +157,14 @@ export const fetchEventsFromApi = async (options: QueryOptions = {}): Promise<Ev
         return { events: [] };
       }
 
+      const errorText = await response.text();
+      console.error('Error response from server:', errorText);
       throw new Error(`Error fetching events: ${response.statusText}`);
     }
 
-    const responseText = await response.text();
-
+    // Use a single approach to read the response
     try {
-      const data = JSON.parse(responseText);
+      const data = await response.json();
       return data;
     } catch (parseError) {
       console.error('Error parsing JSON response:', parseError);
@@ -195,32 +203,58 @@ const post = async <T, D = Record<string, unknown>>(
   options?: RequestInit,
 ): Promise<T | GenericResponse<unknown>> => {
   try {
+    // Check if data is FormData
+    const isFormData = data instanceof FormData;
+
+    // Create our headers
     const headers = new Headers(options?.headers);
-    headers.set('Content-Type', 'application/json');
+
+    if (isFormData) {
+      // For FormData, REMOVE any Content-Type header to let the browser set it
+      headers.delete('Content-Type');
+    } else {
+      // For JSON data, set the proper Content-Type
+      headers.set('Content-Type', 'application/json');
+    }
+
+    // Don't stringify FormData objects
+    const body = isFormData ? data : JSON.stringify(data);
 
     const response = await fetchWithAuth(endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify(data),
+      body,
       ...options,
     });
 
     if (!response.ok) {
+      console.error(`API request failed: ${endpoint}`, {
+        status: response.status,
+        statusText: response.statusText,
+      });
+
       try {
         const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || `API error: ${response.status}`);
+        console.error('Error response body:', errorData);
+        throw new Error(
+          errorData.error || errorData.message || `Server error (${response.status}): ${response.statusText}`,
+        );
       } catch (parseError) {
         throw new Error(`Server error (${response.status}): ${response.statusText}`);
       }
     }
 
+    // Handle the response properly
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         return await response.json();
       } catch (parseError) {
         console.warn('Response was not valid JSON:', parseError);
-        return { success: true, message: 'Operation completed' };
+        return {
+          success: true,
+          message: 'Operation completed',
+        };
       }
     } else {
       const text = await response.text();
