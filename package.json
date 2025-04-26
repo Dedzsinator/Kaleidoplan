@@ -3,6 +3,7 @@
   "version": "5.0.0",
   "private": true,
   "proxy": "http://localhost:3000",
+  "type": "module",
   "dependencies": {
     "@craco/craco": "^7.1.0",
     "@reacticons/ionicons": "^7.1.0",
