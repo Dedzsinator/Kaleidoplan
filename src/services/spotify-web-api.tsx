@@ -1,7 +1,73 @@
 import axios from 'axios';
+import { Track } from '../app/models/types';
 
 function base64Encode(str: string): string {
   return btoa(unescape(encodeURIComponent(str)));
+}
+
+interface SpotifyImage {
+  url: string;
+  height?: number;
+  width?: number;
+}
+
+interface SpotifyAlbum {
+  id?: string;
+  name?: string;
+  images: SpotifyImage[];
+}
+
+interface SpotifyArtist {
+  id?: string;
+  name: string;
+}
+
+interface SpotifyTrack {
+  id: string;
+  name: string;
+  artists: SpotifyArtist[];
+  album: SpotifyAlbum;
+  preview_url: string | null;
+  uri?: string;
+  duration_ms?: number;
+}
+
+interface SpotifyPlayer {
+  connect: () => Promise<boolean>;
+  disconnect: () => void;
+  addListener(
+    event: 'initialization_error' | 'authentication_error' | 'account_error' | 'playback_error',
+    callback: (event: { message: string }) => void,
+  ): void;
+  addListener(event: 'player_state_changed', callback: (state: SpotifyPlaybackState | null) => void): void;
+  addListener(event: 'ready' | 'not_ready', callback: (event: { device_id: string }) => void): void;
+  removeListener: (event: string) => void;
+  getCurrentState: () => Promise<SpotifyPlaybackState | null>;
+  pause: () => Promise<void>;
+  resume: () => Promise<void>;
+  nextTrack: () => Promise<void>;
+  previousTrack: () => Promise<void>;
+  setVolume: (volume: number) => Promise<void>;
+}
+
+interface SpotifyPlaybackState {
+  context: {
+    uri: string | null;
+    metadata: Record<string, unknown>;
+  };
+  disallows: {
+    pausing: boolean;
+    skipping_next: boolean;
+    skipping_prev: boolean;
+  };
+  duration: number;
+  paused: boolean;
+  position: number;
+  track_window: {
+    current_track: SpotifyTrack;
+    previous_tracks: SpotifyTrack[];
+    next_tracks: SpotifyTrack[];
+  };
 }
 
 const CLIENT_ID = process.env.REACT_APP_SPOTIFY_CLIENT_ID || '';
@@ -10,7 +76,6 @@ const REDIRECT_URI = process.env.REACT_APP_SPOTIFY_REDIRECT_URI || 'http://local
 
 const loadScript = (src: string): Promise<void> => {
   return new Promise((resolve, reject) => {
-    // Check if script is already loaded
     if (document.querySelector(`script[src="${src}"]`)) {
       resolve();
       return;
@@ -34,7 +99,7 @@ declare global {
         name: string;
         getOAuthToken: (callback: (token: string) => void) => void;
         volume: number;
-      }) => any;
+      }) => SpotifyPlayer;
     };
     onSpotifyWebPlaybackSDKReady: () => void;
   }
@@ -52,40 +117,32 @@ const TokenStorage = {
   },
 };
 
-// Convert Spotify preview URLs to our proxy URLs
 function convertToProxyUrl(previewUrl: string | null): string | null {
   if (!previewUrl) return null;
 
-  // Check if already using our proxy
   if (previewUrl.startsWith('/api/spotify/preview/')) {
     return previewUrl;
   }
 
-  // Extract the preview ID from the Spotify URL
   const match = previewUrl.match(/\/mp3-preview\/([a-zA-Z0-9]+)/);
-  if (!match || !match[1]) return previewUrl; // Return original if no match
+  if (!match || !match[1]) return previewUrl;
 
-  // Return our proxy URL
   return `/api/spotify/preview/${match[1]}`;
 }
 
-// Updated with more reliable tracks that have accurate preview URLs
-const mockTracks: Record<string, any> = {
-  // Drake - Hotline Bling (known to have a working preview)
+const mockTracks: Record<string, Partial<SpotifyTrack>> = {
   '6DCZcSspjsKoFjzjrWoCdn': {
     name: 'Hotline Bling',
     artists: [{ name: 'Drake' }],
     album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b2739416ed64daf84936d89e671c' }] },
     preview_url: 'https://p.scdn.co/mp3-preview/4841842825a5e78082b1c03886c9034cd82a0d7b',
   },
-  // Ed Sheeran - Shape of You
   '7qiZfU4dY1lWllzX7mPBI3': {
     name: 'Shape of You',
     artists: [{ name: 'Ed Sheeran' }],
     album: { images: [{ url: 'https://i.scdn.co/image/ab67616d0000b273ba5db46f4b838ef6027e6f96' }] },
     preview_url: 'https://p.scdn.co/mp3-preview/f8c30995f84b3dd3fe0c4dde76633688cce71112',
   },
-  // The Weeknd - Blinding Lights
   '0VjIjW4GlUZAMYd2vXMi3b': {
     name: 'Blinding Lights',
     artists: [{ name: 'The Weeknd' }],
@@ -101,8 +158,7 @@ class SpotifyService {
   useMockCredentials: boolean = false;
   userAuthenticated: boolean = false;
 
-  // Web Playback SDK properties
-  player: any = null;
+  player: SpotifyPlayer | null = null;
   deviceId: string | null = null;
   isPlayerReady: boolean = false;
   isPlayerConnected: boolean = false;
@@ -110,7 +166,6 @@ class SpotifyService {
   constructor() {
     this.loadTokens();
 
-    // Check if we have client credentials
     if (!CLIENT_ID || !CLIENT_SECRET) {
       console.warn('Spotify client credentials missing, will use mock data only');
       this.useMockCredentials = true;
@@ -130,8 +185,6 @@ class SpotifyService {
       if (refresh) this.refreshToken = refresh;
       if (expires) this.expiresAt = parseInt(expires, 10);
       if (userAuth) this.userAuthenticated = userAuth === 'true';
-
-      console.log('Loaded Spotify tokens from storage, user authenticated:', this.userAuthenticated);
     } catch (error) {
       console.error('Error loading Spotify tokens:', error);
     }
@@ -152,15 +205,12 @@ class SpotifyService {
       }
 
       await TokenStorage.setItem('spotify_user_authenticated', this.userAuthenticated.toString());
-
-      console.log('Saved Spotify tokens to storage');
     } catch (error) {
       console.error('Error saving Spotify tokens:', error);
     }
   };
 
   authenticate = async (): Promise<string | null> => {
-    // First check if user is authenticated
     const isUser = await this.isUserAuthenticated();
 
     if (isUser && this.accessToken) {
@@ -168,24 +218,17 @@ class SpotifyService {
     }
 
     if (this.useMockCredentials) {
-      console.log('Using mock authentication (no client credentials)');
       return 'mock-token-for-fallback';
     }
 
-    // Check if we have a valid token
     const now = Date.now();
     if (this.accessToken && this.expiresAt > now) {
-      console.log('Using existing valid Spotify token');
       return this.accessToken;
     }
 
     try {
-      console.log('Attempting Spotify authentication...');
-
-      // Get client credentials token
       const authString = base64Encode(`${CLIENT_ID}:${CLIENT_SECRET}`);
 
-      // Form data must be properly formatted
       const formData = new URLSearchParams();
       formData.append('grant_type', 'client_credentials');
 
@@ -200,36 +243,29 @@ class SpotifyService {
       this.expiresAt = Date.now() + response.data.expires_in * 1000;
       await this.saveTokens();
 
-      console.log('New Spotify token acquired');
       return this.accessToken;
     } catch (error) {
       console.error('Error authenticating with Spotify:', error);
 
-      // Set flag to use mock data for the remainder of this session
       this.useMockCredentials = true;
 
       // Return a mock token
-      console.log('Using mock authentication for fallback experience');
       this.accessToken = 'mock-token-for-fallback';
-      this.expiresAt = Date.now() + 3600 * 1000; // Expires in 1 hour
+      this.expiresAt = Date.now() + 3600 * 1000;
       return this.accessToken;
     }
   };
 
-  getTrack = async (trackId: string): Promise<any> => {
+  getTrack = async (trackId: string): Promise<Partial<SpotifyTrack>> => {
     try {
-      // First check if we have mock data for this track
       if (mockTracks[trackId]) {
-        console.log(`Using mock data for track ${trackId}`);
         return mockTracks[trackId];
       }
 
-      // If we're in mock mode, don't attempt API calls
       if (this.useMockCredentials) {
         throw new Error('Using mock data only');
       }
 
-      // Try to get real data from Spotify
       const token = await this.authenticate();
       if (!token) {
         throw new Error('No Spotify access token available');
@@ -241,7 +277,6 @@ class SpotifyService {
         },
       });
 
-      // Convert preview URL to use our proxy
       if (response.data && response.data.preview_url) {
         response.data.preview_url = convertToProxyUrl(response.data.preview_url);
       }
@@ -250,10 +285,8 @@ class SpotifyService {
     } catch (error) {
       console.error(`Error fetching track ${trackId}:`, error);
 
-      // Use a fallback track when the requested track doesn't exist
       const fallbackIds = Object.keys(mockTracks);
       const randomId = fallbackIds[Math.floor(Math.random() * fallbackIds.length)];
-      console.log(`Using fallback track ${randomId}`);
       return mockTracks[randomId];
     }
   };
@@ -261,9 +294,7 @@ class SpotifyService {
   isUserAuthenticated = async (): Promise<boolean> => {
     await this.loadTokens();
 
-    // If we have a refresh token, user has authenticated
     if (this.refreshToken && this.userAuthenticated) {
-      // Check if token is valid or needs refresh
       if (this.expiresAt < Date.now()) {
         try {
           await this.refreshAccessToken();
@@ -281,9 +312,7 @@ class SpotifyService {
 
   getAuthorizationUrl = async (): Promise<string> => {
     const state = Math.random().toString(36).substring(2, 15);
-    console.log('Getting Spotify authorization URL with redirect URI:', REDIRECT_URI);
 
-    // Store state for verification after redirect
     await TokenStorage.setItem('spotify_auth_state', state);
 
     const scopes = [
@@ -306,7 +335,6 @@ class SpotifyService {
     });
 
     const url = `https://accounts.spotify.com/authorize?${params.toString()}`;
-    console.log('Authorization URL generated:', url);
     return url;
   };
 
@@ -370,7 +398,6 @@ class SpotifyService {
       this.accessToken = response.data.access_token;
       this.expiresAt = Date.now() + response.data.expires_in * 1000;
 
-      // If a new refresh token is provided, save it
       if (response.data.refresh_token) {
         this.refreshToken = response.data.refresh_token;
       }
@@ -384,7 +411,6 @@ class SpotifyService {
   };
 
   disconnect = async (): Promise<void> => {
-    // Disconnect Web Playback SDK if connected
     if (this.player) {
       this.player.disconnect();
       this.player = null;
@@ -402,11 +428,8 @@ class SpotifyService {
     await TokenStorage.removeItem('spotify_refresh_token');
     await TokenStorage.removeItem('spotify_expires_at');
     await TokenStorage.removeItem('spotify_user_authenticated');
-
-    console.log('Disconnected from Spotify');
   };
 
-  // Initialize Spotify Web Playback SDK
   initializePlayer = async (): Promise<boolean> => {
     if (!this.userAuthenticated || !this.accessToken) {
       console.warn('Cannot initialize Spotify player: user not authenticated');
@@ -414,28 +437,22 @@ class SpotifyService {
     }
 
     if (this.isPlayerReady) {
-      console.log('Spotify player already initialized');
       return true;
     }
 
     try {
-      console.log('Loading Spotify Web Playback SDK...');
       await loadScript('https://sdk.scdn.co/spotify-player.js');
 
       return new Promise((resolve) => {
         window.onSpotifyWebPlaybackSDKReady = () => {
-          console.log('Spotify Web Playback SDK ready');
-
           this.player = new window.Spotify.Player({
             name: 'Kaleidoplan Web Player',
             getOAuthToken: (cb: (token: string) => void) => {
-              console.log('Providing token to Spotify player');
               cb(this.accessToken || '');
             },
             volume: 0.5,
           });
 
-          // Error handling
           this.player.addListener('initialization_error', ({ message }: { message: string }) => {
             console.error('Spotify player initialization error:', message);
             resolve(false);
@@ -455,31 +472,20 @@ class SpotifyService {
             console.error('Spotify player playback error:', message);
           });
 
-          // Playback status updates
-          this.player.addListener('player_state_changed', (state: any) => {
-            console.log(
-              'Spotify playback state changed:',
-              state ? `${state.track_window.current_track.name} - ${state.paused ? 'Paused' : 'Playing'}` : 'No track',
-            );
-          });
+          this.player.addListener('player_state_changed', (state: SpotifyPlaybackState | null) => {});
 
-          // Ready
           this.player.addListener('ready', ({ device_id }: { device_id: string }) => {
-            console.log('Spotify player ready with device ID:', device_id);
             this.deviceId = device_id;
             this.isPlayerReady = true;
             this.isPlayerConnected = true;
             resolve(true);
           });
 
-          // Not ready
           this.player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
-            console.log('Spotify player disconnected from device ID:', device_id);
             this.isPlayerReady = false;
             this.isPlayerConnected = false;
           });
 
-          // Connect to the player
           this.player.connect().then((success: boolean) => {
             if (!success) {
               console.error('Failed to connect to Spotify player');
@@ -515,12 +521,8 @@ class SpotifyService {
         return false;
       }
 
-      console.log(`Playing track ${trackId} on device ${this.deviceId}`);
-
-      // We need to refresh the token to make sure it's valid
       await this.authenticate();
 
-      // Play the track
       try {
         await axios.put(
           `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
@@ -537,14 +539,11 @@ class SpotifyService {
 
         return true;
       } catch (axiosError) {
-        // Check if it's a 404 Not Found error (track unavailable)
         if (axios.isAxiosError(axiosError) && axiosError.response?.status === 404) {
           console.warn(`Track ${trackId} not available for playback (404 error)`);
 
-          // Try playing one of our known good tracks instead
           const fallbackIds = Object.keys(mockTracks);
           const randomId = fallbackIds[Math.floor(Math.random() * fallbackIds.length)];
-          console.log(`Trying fallback track ${randomId} instead`);
 
           try {
             await axios.put(
@@ -566,12 +565,11 @@ class SpotifyService {
           }
         }
 
-        // If it's a 403 error, user likely doesn't have Premium
         if (axios.isAxiosError(axiosError) && axiosError.response?.status === 403) {
           console.warn('Spotify Premium required for playback control');
         }
 
-        throw axiosError; // Re-throw for the calling code to handle
+        throw axiosError;
       }
     } catch (error) {
       console.error('Error playing with Spotify:', error);
@@ -579,7 +577,6 @@ class SpotifyService {
     }
   };
 
-  // Pause playback (requires Premium)
   pausePlayback = async (): Promise<boolean> => {
     if (!this.isPlayerReady || !this.player) {
       return false;
@@ -594,7 +591,6 @@ class SpotifyService {
     }
   };
 
-  // Resume playback (requires Premium)
   resumePlayback = async (): Promise<boolean> => {
     if (!this.isPlayerReady || !this.player) {
       return false;
@@ -609,19 +605,16 @@ class SpotifyService {
     }
   };
 
-  // Play tracks using audio element for non-Premium users
   playTrack = async (trackId: string | undefined): Promise<string | null> => {
     if (!trackId) {
       console.error('Invalid track ID provided to playTrack');
       return null;
     }
 
-    // If user is authenticated, try to use the Web Playback SDK (Premium users)
     if (this.userAuthenticated) {
       try {
         const success = await this.playTrackWithSpotify(trackId);
         if (success) {
-          console.log('Playing track via Spotify Web Playback SDK');
           return 'spotify:sdk:playing';
         }
       } catch (error) {
@@ -629,27 +622,20 @@ class SpotifyService {
       }
     }
 
-    // If SDK playback failed or user is not Premium, fall back to preview URLs
     try {
       const track = await this.getTrack(trackId);
 
       if (!track || !track.preview_url) {
-        console.log(`No preview URL for track ${trackId}, using fallback`);
-        // Try a guaranteed working preview URL
-        return 'https://p.scdn.co/mp3-preview/4841842825a5e78082b1c03886c9034cd82a0d7b'; // Drake - Hotline Bling
+        return 'https://p.scdn.co/mp3-preview/4841842825a5e78082b1c03886c9034cd82a0d7b';
       }
 
-      // Return the preview URL
-      console.log(`Using preview URL for track ${trackId}: ${track.preview_url}`);
       return track.preview_url;
     } catch (error) {
       console.error(`Error playing track ${trackId}:`, error);
-      // Always have a fallback that works
       return 'https://p.scdn.co/mp3-preview/4841842825a5e78082b1c03886c9034cd82a0d7b';
     }
   };
 
-  // Toggle play/pause on the current track
   togglePlayback = async (): Promise<boolean> => {
     if (!this.isPlayerReady || !this.player) return false;
 
@@ -673,7 +659,6 @@ class SpotifyService {
     }
   };
 
-  // Skip to next track in context
   skipToNext = async (): Promise<boolean> => {
     if (!this.isPlayerReady || !this.player) return false;
 
@@ -686,7 +671,6 @@ class SpotifyService {
     }
   };
 
-  // Skip to previous track in context
   skipToPrevious = async (): Promise<boolean> => {
     if (!this.isPlayerReady || !this.player) return false;
 
@@ -700,6 +684,5 @@ class SpotifyService {
   };
 }
 
-// Create singleton instance
 const spotifyService = new SpotifyService();
 export default spotifyService;

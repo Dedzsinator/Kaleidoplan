@@ -104,7 +104,6 @@ export const AnalyticsTab: React.FC = () => {
             const statsData = await statsResponse.json();
             setStats(statsData);
           } else {
-            console.log('Using mock stats data');
             setStats(mockData);
           }
 
@@ -114,7 +113,6 @@ export const AnalyticsTab: React.FC = () => {
             const activityData = await activityResponse.json();
             setLoginActivity(activityData.activity);
           } else {
-            console.log('Using mock login activity data');
             setLoginActivity(mockLoginActivity);
           }
 
@@ -124,7 +122,6 @@ export const AnalyticsTab: React.FC = () => {
             const usersData = await usersResponse.json();
             setActiveUsers(usersData.users);
           } else {
-            console.log('Using mock login activity data');
             // Use empty array for active users as fallback
             setActiveUsers([]);
           }
@@ -142,10 +139,13 @@ export const AnalyticsTab: React.FC = () => {
 
     fetchAnalytics();
 
+    // Capture the current value of the ref for the cleanup function
+    const currentChartInstances = chartInstancesRef.current;
+
     // Cleanup function to destroy charts when component unmounts
     return () => {
       // Destroy any existing charts to prevent memory leaks
-      Object.values(chartInstancesRef.current).forEach((chart) => {
+      Object.values(currentChartInstances).forEach((chart) => {
         if (chart) chart.destroy();
       });
     };

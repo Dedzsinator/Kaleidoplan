@@ -11,9 +11,32 @@ import {
   orderBy,
   Timestamp,
   serverTimestamp,
+  DocumentData,
 } from 'firebase/firestore';
-import { db, storage } from './a';
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+
+// Your Firebase configuration
+const firebaseConfig = {
+  apiKey: process.env.FIREBASE_API_KEY || '',
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
+  projectId: process.env.FIREBASE_PROJECT_ID || '',
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Initialize services
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
 export interface Performer {
   id?: string;
@@ -116,7 +139,8 @@ export const createEvent = async (eventData: EventInput, userId: string): Promis
 
 export const updateEvent = async (eventId: string, eventData: Partial<EventInput>): Promise<void> => {
   try {
-    let updateData: any = { ...eventData };
+    // Replace 'any' with a more specific type
+    let updateData: Record<string, unknown> = { ...eventData };
 
     // Handle dates if they exist
     if (eventData.startDate) {
@@ -136,10 +160,9 @@ export const updateEvent = async (eventId: string, eventData: Partial<EventInput
 
     // Remove the coverImage File object from the update data
     delete updateData.coverImage;
-
-    await updateDoc(doc(db, 'events', eventId), updateData);
-  } catch (error) {
-    console.error('Error updating event:', error);
+    await updateDoc(doc(db, 'events', eventId), updateData as DocumentData);
+  } catch (error: unknown) {
+    console.error('Error updating event:', error instanceof Error ? error.message : error);
     throw error;
   }
 };

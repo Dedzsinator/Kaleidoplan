@@ -54,8 +54,8 @@ const UserManagementScreen: React.FC = () => {
         const data = await response.json();
         setUsers(data.users);
         setTotalPages(data.pagination.pages);
-      } catch (err: any) {
-        setError(err.message || 'An error occurred');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -76,7 +76,7 @@ const UserManagementScreen: React.FC = () => {
 
         const data = await response.json();
         setEvents(data.events || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching events:', err);
       }
     };
@@ -113,8 +113,8 @@ const UserManagementScreen: React.FC = () => {
       if (selectedUser && selectedUser._id === userId) {
         setSelectedUser({ ...selectedUser, role: newRole });
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
@@ -158,8 +158,8 @@ const UserManagementScreen: React.FC = () => {
 
       // Reset selected event
       setSelectedEvent('');
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
@@ -198,8 +198,8 @@ const UserManagementScreen: React.FC = () => {
           managedEvents: data.user.managedEvents,
         });
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 

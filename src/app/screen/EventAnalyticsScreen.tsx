@@ -79,8 +79,8 @@ const EventAnalyticsScreen: React.FC = () => {
 
         const analyticsData = await analyticsResponse.json();
         setAnalytics(analyticsData);
-      } catch (err: any) {
-        setError(err.message || 'An error occurred');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -210,8 +210,8 @@ const EventAnalyticsScreen: React.FC = () => {
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setExportLoading(false);
     }

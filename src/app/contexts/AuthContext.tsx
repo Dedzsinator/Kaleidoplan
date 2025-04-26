@@ -82,8 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Extract role from Firebase claims
       const role = idTokenResult.claims.role || 'user';
 
-      console.log('Login successful with role:', role, 'Claims:', idTokenResult.claims);
-
       // Create user object with role
       const userData = {
         uid: userCredential.user.uid,
@@ -189,8 +187,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           // Get role from Firebase custom claims
           const role = idTokenResult.claims.role || 'user';
-
-          console.log('User authenticated with role from Firebase:', role);
 
           // Set user data with role from Firebase claims
           setCurrentUser({

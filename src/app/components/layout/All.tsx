@@ -2,11 +2,10 @@ import React from 'react';
 import '../../styles/components.css';
 
 // Base props interface
-interface BaseComponentProps {
+interface BaseComponentProps extends React.HTMLAttributes<HTMLElement> {
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
-  [key: string]: any;
 }
 
 // Container components
@@ -80,14 +79,11 @@ export const Header: React.FC<GradientProps> = ({
   );
 };
 
-// Text component props
-interface TextComponentProps {
+interface TextComponentProps extends React.HTMLAttributes<HTMLElement> {
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
-  [key: string]: any;
 }
-
 export const HeaderTitle: React.FC<TextComponentProps> = ({ className, style, children, ...props }) => (
   <h1 className={`header-title ${className || ''}`} style={style} {...props}>
     {children}

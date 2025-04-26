@@ -19,7 +19,6 @@ const DashboardScreen: React.FC = () => {
   const checkAdminRole = async () => {
     try {
       await refreshUserToken(); // Use the function from the top-level hook call
-      console.log('Current user after refresh:', currentUser);
     } catch (error) {
       console.error('Error checking admin role:', error);
     }
@@ -33,20 +32,17 @@ const DashboardScreen: React.FC = () => {
       try {
         // Add /api prefix to match server-side routes
         const userEventsResponse = await api.get('/user/events');
-        console.log('User events response:', userEventsResponse);
 
         // Properly cast the response to UserEvent[]
         const events = (userEventsResponse.events || []) as UserEvent[];
 
         if (events.length > 0) {
-          console.log(`Found ${events.length} user events`);
           setUserEvents(events);
 
           // Filter events by interest level
           setAttendingEvents(events.filter((event) => event.interestLevel === 'attending'));
           setInterestedEvents(events.filter((event) => event.interestLevel === 'interested'));
         } else {
-          console.log('No user events found');
           setUserEvents([]);
           setAttendingEvents([]);
           setInterestedEvents([]);
@@ -57,8 +53,8 @@ const DashboardScreen: React.FC = () => {
         setAttendingEvents([]);
         setInterestedEvents([]);
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -77,9 +73,9 @@ const DashboardScreen: React.FC = () => {
 
       // Refresh user data immediately
       await refreshUserToken();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error setting admin role:', error);
-      alert(`Error setting admin role: ${error.message || 'Unknown error'}`);
+      alert(`Error setting admin role: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

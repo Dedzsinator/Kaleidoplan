@@ -1,38 +1,25 @@
 import axios from 'axios';
-import { Event } from '../app/models/types';
-
-// Simple cache implementation
-interface CacheItem<T> {
-  data: T;
-  timestamp: number;
-  expiresAt: number;
-}
+import { Event, CacheItem } from '../app/models/types';
 
 class ApiCache {
-  private cache: Record<string, CacheItem<any>> = {};
+  private cache: Record<string, CacheItem<unknown>> = {};
   private defaultTTL: number = 5 * 60 * 1000; // 5 minutes default TTL
 
-  // Get item from cache
   get<T>(key: string): T | null {
-    const item = this.cache[key];
+    const item = this.cache[key] as CacheItem<T> | undefined;
     const now = Date.now();
 
-    // Check if item exists and is not expired
     if (item && now < item.expiresAt) {
-      console.log(`Cache hit for: ${key}, age: ${(now - item.timestamp) / 1000}s`);
       return item.data;
     }
 
-    // Delete if expired
     if (item) {
-      console.log(`Cache expired for: ${key}, removing`);
       delete this.cache[key];
     }
 
     return null;
   }
 
-  // Set item in cache
   set<T>(key: string, data: T, ttl: number = this.defaultTTL): void {
     const now = Date.now();
     this.cache[key] = {
@@ -40,19 +27,16 @@ class ApiCache {
       timestamp: now,
       expiresAt: now + ttl,
     };
-    console.log(`Cached: ${key}, expires in ${ttl / 1000}s`);
   }
 
   // Clear specific item
   clear(key: string): void {
     delete this.cache[key];
-    console.log(`Cleared cache for: ${key}`);
   }
 
   // Clear all cache
   clearAll(): void {
     this.cache = {};
-    console.log('Cleared all cache');
   }
 }
 
@@ -95,18 +79,14 @@ export const fetchEventsFromApi = async (options: FetchOptions = {}): Promise<Ev
   if (!bypassCache) {
     const cachedEvents = apiCache.get<Event[]>(cacheKey);
     if (cachedEvents) {
-      console.log('Using cached events data');
       return cachedEvents;
     }
   }
 
   try {
-    console.log('EventApiService: Fetching events from server...');
-
     // Add timestamp to prevent browser caching (not our own cache)
     const timestamp = new Date().getTime();
     const response = await eventApiClient.get(`/api/public/events?_=${timestamp}`);
-    console.log('Raw API response:', JSON.stringify(response.data).substring(0, 200) + '...');
 
     let events: Event[] = [];
 
@@ -140,14 +120,11 @@ export const fetchEventById = async (eventId: string, options: FetchOptions = {}
   if (!bypassCache) {
     const cachedEvent = apiCache.get<Event>(cacheKey);
     if (cachedEvent) {
-      console.log(`Using cached event data for ID: ${eventId}`);
       return cachedEvent;
     }
   }
 
   try {
-    console.log(`Fetching event with ID: ${eventId} from server...`);
-
     const response = await eventApiClient.get(`/events/${eventId}`);
 
     if (!response.data) {

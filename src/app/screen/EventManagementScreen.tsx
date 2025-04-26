@@ -47,8 +47,8 @@ const EventManagementScreen: React.FC = () => {
         const data = await response.json();
         setEvents(data.events || []);
         setFilteredEvents(data.events || []);
-      } catch (err: any) {
-        setError(err.message || 'An error occurred');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -116,8 +116,8 @@ const EventManagementScreen: React.FC = () => {
       // Remove event from state
       setEvents(events.filter((event) => event._id !== eventId));
       setSelectedEvents(selectedEvents.filter((id) => id !== eventId));
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
@@ -147,8 +147,8 @@ const EventManagementScreen: React.FC = () => {
       // Remove deleted events from state
       setEvents(events.filter((event) => !selectedEvents.includes(event._id)));
       setSelectedEvents([]);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
@@ -176,8 +176,8 @@ const EventManagementScreen: React.FC = () => {
           return event;
         }),
       );
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 

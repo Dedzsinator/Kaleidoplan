@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchWithAuth } from '../../../services/api';
+import { Event as AppEvent } from '../../models/types';
 
+// Define more precise interfaces for the API data
 interface UserData {
   _id: string;
   uid: string;
@@ -12,9 +14,11 @@ interface UserData {
   lastLogin: string;
   photoURL?: string;
   managedEvents?: string[];
+  password?: string; // Used in create form
 }
 
-interface Event {
+// Rename to avoid conflict with global Event type
+interface CrudEvent {
   id: string;
   name: string;
   description: string;
@@ -26,41 +30,69 @@ interface Event {
   isPublic?: boolean;
 }
 
+interface PaginatedResponse {
+  users?: UserData[];
+  events?: CrudEvent[];
+  pagination?: {
+    pages: number;
+    total: number;
+    page: number;
+  };
+}
+
+// Define more precise union types for form data
+type FormDataType = Partial<UserData> | Partial<CrudEvent>;
+
+// Define a type for the selected item
+type SelectedItemType = UserData | CrudEvent | null;
+
+// Type guard functions to distinguish between data types
+function isUserData(item: unknown): item is UserData {
+  return Boolean(item) && typeof item === 'object' && item !== null && '_id' in item && 'email' in item;
+}
+
+function isEventData(item: unknown): item is CrudEvent {
+  return (
+    Boolean(item) &&
+    typeof item === 'object' &&
+    item !== null &&
+    'id' in item &&
+    'startDate' in item &&
+    'endDate' in item
+  );
+}
+
 export const CrudOperationsTab: React.FC = () => {
   const [activeEntity, setActiveEntity] = useState('users');
   const [users, setUsers] = useState<UserData[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<CrudEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<SelectedItemType>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<FormDataType>({});
 
-  useEffect(() => {
-    fetchData();
-  }, [activeEntity, page]);
-
-  const fetchData = async () => {
+  // Wrap fetchData in useCallback to safely add to dependencies
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let endpoint = '';
-      let stateUpdater: (data: any) => void;
+      let stateUpdater: (data: unknown) => void;
 
       switch (activeEntity) {
         case 'users':
-          // Remove /api prefix because fetchWithAuth adds it
           endpoint = `/user?page=${page}`;
-          stateUpdater = (data) => {
-            console.log('Users data received:', data);
-            // Handle different response formats
+          stateUpdater = (data: unknown) => {
+            // Handle different response formats with type safety
             if (Array.isArray(data)) {
-              setUsers(data);
-              setTotalPages(1); // No pagination info available
-            } else if (data.users) {
-              setUsers(data.users);
-              setTotalPages(data.pagination?.pages || 1);
+              setUsers(data as UserData[]);
+              setTotalPages(1);
+            } else if (typeof data === 'object' && data !== null && 'users' in data) {
+              const typedData = data as PaginatedResponse;
+              setUsers(typedData.users || []);
+              setTotalPages(typedData.pagination?.pages || 1);
             } else {
               setUsers([]);
               setTotalPages(1);
@@ -69,15 +101,15 @@ export const CrudOperationsTab: React.FC = () => {
           break;
         case 'events':
           endpoint = `/events?page=${page}`;
-          stateUpdater = (data) => {
-            console.log('Events data received:', data);
-            // Handle different response formats
+          stateUpdater = (data: unknown) => {
+            // Handle different response formats with type safety
             if (Array.isArray(data)) {
-              setEvents(data);
-              setTotalPages(1); // No pagination info available
-            } else if (data.events) {
-              setEvents(data.events);
-              setTotalPages(data.pagination?.pages || 1);
+              setEvents(data as CrudEvent[]);
+              setTotalPages(1);
+            } else if (typeof data === 'object' && data !== null && 'events' in data) {
+              const typedData = data as PaginatedResponse;
+              setEvents(typedData.events || []);
+              setTotalPages(typedData.pagination?.pages || 1);
             } else {
               setEvents([]);
               setTotalPages(1);
@@ -88,8 +120,6 @@ export const CrudOperationsTab: React.FC = () => {
           return;
       }
 
-      console.log(`Fetching ${activeEntity} from endpoint:`, endpoint);
-
       const response = await fetchWithAuth(endpoint);
 
       if (!response.ok) {
@@ -99,17 +129,22 @@ export const CrudOperationsTab: React.FC = () => {
       }
 
       const data = await response.json();
-      console.log(`${activeEntity} data:`, data);
       stateUpdater(data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Error fetching ${activeEntity}:`, err);
       alert(`Failed to load ${activeEntity}. Please try again.`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeEntity, page]);
 
-  const handleEditClick = (item: any) => {
+  // Now useEffect can safely include fetchData as dependency
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Fix handleEditClick with proper typing
+  const handleEditClick = (item: UserData | CrudEvent) => {
     setSelectedItem(item);
     setFormData(item);
     setIsEditing(true);
@@ -124,7 +159,7 @@ export const CrudOperationsTab: React.FC = () => {
         email: '',
         displayName: '',
         role: 'user',
-      });
+      } as Partial<UserData>);
     } else if (activeEntity === 'events') {
       setFormData({
         name: '',
@@ -133,7 +168,7 @@ export const CrudOperationsTab: React.FC = () => {
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         isPublic: true,
-      });
+      } as Partial<CrudEvent>);
     }
 
     setIsCreating(true);
@@ -145,48 +180,49 @@ export const CrudOperationsTab: React.FC = () => {
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev: Record<string, any>) => ({ ...prev, [name]: checked }));
+      setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
-      setFormData((prev: Record<string, any>) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      console.log('Submitting form data:', formData);
       let endpoint = '';
       let method = '';
       let dataToSend = { ...formData };
 
       // Remove empty string values to allow defaults on the server
       Object.keys(dataToSend).forEach((key) => {
-        if (dataToSend[key] === '') {
-          delete dataToSend[key];
+        if (dataToSend[key as keyof typeof dataToSend] === '') {
+          delete dataToSend[key as keyof typeof dataToSend];
         }
       });
 
-      if (isEditing) {
+      if (isEditing && selectedItem) {
         // Update existing item
-        if (activeEntity === 'users') {
+        if (activeEntity === 'users' && isUserData(selectedItem)) {
           // For user updates, check if only the role is changing
-          const roleChanged = selectedItem.role !== formData.role;
-          const otherFieldsChanged = Object.keys(formData).some(
-            (key) => key !== 'role' && formData[key] !== selectedItem[key],
+          const userFormData = formData as Partial<UserData>;
+          const roleChanged = selectedItem.role !== userFormData.role;
+          const otherFieldsChanged = Object.keys(userFormData).some(
+            (key) =>
+              key !== 'role' &&
+              userFormData[key as keyof typeof userFormData] !== selectedItem[key as keyof typeof selectedItem],
           );
 
           if (roleChanged && !otherFieldsChanged) {
             // If only the role is changing, use the dedicated role update endpoint with PATCH
             endpoint = `/user/${selectedItem.uid || selectedItem._id}/role`;
             method = 'PATCH';
-            dataToSend = { role: formData.role };
-            console.log(`Updating only role with PATCH to ${endpoint}`);
+            dataToSend = { role: userFormData.role };
           } else {
             // Otherwise update the whole user
             endpoint = `/user/${selectedItem.uid || selectedItem._id}`;
             method = 'PUT';
           }
-        } else if (activeEntity === 'events') {
+        } else if (activeEntity === 'events' && isEventData(selectedItem)) {
           endpoint = `/events/${selectedItem.id}`;
           method = 'PUT';
         }
@@ -201,9 +237,6 @@ export const CrudOperationsTab: React.FC = () => {
         }
       }
 
-      console.log(`Making ${method} request to ${endpoint}`);
-      console.log('Sending data:', dataToSend);
-
       let response = await fetchWithAuth(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -213,7 +246,6 @@ export const CrudOperationsTab: React.FC = () => {
       // If first attempt fails with 404, try alternative endpoint format
       if (!response.ok && response.status === 404 && activeEntity === 'users') {
         const altEndpoint = endpoint.replace('/user/', '/user/').replace('/user/', '/user/');
-        console.log(`First attempt failed, trying alternative endpoint: ${altEndpoint}`);
 
         response = await fetchWithAuth(altEndpoint, {
           method,
@@ -257,7 +289,7 @@ export const CrudOperationsTab: React.FC = () => {
 
       // Refresh data
       fetchData();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} ${activeEntity}:`, err);
       alert(
         err instanceof Error
@@ -277,14 +309,10 @@ export const CrudOperationsTab: React.FC = () => {
       let endpoint = '';
 
       if (activeEntity === 'users') {
-        // Remove /api prefix because fetchWithAuth adds it
         endpoint = `/user/${id}`;
       } else if (activeEntity === 'events') {
         endpoint = `/events/${id}`;
       }
-
-      console.log(`Deleting ${activeEntity.slice(0, -1)} with ID:`, id);
-      console.log(`Making DELETE request to endpoint:`, endpoint);
 
       const response = await fetchWithAuth(endpoint, {
         method: 'DELETE',
@@ -322,15 +350,35 @@ export const CrudOperationsTab: React.FC = () => {
       // Reset selected item if it was deleted
       if (
         selectedItem &&
-        ((activeEntity === 'users' && selectedItem._id === id) || (activeEntity === 'events' && selectedItem.id === id))
+        ((activeEntity === 'users' && isUserData(selectedItem) && selectedItem._id === id) ||
+          (activeEntity === 'events' && isEventData(selectedItem) && selectedItem.id === id))
       ) {
         setSelectedItem(null);
         setIsEditing(false);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(`Error deleting ${activeEntity}:`, err);
       alert(err instanceof Error ? err.message : `An error occurred while deleting ${activeEntity.slice(0, -1)}`);
     }
+  };
+
+  const formatDateForInput = (dateValue: string | Date | undefined): string => {
+    if (!dateValue) return '';
+
+    if (typeof dateValue === 'string') {
+      // Handle ISO string format (contains 'T')
+      if (dateValue.includes('T')) {
+        return dateValue.split('T')[0];
+      }
+      return dateValue;
+    }
+
+    // Handle Date object
+    if (dateValue instanceof Date) {
+      return dateValue.toISOString().split('T')[0];
+    }
+
+    return '';
   };
 
   return (
@@ -363,7 +411,9 @@ export const CrudOperationsTab: React.FC = () => {
       </div>
 
       <div className="crud-container">
+        {/* List Panel Section */}
         <div className="crud-list-panel">
+          {/* Header */}
           <div className="crud-header">
             <h3>{activeEntity.charAt(0).toUpperCase() + activeEntity.slice(1)}</h3>
             <button className="create-button" onClick={handleCreateClick}>
@@ -371,6 +421,7 @@ export const CrudOperationsTab: React.FC = () => {
             </button>
           </div>
 
+          {/* Table Section */}
           {loading ? (
             <div className="loading-spinner">Loading data...</div>
           ) : (
@@ -389,7 +440,11 @@ export const CrudOperationsTab: React.FC = () => {
                     {users.map((user) => (
                       <tr
                         key={user._id}
-                        className={selectedItem && selectedItem._id === user._id ? 'selected-row' : ''}
+                        className={
+                          selectedItem && isUserData(selectedItem) && selectedItem._id === user._id
+                            ? 'selected-row'
+                            : ''
+                        }
                       >
                         <td>{user.displayName || 'No Name'}</td>
                         <td>{user.email}</td>
@@ -421,7 +476,14 @@ export const CrudOperationsTab: React.FC = () => {
                   </thead>
                   <tbody>
                     {events.map((event) => (
-                      <tr key={event.id} className={selectedItem && selectedItem.id === event.id ? 'selected-row' : ''}>
+                      <tr
+                        key={event.id}
+                        className={
+                          selectedItem && isEventData(selectedItem) && selectedItem.id === event.id
+                            ? 'selected-row'
+                            : ''
+                        }
+                      >
                         <td>{event.name}</td>
                         <td>{new Date(event.startDate).toLocaleDateString()}</td>
                         <td>{event.location}</td>
@@ -456,7 +518,7 @@ export const CrudOperationsTab: React.FC = () => {
           )}
         </div>
 
-        {/* Edit/Create Form */}
+        {/* Form Section */}
         {(isEditing || isCreating) && (
           <div className="crud-form-panel">
             <h3>
@@ -470,7 +532,7 @@ export const CrudOperationsTab: React.FC = () => {
                     <input
                       type="email"
                       name="email"
-                      value={formData.email || ''}
+                      value={(formData as Partial<UserData>).email || ''}
                       onChange={handleFormChange}
                       required
                     />
@@ -480,13 +542,17 @@ export const CrudOperationsTab: React.FC = () => {
                     <input
                       type="text"
                       name="displayName"
-                      value={formData.displayName || ''}
+                      value={(formData as Partial<UserData>).displayName || ''}
                       onChange={handleFormChange}
                     />
                   </div>
                   <div className="form-group">
                     <label>Role:</label>
-                    <select name="role" value={formData.role || 'user'} onChange={handleFormChange}>
+                    <select
+                      name="role"
+                      value={(formData as Partial<UserData>).role || 'user'}
+                      onChange={handleFormChange}
+                    >
                       <option value="user">User</option>
                       <option value="organizer">Organizer</option>
                       <option value="admin">Admin</option>
@@ -498,7 +564,7 @@ export const CrudOperationsTab: React.FC = () => {
                       <input
                         type="password"
                         name="password"
-                        value={formData.password || ''}
+                        value={(formData as Partial<UserData>).password || ''}
                         onChange={handleFormChange}
                         required={isCreating}
                       />
@@ -511,20 +577,31 @@ export const CrudOperationsTab: React.FC = () => {
                 <>
                   <div className="form-group">
                     <label>Name:</label>
-                    <input type="text" name="name" value={formData.name || ''} onChange={handleFormChange} required />
+                    <input
+                      type="text"
+                      name="name"
+                      value={(formData as Partial<CrudEvent>).name || ''}
+                      onChange={handleFormChange}
+                      required
+                    />
                   </div>
                   <div className="form-group">
                     <label>Description:</label>
                     <textarea
                       name="description"
-                      value={formData.description || ''}
+                      value={(formData as Partial<CrudEvent>).description || ''}
                       onChange={handleFormChange}
                       rows={4}
                     ></textarea>
                   </div>
                   <div className="form-group">
                     <label>Location:</label>
-                    <input type="text" name="location" value={formData.location || ''} onChange={handleFormChange} />
+                    <input
+                      type="text"
+                      name="location"
+                      value={(formData as Partial<CrudEvent>).location || ''}
+                      onChange={handleFormChange}
+                    />
                   </div>
                   <div className="form-row">
                     <div className="form-group">
@@ -532,7 +609,7 @@ export const CrudOperationsTab: React.FC = () => {
                       <input
                         type="date"
                         name="startDate"
-                        value={formData.startDate ? formData.startDate.split('T')[0] : ''}
+                        value={formatDateForInput((formData as Partial<CrudEvent>).startDate)}
                         onChange={handleFormChange}
                         required
                       />
@@ -542,7 +619,7 @@ export const CrudOperationsTab: React.FC = () => {
                       <input
                         type="date"
                         name="endDate"
-                        value={formData.endDate ? formData.endDate.split('T')[0] : ''}
+                        value={formatDateForInput((formData as Partial<CrudEvent>).endDate)}
                         onChange={handleFormChange}
                         required
                       />
@@ -550,7 +627,12 @@ export const CrudOperationsTab: React.FC = () => {
                   </div>
                   <div className="form-group checkbox-group">
                     <label>
-                      <input type="checkbox" name="isPublic" checked={formData.isPublic} onChange={handleFormChange} />
+                      <input
+                        type="checkbox"
+                        name="isPublic"
+                        checked={(formData as Partial<CrudEvent>).isPublic || false}
+                        onChange={handleFormChange}
+                      />
                       Public Event
                     </label>
                   </div>
@@ -559,7 +641,7 @@ export const CrudOperationsTab: React.FC = () => {
                     <input
                       type="url"
                       name="coverImageUrl"
-                      value={formData.coverImageUrl || ''}
+                      value={(formData as Partial<CrudEvent>).coverImageUrl || ''}
                       onChange={handleFormChange}
                     />
                   </div>

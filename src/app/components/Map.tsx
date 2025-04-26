@@ -23,13 +23,16 @@ interface MapProps {
   style?: React.CSSProperties;
 }
 
-// Fix Leaflet icon paths globally (only once)
+interface LeafletIconDefaultExtended extends L.Icon.Default {
+  _getIconUrl?: () => string;
+}
+
 const fixLeafletIcons = (() => {
   let fixed = false;
   return () => {
     if (fixed) return;
 
-    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    delete (L.Icon.Default.prototype as LeafletIconDefaultExtended)._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -40,7 +43,6 @@ const fixLeafletIcons = (() => {
   };
 })();
 
-// Convert latitudeDelta to zoom level
 const getZoomLevel = (latitudeDelta: number): number => {
   return Math.round(Math.log2(360 / latitudeDelta)) - 1;
 };
@@ -51,7 +53,6 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
   const markersRef = useRef<L.Marker[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Memoize the region to prevent unnecessary re-renders
   const memoizedRegion = useMemo(
     () => ({
       latitude: region.latitude,
@@ -62,17 +63,14 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
     [region.latitude, region.longitude, region.latitudeDelta, region.longitudeDelta],
   );
 
-  // Update markers without recreating the map
   const updateMarkers = useCallback(() => {
     if (!mapInstanceRef.current) return;
 
-    // First clear existing markers
     markersRef.current.forEach((marker) => {
       mapInstanceRef.current?.removeLayer(marker);
     });
     markersRef.current = [];
 
-    // Then add new markers
     if (markers.length > 0) {
       markers.forEach((marker) => {
         if (isNaN(marker.coordinate.latitude) || isNaN(marker.coordinate.longitude)) return;
@@ -106,8 +104,6 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
 
     // Fix Leaflet icons before creating map
     fixLeafletIcons();
-
-    console.log('Creating map instance (should happen only once)');
 
     // We'll use a persistent reference to the container
     const mapContainer = mapRef.current;
@@ -156,26 +152,28 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
     return () => {
       clearTimeout(initTimer);
 
-      // Only cleanup when the component is unmounting
-      // Check if the container is still in the document
       if (mapInstanceRef.current && !document.body.contains(mapContainer)) {
-        console.log('Cleaning up map instance');
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         markersRef.current = [];
       }
     };
-  }, []); // Empty dependency array means this runs once on mount
+  }, [
+    mapRef,
+    memoizedRegion.latitude,
+    memoizedRegion.longitude,
+    memoizedRegion.latitudeDelta,
+    memoizedRegion.longitudeDelta,
+    updateMarkers,
+    markers,
+  ]);
 
-  // Update view center when region changes
   useEffect(() => {
     if (!mapInstanceRef.current || !isLoaded) return;
 
-    // Only update the view, don't recreate the map
     mapInstanceRef.current.setView([memoizedRegion.latitude, memoizedRegion.longitude]);
   }, [memoizedRegion.latitude, memoizedRegion.longitude, isLoaded]);
 
-  // Update markers when they change
   useEffect(() => {
     if (!mapInstanceRef.current || !isLoaded) return;
     updateMarkers();
@@ -194,9 +192,7 @@ const StableLeafletMap: React.FC<MapProps> = ({ region, markers = [], style }) =
   );
 };
 
-// Main export - simplified to avoid unnecessary complexity
 const Map: React.FC<MapProps> = (props) => {
-  // Basic validation
   if (
     !props.region ||
     typeof props.region.latitude !== 'number' ||
@@ -214,4 +210,4 @@ const Map: React.FC<MapProps> = (props) => {
   return <StableLeafletMap {...props} />;
 };
 
-export default React.memo(Map); // Memoize the entire component
+export default React.memo(Map);

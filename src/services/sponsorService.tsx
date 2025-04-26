@@ -20,12 +20,11 @@ export const getAllSponsors = async (options?: { forceRefresh?: boolean }): Prom
       !options?.forceRefresh && Object.keys(sponsorCache).length > 0 && currentTime - lastFetch < CACHE_DURATION;
 
     if (shouldUseCache) {
-      console.log('Using cached sponsors data');
       return Object.values(sponsorCache);
     }
 
     // Fetch fresh data
-    console.log('Fetching sponsors from API');
+
     const response = await axios.get(`${API_URL}/sponsors`);
 
     // Update cache
@@ -41,7 +40,6 @@ export const getAllSponsors = async (options?: { forceRefresh?: boolean }): Prom
 
     // Return cached data if available, even if it's stale
     if (Object.keys(sponsorCache).length > 0) {
-      console.log('Using stale cached sponsors data due to fetch error');
       return Object.values(sponsorCache);
     }
 
@@ -88,7 +86,6 @@ export const getSponsors = async (sponsorIds: string[]): Promise<Sponsor[]> => {
     const allInCache = sponsorIds.every((id) => !!sponsorCache[id]);
 
     if (allInCache) {
-      console.log('Using cached sponsors for event');
       return sponsorIds.map((id) => sponsorCache[id]);
     }
 
@@ -106,22 +103,16 @@ export const getSponsors = async (sponsorIds: string[]): Promise<Sponsor[]> => {
   } catch (error) {
     console.error('Error fetching sponsors for event:', error);
 
-    // Try to get as many sponsors from cache as possible
     const cachedSponsors = sponsorIds.filter((id) => !!sponsorCache[id]).map((id) => sponsorCache[id]);
 
     if (cachedSponsors.length > 0) {
-      console.log('Using partially cached sponsors due to fetch error');
       return cachedSponsors;
     }
 
-    // If all else fails, return mock data
     return getMockSponsorsByIds(sponsorIds);
   }
 };
 
-/**
- * Mock sponsors for development and fallback
- */
 const getMockSponsors = (): Sponsor[] => {
   return Array(20)
     .fill(0)

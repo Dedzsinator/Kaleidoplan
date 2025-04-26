@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AnimatedWaves from '../components/ui/AnimatedWaves';
 import * as Yup from 'yup';
-import '../styles/Auth.css'; // Reusing the same styles
+import '../styles/Auth.css';
 
 // Define error types for strongly typed form handling
 interface FormErrors {
@@ -87,7 +87,6 @@ const RegisterScreen = () => {
         // Simplify error handling
         const errorMessage = errorObj instanceof Error ? errorObj.message : 'An unknown error occurred';
 
-        console.log('Registration error:', errorObj);
         setErrors({ form: errorMessage || 'Could not create your account. Please try again.' });
       }
     } finally {

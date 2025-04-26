@@ -52,7 +52,7 @@ export interface Task {
   updatedAt?: Date | string;
   updatedBy?: string; // Firebase UID
   priority: 'low' | 'medium' | 'high';
-  eventId: string | { _id: string; id?: string } | any;
+  eventId: string | { _id: string; id?: string } | Record<string, unknown>;
 }
 
 // Task log model
@@ -97,8 +97,7 @@ export interface Playlist {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  // Support different track formats
-  tracks: Record<string, Track> | string[] | string | any;
+  tracks: Record<string, Track> | string[] | string | Record<string, unknown>;
 }
 
 export interface error {
@@ -108,23 +107,23 @@ export interface error {
 }
 
 export interface Event {
-  id: string;
+  id?: string;
   _id?: string;
   normalizedId?: string;
   name: string;
   description?: string;
-  startDate: string | Date; // Remove optional since it's used without checks
-  endDate: string | Date; // Remove optional since it's used without checks
+  startDate: string | Date;
+  endDate: string | Date;
   date?: string | Date;
   color: string;
-  location?: string; // Remove optional since it's used without checks
+  location?: string;
   coverImageUrl?: string;
   slideshowImages?: string[];
   playlistId?: string;
   createdBy?: string;
   createdAt?: string | Date;
   updatedAt?: string | Date;
-  status: string; // Remove optional since it's used without checks
+  status: string;
   themeColor?: string;
   performers?: Performer[];
   latitude?: number;
@@ -132,7 +131,26 @@ export interface Event {
   latitudeDelta?: number;
   longitudeDelta?: number;
   sponsorIds?: string[];
-  [key: string]: any;
+  ticketUrl?: string;
+  type?: string;
+  website?: string;
+  spotifyPlaylistId?: string;
+  coverImage?: string;
+
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Date
+    | string[]
+    | Performer[]
+    | undefined
+    | null
+    | {
+        _id?: string;
+        id?: string;
+      }
+    | Record<string, unknown>;
 }
 
 export interface UserEvent extends Event {
@@ -157,4 +175,43 @@ export interface Performer {
   image?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SpotifyTokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token?: string;
+}
+
+export interface ApiResponse<T> {
+  status: number;
+  data: T;
+  message?: string;
+}
+
+export interface ApiError {
+  status: number;
+  message: string;
+  errors?: string[];
+  code?: string;
+}
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export interface RequestOptions {
+  headers?: Record<string, string>;
+  params?: Record<string, string | number | boolean | null | undefined>;
+  timeout?: number;
+  withCredentials?: boolean;
+}
+
+export interface RequestConfig<T> extends RequestOptions {
+  data?: T;
+}
+
+export interface CacheItem<T> {
+  data: T;
+  timestamp: number;
+  expiresAt: number;
 }

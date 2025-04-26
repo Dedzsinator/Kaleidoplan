@@ -58,7 +58,6 @@ export const getCurrentLocation = (): Promise<Coordinates> => {
     // Try to get cached location first
     const cachedLocation = getCachedLocation();
     if (cachedLocation) {
-      console.log('Using cached location:', cachedLocation);
       return resolve(cachedLocation);
     }
 
@@ -155,7 +154,6 @@ const cacheLocation = (coordinates: Coordinates): void => {
       timestamp: Date.now(),
     };
     localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(locationData));
-    console.log('Location cached successfully');
   } catch (error) {
     console.error('Error caching location:', error);
   }
@@ -176,7 +174,6 @@ const getCachedLocation = (): Coordinates | null => {
     if (now - timestamp < LOCATION_CACHE_EXPIRY) {
       return coordinates;
     } else {
-      console.log('Cached location expired');
       return null;
     }
   } catch (error) {

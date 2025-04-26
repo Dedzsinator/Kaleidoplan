@@ -7,7 +7,6 @@ interface ThemedTextProps {
   children: React.ReactNode;
 }
 
-// Simple ThemedText replacement for web
 const ThemedText = ({ type, style, children }: ThemedTextProps) => {
   return (
     <span style={style} className={`themed-text ${type || ''}`}>
@@ -20,10 +19,8 @@ export function HelloWave() {
   const [isWaving, setIsWaving] = useState(false);
 
   useEffect(() => {
-    // Start the animation when component mounts
     setIsWaving(true);
 
-    // Reset animation after 4 waves (1200ms)
     const timer = setTimeout(() => {
       setIsWaving(false);
     }, 1200);

@@ -406,7 +406,7 @@ app.patch('/api/tasks/:id', authenticate, async (req, res) => {
     // Create log entry
     await Log.create({
       taskId: task._id,
-      status: status.replace('-', '_'), // Convert "in-progress" to "in_progress" for the log
+      status: status.replace('-', '_'),
       changedBy: updatedBy,
       changedAt: new Date(),
     });

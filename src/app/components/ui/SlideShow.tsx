@@ -19,7 +19,6 @@ const ImageSlideshow = ({ images, interval = 5000, height = 200, showGradient = 
 
   // Handle image load errors
   const handleImageError = (url: string) => {
-    console.log(`Failed to load image: ${url}`);
     setImageErrors((prev) => ({ ...prev, [url]: true }));
   };
 

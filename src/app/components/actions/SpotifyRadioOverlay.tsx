@@ -75,6 +75,22 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   // Fetch playlist data using the hook
   const { playlist, loading: playlistLoading, error } = usePlaylist(currentEvent?.playlistId);
 
+  const nextTrack = useCallback(() => {
+    if (trackData.length === 0) return;
+
+    setCurrentTrackIndex((prev) => (prev + 1) % trackData.length);
+
+    // If playing, restart with new track
+    if (isPlaying) {
+      if (usingSdkPlayback) {
+        // For SDK playback, we'll trigger playback in the handlePlayback function
+      } else if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      // Play will be triggered by the effect
+    }
+  }, [trackData.length, isPlaying, usingSdkPlayback]);
+
   // Initialize Audio or Spotify Player
   useEffect(() => {
     const initPlayback = async () => {
@@ -84,17 +100,15 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
 
         if (isAuthenticated) {
           // Try to initialize the Spotify Web Playback SDK
-          console.log('Trying to initialize Spotify Web Playback SDK');
+
           const sdkInitialized = await spotifyService.initializePlayer();
 
           if (sdkInitialized) {
-            console.log('Successfully initialized Spotify Web Playback SDK');
             setUsingSdkPlayback(true);
             setIsPremiumUser(true);
             setAudioInitialized(true);
             return;
           } else {
-            console.log('Failed to initialize Spotify Web Playback SDK, falling back to audio element');
             setIsPremiumUser(false);
           }
         }
@@ -124,7 +138,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
         audioRef.current = null;
       }
     };
-  }, []);
+  }, [nextTrack]);
 
   // Process raw track IDs from playlist data
   useEffect(() => {
@@ -132,7 +146,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
       if (!playlist) return;
 
       try {
-        console.log('Processing playlist tracks:', playlist);
         if (playlist.tracks) {
           const tracks: Track[] = [];
 
@@ -149,7 +162,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
           // Handle array of strings (track IDs)
           else if (Array.isArray(playlist.tracks)) {
             const trackIds = playlist.tracks as string[];
-            console.log('Track IDs from playlist (array):', trackIds);
 
             // Fetch track data for each ID
             for (const trackId of trackIds) {
@@ -184,8 +196,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
               }
             }
 
-            console.log('Track IDs from playlist (string):', trackIds);
-
             // Fetch track data for each ID
             for (const trackId of trackIds) {
               try {
@@ -206,7 +216,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
             }
           }
 
-          console.log('Processed track data:', tracks);
           setTrackData(tracks);
         }
       } catch (error) {
@@ -223,23 +232,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     if (trackData.length === 0) return null;
     return trackData[currentTrackIndex % trackData.length];
   }, [trackData, currentTrackIndex]);
-
-  // Next track function
-  const nextTrack = useCallback(() => {
-    if (trackData.length === 0) return;
-
-    setCurrentTrackIndex((prev) => (prev + 1) % trackData.length);
-
-    // If playing, restart with new track
-    if (isPlaying) {
-      if (usingSdkPlayback) {
-        // For SDK playback, we'll trigger playback in the handlePlayback function
-      } else if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      // Play will be triggered by the effect
-    }
-  }, [trackData.length, isPlaying, usingSdkPlayback]);
 
   // Previous track function
   const prevTrack = useCallback(() => {
@@ -271,12 +263,11 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
         try {
           if (usingSdkPlayback) {
             // Use Spotify Web Playback SDK (for Premium users)
-            console.log(`Playing track ${track.spotifyId} via Spotify SDK`);
+
             try {
               const success = await spotifyService.playTrackWithSpotify(track.spotifyId || '');
 
               if (success) {
-                console.log('Playback started via SDK');
                 setIsLoading(false);
                 return;
               } else {
@@ -296,7 +287,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
 
           // Get preview URL for playback
           const previewUrl = await spotifyService.playTrack(track.spotifyId);
-          console.log(`Got preview URL: ${previewUrl}`);
 
           if (!previewUrl) {
             throw new Error('No audio available for this track');

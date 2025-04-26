@@ -12,11 +12,32 @@ import '../styles/EventDetailScreen.css';
 // Types
 import { Event, Sponsor, Performer } from '../models/types';
 
+// Helper functions to safely parse dates
+const safeParseDate = (dateValue: unknown): Date => {
+  if (dateValue instanceof Date) return dateValue;
+  if (typeof dateValue === 'string') return new Date(dateValue);
+  return new Date(); // Fallback to current date
+};
+
+const formatDate = (dateValue: unknown): string => {
+  return safeParseDate(dateValue).toLocaleDateString();
+};
+
+const formatDateTime = (dateValue: unknown): string => {
+  return safeParseDate(dateValue).toLocaleString();
+};
+
 interface MapRegion {
   latitude: number;
   longitude: number;
   latitudeDelta: number;
   longitudeDelta: number;
+}
+
+interface ApiError {
+  message?: string;
+  status?: number;
+  [key: string]: unknown;
 }
 
 const DEFAULT_COLOR = '#3357FF';
@@ -68,10 +89,7 @@ const EventDetailScreen: React.FC = () => {
 
     try {
       setLoading(true);
-      console.log('Fetching data for event ID:', eventId);
-
-      // Always try to fetch from API first for real data
-      let eventData = null;
+      let eventData: Event | null = null;
 
       try {
         // Check if this is a temp ID with random numbers (which MongoDB can't handle)
@@ -80,23 +98,27 @@ const EventDetailScreen: React.FC = () => {
         if (!isTempRandomId) {
           // For real MongoDB IDs, fetch from API
           eventData = await getEventById(eventId);
-          console.log('Raw API response for event:', JSON.stringify(eventData));
         } else {
-          console.log('Skipping API call for temp random ID');
           throw new Error('Temp ID - using session storage');
         }
-      } catch (apiError: any) {
-        console.error('API fetch error:', apiError?.message || apiError);
+      } catch (apiError: unknown) {
+        const errorMessage = apiError instanceof Error ? apiError.message : 'Unknown API error';
+
+        console.error('API fetch error:', errorMessage);
 
         // Try session storage as fallback
         const cachedEventsStr = sessionStorage.getItem('all-events');
         if (cachedEventsStr) {
           try {
             const cachedEvents = JSON.parse(cachedEventsStr);
-            const cachedEvent = cachedEvents.find((e: Event) => e.id === eventId);
+            const cachedEvent = cachedEvents.find((e: Record<string, unknown>) => e.id === eventId);
             if (cachedEvent) {
-              console.log('Found event in session storage:', cachedEvent);
-              eventData = cachedEvent;
+              // Ensure the cached event has all required properties
+              if (!cachedEvent.color) cachedEvent.color = DEFAULT_COLOR;
+              if (!cachedEvent.status) cachedEvent.status = 'upcoming';
+              if (!cachedEvent.startDate) cachedEvent.startDate = new Date();
+              if (!cachedEvent.endDate) cachedEvent.endDate = new Date();
+              eventData = cachedEvent as Event;
             }
           } catch (e) {
             console.error('Error parsing cached events:', e);
@@ -105,35 +127,32 @@ const EventDetailScreen: React.FC = () => {
       }
 
       if (eventData) {
-        // Display full event data structure to debug
-        console.log('Full event data:', JSON.stringify(eventData, null, 2));
-
         // Set the event data
         setEvent(eventData);
 
         // Set map region if location exists
         if (eventData.latitude && eventData.longitude) {
           setMapRegion({
-            latitude: eventData.latitude,
-            longitude: eventData.longitude,
-            latitudeDelta: eventData.latitudeDelta || 0.01,
-            longitudeDelta: eventData.longitudeDelta || 0.01,
+            latitude: Number(eventData.latitude),
+            longitude: Number(eventData.longitude),
+            latitudeDelta: Number(eventData.latitudeDelta) || 0.01,
+            longitudeDelta: Number(eventData.longitudeDelta) || 0.01,
           });
         }
 
         // Fetch sponsors if sponsorIds exist
-        if (eventData.sponsorIds && eventData.sponsorIds.length > 0) {
-          console.log('Sponsor IDs found, fetching sponsors:', eventData.sponsorIds);
+        if (eventData.sponsorIds && Array.isArray(eventData.sponsorIds) && eventData.sponsorIds.length > 0) {
           try {
             const sponsorData = await getSponsors(eventData.sponsorIds);
-            console.log('Sponsor data received:', sponsorData);
             setSponsors(sponsorData || []);
-          } catch (sponsorError) {
-            console.error('Error fetching sponsors:', sponsorError);
+          } catch (sponsorError: unknown) {
+            console.error(
+              'Error fetching sponsors:',
+              sponsorError instanceof Error ? sponsorError.message : 'Unknown error',
+            );
             setSponsors([]);
           }
         } else {
-          console.log('No sponsor IDs found in event data');
           setSponsors([]);
         }
 
@@ -143,8 +162,8 @@ const EventDetailScreen: React.FC = () => {
 
       // If we reach here, we couldn't find the event
       throw new Error('Event not found');
-    } catch (err) {
-      console.error('Error fetching event data:', err);
+    } catch (err: unknown) {
+      console.error('Error fetching event data:', err instanceof Error ? err.message : 'Unknown error');
       setError('Failed to load event details');
       setLoading(false);
     }
@@ -182,7 +201,11 @@ const EventDetailScreen: React.FC = () => {
     );
   }
 
-  const coverImage = event.coverImageUrl || DEFAULT_IMAGE;
+  // Safely treat properties that might come from unknown index signature
+  const eventName = String(event.name || 'Untitled Event');
+  const eventStartDate = safeParseDate(event.startDate);
+  const eventEndDate = safeParseDate(event.endDate);
+  const coverImage = (event.coverImageUrl as string) || DEFAULT_IMAGE;
   const slideshowImages = Array.isArray(event.slideshowImages) ? event.slideshowImages : coverImage ? [coverImage] : [];
 
   return (
@@ -193,13 +216,18 @@ const EventDetailScreen: React.FC = () => {
       <div className="event-hero" style={{ backgroundImage: `url(${coverImage})` }}>
         <div className="event-hero-overlay" style={{ backgroundColor: event.color || DEFAULT_COLOR }}></div>
         <div className="event-hero-content">
-          <h1 className="event-title">{event.name}</h1>
+          <h1 className="event-title">{eventName}</h1>
           <p className="event-date">
-            {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
+            {formatDate(eventStartDate)} - {formatDate(eventEndDate)}
           </p>
 
           {event.ticketUrl && (
-            <a href={event.ticketUrl} className="ticket-button" target="_blank" rel="noopener noreferrer">
+            <a
+              href={typeof event.ticketUrl === 'string' ? event.ticketUrl : '#'}
+              className="ticket-button"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Get Tickets
             </a>
           )}
@@ -214,7 +242,7 @@ const EventDetailScreen: React.FC = () => {
             <div className="info-row">
               <div className="info-label">Date & Time:</div>
               <div className="info-value">
-                {new Date(event.startDate).toLocaleString()} - {new Date(event.endDate).toLocaleString()}
+                {formatDateTime(eventStartDate)} - {formatDateTime(eventEndDate)}
               </div>
             </div>
 
@@ -225,7 +253,7 @@ const EventDetailScreen: React.FC = () => {
 
             <div className="info-row">
               <div className="info-label">Type:</div>
-              <div className="info-value">{event.type || 'General Event'}</div>
+              <div className="info-value">{typeof event.type === 'string' ? event.type : 'General Event'}</div>
             </div>
 
             <div className="info-row">
@@ -239,8 +267,12 @@ const EventDetailScreen: React.FC = () => {
               <div className="info-row">
                 <div className="info-label">Website:</div>
                 <div className="info-value">
-                  <a href={event.website} target="_blank" rel="noopener noreferrer">
-                    {event.website}
+                  <a
+                    href={typeof event.website === 'string' ? event.website : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {typeof event.website === 'string' ? event.website : 'Event Website'}
                   </a>
                 </div>
               </div>
@@ -266,7 +298,7 @@ const EventDetailScreen: React.FC = () => {
                         longitude: mapRegion.longitude,
                       },
                       title: event.name,
-                      description: event.location,
+                      description: event.location || 'Event Location',
                     },
                   ]}
                   style={{ width: '100%', height: '300px' }}
@@ -291,7 +323,6 @@ const EventDetailScreen: React.FC = () => {
                 {event.performers.map((performer, index) => {
                   // First check if this is a string ID rather than an object
                   if (typeof performer === 'string') {
-                    console.log('Performer is a string ID, not an object:', performer);
                     return null;
                   }
 
@@ -309,15 +340,6 @@ const EventDetailScreen: React.FC = () => {
 
                   // Get image with fallback - use ONLY the defined image property from the type
                   const performerImage = typedPerformer.image || null;
-
-                  // Better debugging with actual type info
-                  console.log('Rendering performer:', {
-                    id: performerId,
-                    name: performerName,
-                    hasImage: !!performerImage,
-                    hasRequiredFields: !!(typedPerformer.createdAt && typedPerformer.updatedAt),
-                    rawPerformer: typedPerformer,
-                  });
 
                   return (
                     <div

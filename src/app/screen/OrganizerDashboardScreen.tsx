@@ -69,7 +69,7 @@ const OrganizerDashboard: React.FC = () => {
 
       if (!taskEventId) {
         // Still no eventId found, try logging for debugging and skip
-        console.log('Task without valid eventId:', task);
+
         return acc;
       }
 
@@ -97,16 +97,12 @@ const OrganizerDashboard: React.FC = () => {
       setTaskCompletingIds((prev) => [...prev, taskId]);
       setError('');
 
-      console.log(`Completing task with ID: ${taskId}`);
-
       // Use api.put with the correct endpoint format
       await api.put(`/tasks/${taskId}`, {
         status: 'completed',
         updatedBy: currentUser?.uid,
         updatedAt: new Date().toISOString(),
       });
-
-      console.log(`Task ${taskId} marked as completed`);
 
       // Update local task state
       setTasks((prevTasks) =>
@@ -121,8 +117,8 @@ const OrganizerDashboard: React.FC = () => {
             : task,
         ),
       );
-    } catch (err: any) {
-      setError(`Failed to complete task: ${err.message || 'Unknown error'}`);
+    } catch (err: unknown) {
+      setError(`Failed to complete task: ${err instanceof Error ? err.message : 'Unknown error'}`);
       console.error('Error completing task:', err);
     } finally {
       setTaskCompletingIds((prev) => prev.filter((id) => id !== taskId));
@@ -175,28 +171,16 @@ const OrganizerDashboard: React.FC = () => {
       };
 
       if (isCreatingTask) {
-        // Add creation fields for new tasks
-        taskData.createdAt = new Date().toISOString();
-        taskData.createdBy = currentUser?.uid || '';
-
-        // Find the event to include the event name
-        if (taskData.eventId) {
-          const event = managedEvents.find((e) => e.id === taskData.eventId || e._id === taskData.eventId);
-          if (event) {
-            taskData.eventName = event.name;
-          }
-        }
-
         // Create new task
-        const response = await api.post('/tasks', taskData);
+        const response = await api.post<Task>('/tasks', taskData);
 
-        // Add the new task to state
-        if (response && (response._id || response.taskId)) {
+        // Use type guards to safely check properties
+        if (response && typeof response === 'object' && ('_id' in response || 'taskId' in response)) {
           setTasks((prev) => [...prev, response as Task]);
         } else {
           // Refresh all tasks to ensure we get the latest data
           const tasksData = await api.get('/tasks');
-          setTasks(tasksData?.tasks || tasksData || []);
+          setTasks(tasksData?.tasks || []);
         }
       } else {
         // Update existing task - use taskId instead of _id if available
@@ -210,8 +194,10 @@ const OrganizerDashboard: React.FC = () => {
       // Close modal on success
       setIsTaskModalOpen(false);
       setCurrentTask(null);
-    } catch (err: any) {
-      setError(`Failed to ${isCreatingTask ? 'create' : 'update'} task: ${err.message || 'Unknown error'}`);
+    } catch (err: unknown) {
+      setError(
+        `Failed to ${isCreatingTask ? 'create' : 'update'} task: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
       console.error(`Error ${isCreatingTask ? 'creating' : 'updating'} task:`, err);
     } finally {
       setTaskSubmitting(false);
@@ -224,21 +210,14 @@ const OrganizerDashboard: React.FC = () => {
         setLoading(true);
         setError('');
 
-        console.log('Fetching events and tasks...');
-
         // Use api.get with the correct paths
         const [eventsData, tasksData] = await Promise.all([api.get('/events/managed'), api.get('/tasks')]);
-
-        console.log('Received events:', eventsData);
-        console.log('Received tasks:', tasksData);
 
         // Handle different response formats
         const formattedEvents = eventsData?.events || eventsData || [];
 
         // tasksData is already JSON parsed when using api.get
         const formattedTasks = tasksData?.tasks || tasksData || [];
-
-        console.log('Formatted tasks:', formattedTasks);
 
         // Initialize all events as expanded
         const initialExpandedState = formattedEvents.reduce((acc: Record<string, boolean>, event: ManagedEvent) => {
@@ -252,9 +231,9 @@ const OrganizerDashboard: React.FC = () => {
         setManagedEvents(formattedEvents);
         setTasks(formattedTasks);
         setExpandedEvents(initialExpandedState);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching data:', err);
-        setError(err.message || 'An error occurred');
+        setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setLoading(false);
       }

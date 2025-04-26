@@ -1,9 +1,47 @@
 import { getAuth } from 'firebase/auth';
+import { ApiResponse, ApiError, HttpMethod, RequestOptions, RequestConfig } from '../app/models/types';
 
-// Base API URL
+interface EventResponse {
+  id: string;
+  name: string;
+  description?: string;
+  date?: string;
+  location?: string;
+  [key: string]: unknown;
+}
+
+interface EventsListResponse {
+  events: EventResponse[];
+  total?: number;
+  page?: number;
+  limit?: number;
+}
+
+interface ApiErrorResponse extends Error {
+  status?: number;
+  code?: string;
+  details?: unknown;
+}
+
+interface QueryOptions {
+  limit?: number;
+  page?: number;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+interface GenericResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  statusCode?: number;
+}
+
 const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-// Helper function to get auth token
 export const getAuthToken = async (): Promise<string | null> => {
   const auth = getAuth();
   const user = auth.currentUser;
@@ -20,7 +58,6 @@ export const getAuthToken = async (): Promise<string | null> => {
   return null;
 };
 
-// In api.tsx or wherever fetchWithAuth is defined
 export const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
   try {
     const token = await getAuthToken();
@@ -34,7 +71,6 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
       },
     };
 
-    console.log(`Making API request to: ${endpoint}`);
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
 
     if (!response.ok) {
@@ -58,20 +94,14 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
   }
 };
 
-/**
- * Fetch a single event by ID from the API
- * @param eventId The ID of the event to fetch
- * @param options Additional options like timestamp for cache busting
- * @returns The event data
- */
-export const fetchEventByIdFromApi = async (eventId: string, options: Record<string, any> = {}): Promise<any> => {
-  // Build the query string from options
+export const fetchEventByIdFromApi = async (eventId: string, options: QueryOptions = {}): Promise<EventResponse> => {
   const queryParams = new URLSearchParams();
   Object.entries(options).forEach(([key, value]) => {
-    queryParams.append(key, String(value));
+    if (value !== undefined) {
+      queryParams.append(key, String(value));
+    }
   });
 
-  // Construct the URL with query string
   const queryString = queryParams.toString();
   const endpoint = `/events/${eventId}${queryString ? `?${queryString}` : ''}`;
 
@@ -87,19 +117,14 @@ export const fetchEventByIdFromApi = async (eventId: string, options: Record<str
     }
 
     return response.json();
-  } catch (error: any) {
-    console.error(`Error fetching event ${eventId}:`, error);
-    throw error;
+  } catch (error: unknown) {
+    const typedError = error as ApiErrorResponse;
+    console.error(`Error fetching event ${eventId}:`, typedError);
+    throw typedError;
   }
 };
 
-/**
- * Fetch events with optional filtering parameters
- * @param options Query parameters and options for fetching events
- * @returns Array of events or object containing events array
- */
-export const fetchEventsFromApi = async (options: Record<string, any> = {}): Promise<any> => {
-  // Build the query string
+export const fetchEventsFromApi = async (options: QueryOptions = {}): Promise<EventsListResponse> => {
   const queryParams = new URLSearchParams();
   Object.entries(options).forEach(([key, value]) => {
     queryParams.append(key, String(value));
@@ -111,12 +136,7 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
     ? `/events${queryString ? `?${queryString}` : ''}`
     : `/public/events${queryString ? `?${queryString}` : ''}`;
 
-  // Debug output - log the whole endpoint URL
-  console.log(`Complete API URL: ${API_BASE_URL}${endpoint}`);
-
   try {
-    console.log(`Fetching events from ${endpoint}`);
-    // Use fetchWithAuth so token is included if available
     const response = await fetchWithAuth(endpoint);
 
     if (!response.ok) {
@@ -125,7 +145,6 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
         throw new Error('Unauthorized');
       }
 
-      // Return empty results instead of throwing for guest users
       if (!auth.currentUser && (response.status === 404 || response.status === 500)) {
         console.warn('Public events endpoint not available, returning empty array');
         return { events: [] };
@@ -134,11 +153,8 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
       throw new Error(`Error fetching events: ${response.statusText}`);
     }
 
-    // Debug: log the raw response text before parsing
     const responseText = await response.text();
-    console.log('Raw response text (first 100 chars):', responseText.substring(0, 100));
 
-    // Now parse the JSON
     try {
       const data = JSON.parse(responseText);
       return data;
@@ -146,8 +162,9 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
       console.error('Error parsing JSON response:', parseError);
       return { events: [] };
     }
-  } catch (error: any) {
-    console.error('Error fetching events:', error);
+  } catch (error: unknown) {
+    const typedError = error as ApiErrorResponse;
+    console.error('Error fetching events:', typedError);
 
     // For guest users, return empty array instead of throwing
     if (!auth.currentUser) {
@@ -155,12 +172,11 @@ export const fetchEventsFromApi = async (options: Record<string, any> = {}): Pro
       return { events: [] };
     }
 
-    throw error;
+    throw typedError;
   }
 };
 
-// Helper for GET requests
-const get = async (endpoint: string, options?: RequestInit): Promise<any> => {
+const get = async (endpoint: string, options?: RequestInit) => {
   const response = await fetchWithAuth(endpoint, {
     method: 'GET',
     ...options,
@@ -173,13 +189,14 @@ const get = async (endpoint: string, options?: RequestInit): Promise<any> => {
   return response.json();
 };
 
-// Improve the post method to handle non-JSON responses better
-const post = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+const post = async <T, D = Record<string, unknown>>(
+  endpoint: string,
+  data: D,
+  options?: RequestInit,
+): Promise<T | GenericResponse<unknown>> => {
   try {
     const headers = new Headers(options?.headers);
     headers.set('Content-Type', 'application/json');
-
-    console.log(`Making POST request to ${endpoint}`, data);
 
     const response = await fetchWithAuth(endpoint, {
       method: 'POST',
@@ -188,19 +205,15 @@ const post = async (endpoint: string, data: any, options?: RequestInit): Promise
       ...options,
     });
 
-    // Check for error status
     if (!response.ok) {
-      // Try to get detailed error from response
       try {
         const errorData = await response.json();
         throw new Error(errorData.error || errorData.message || `API error: ${response.status}`);
       } catch (parseError) {
-        // If we can't parse JSON, provide a better error message
         throw new Error(`Server error (${response.status}): ${response.statusText}`);
       }
     }
 
-    // For successful responses, try to parse as JSON, but handle non-JSON responses gracefully
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -210,7 +223,6 @@ const post = async (endpoint: string, data: any, options?: RequestInit): Promise
         return { success: true, message: 'Operation completed' };
       }
     } else {
-      // For non-JSON responses, return a simple success object
       const text = await response.text();
       return {
         success: true,
@@ -224,7 +236,7 @@ const post = async (endpoint: string, data: any, options?: RequestInit): Promise
   }
 };
 
-const put = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+const put = async <T, D = Record<string, unknown>>(endpoint: string, data: D, options?: RequestInit): Promise<T> => {
   const headers = new Headers(options?.headers);
   headers.set('Content-Type', 'application/json');
 
@@ -242,7 +254,7 @@ const put = async (endpoint: string, data: any, options?: RequestInit): Promise<
   return response.json();
 };
 
-const patch = async (endpoint: string, data: any, options?: RequestInit): Promise<any> => {
+const patch = async <T, D = Record<string, unknown>>(endpoint: string, data: D, options?: RequestInit): Promise<T> => {
   const headers = new Headers(options?.headers);
   headers.set('Content-Type', 'application/json');
 
@@ -260,7 +272,7 @@ const patch = async (endpoint: string, data: any, options?: RequestInit): Promis
   return response.json();
 };
 
-export const del = async (endpoint: string, options?: RequestInit): Promise<any> => {
+export const del = async <T = Record<string, unknown>,>(endpoint: string, options?: RequestInit): Promise<T> => {
   const response = await fetchWithAuth(endpoint, {
     method: 'DELETE',
     ...options,
@@ -273,7 +285,7 @@ export const del = async (endpoint: string, options?: RequestInit): Promise<any>
   return response.json();
 };
 
-const deleteRequest = async (endpoint: string, options?: RequestInit): Promise<any> => {
+const deleteRequest = async <T = GenericResponse<unknown>,>(endpoint: string, options?: RequestInit): Promise<T> => {
   const response = await fetchWithAuth(endpoint, {
     method: 'DELETE',
     ...options,

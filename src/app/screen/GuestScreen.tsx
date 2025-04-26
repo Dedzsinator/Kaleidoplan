@@ -73,13 +73,13 @@ const GuestScreen = () => {
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const hasLoadedEvents = useRef(false);
 
-  const validateEvent = useCallback((event: any, index: number): Event | null => {
+  const validateEvent = useCallback((event: Partial<Event>, index: number): Event | null => {
     if (!event) {
       console.error(`Invalid event data at position ${index}`);
       return null;
     }
 
-    const validatedEvent = { ...event };
+    const validatedEvent = { ...event } as Event;
 
     // Always use MongoDB _id if available
     if (!validatedEvent.id && validatedEvent._id) {
@@ -124,31 +124,39 @@ const GuestScreen = () => {
       validatedEvent.color = colors[index % colors.length];
     }
 
+    // Handle slideshowImages with proper type assertions
     if (validatedEvent.slideshowImages) {
+      // Handle case when slideshowImages is a string
       if (typeof validatedEvent.slideshowImages === 'string') {
-        validatedEvent.slideshowImages = validatedEvent.slideshowImages
+        const imagesString = validatedEvent.slideshowImages as string;
+        validatedEvent.slideshowImages = imagesString
           .split(',')
-          .map((url: string) => url.trim())
-          .filter((url: string) => url.length > 0);
-      } else if (
+          .map((url) => url.trim())
+          .filter((url) => url.length > 0);
+      }
+      // Handle case when slideshowImages is an array with a comma-separated string
+      else if (
         Array.isArray(validatedEvent.slideshowImages) &&
         validatedEvent.slideshowImages.length === 1 &&
         typeof validatedEvent.slideshowImages[0] === 'string' &&
         validatedEvent.slideshowImages[0].includes(',')
       ) {
-        validatedEvent.slideshowImages = validatedEvent.slideshowImages[0]
+        const imageString = validatedEvent.slideshowImages[0];
+        validatedEvent.slideshowImages = imageString
           .split(',')
-          .map((url: string) => url.trim())
-          .filter((url: string) => url.length > 0);
+          .map((url) => url.trim())
+          .filter((url) => url.length > 0);
       }
 
+      // Clean up the array - removes non-string values and trims each URL
       if (Array.isArray(validatedEvent.slideshowImages)) {
         validatedEvent.slideshowImages = validatedEvent.slideshowImages
-          .filter((url: string) => typeof url === 'string' && url.trim().length > 0)
-          .map((url: string) => url.trim());
+          .filter((url): url is string => typeof url === 'string' && url.trim().length > 0)
+          .map((url) => url.trim());
       }
     }
 
+    // Add default slideshow images if needed
     if (
       !validatedEvent.slideshowImages ||
       !Array.isArray(validatedEvent.slideshowImages) ||
@@ -157,7 +165,6 @@ const GuestScreen = () => {
       if (validatedEvent.coverImageUrl) {
         validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
       } else {
-        // Add a fallback image if no slideshowImages and no coverImageUrl
         validatedEvent.slideshowImages = [PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length]];
       }
     }
@@ -166,7 +173,6 @@ const GuestScreen = () => {
   }, []);
 
   const createDemoEvents = useCallback(() => {
-    console.log('Creating demo events');
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(now.getDate() + 1);
@@ -266,11 +272,8 @@ const GuestScreen = () => {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Fetching events from service...');
-
       // First try the standard API endpoint through eventService
       const fetchedEvents = await getEvents({ forceRefresh: true });
-      console.log('Received events:', fetchedEvents.length);
 
       if (fetchedEvents.length > 0) {
         // Validate and format each event
@@ -283,7 +286,6 @@ const GuestScreen = () => {
         setEvents(validatedEvents);
       } else {
         // If no events from the main API, use demo events as fallback
-        console.log('No events available, creating demo events');
         createDemoEvents();
       }
     } catch (err) {
@@ -315,7 +317,6 @@ const GuestScreen = () => {
       }
     }
 
-    // Find next event (if any)
     const currentIndex = visibleEvents.indexOf(closestEvent);
     const hasNextEvent = currentIndex < visibleEvents.length - 1;
     const nextEvent = hasNextEvent ? visibleEvents[currentIndex + 1] : null;
@@ -338,17 +339,11 @@ const GuestScreen = () => {
       setCurrentColor(closestEvent.color);
       setNextColor(nextEvent.color);
       setTransitionProgress(progress);
-
-      // Debug colors
-      console.log(`Setting colors: current=${closestEvent.color}, next=${nextEvent.color}, progress=${progress}`);
     } else {
       // Just use the current event's color
       setCurrentColor(closestEvent.color);
       setNextColor(closestEvent.color);
       setTransitionProgress(0);
-
-      // Debug color
-      console.log(`Setting single color: ${closestEvent.color}`);
     }
   }, []);
 
@@ -362,9 +357,6 @@ const GuestScreen = () => {
 
       // Ensure we have a valid color
       const eventColor = event.color || DEFAULT_COLOR;
-      console.log(
-        `Visibility change for event ${eventId}, name: ${event.name}, color: ${eventColor}, visible: ${isVisible}`,
-      );
 
       const rect = element.getBoundingClientRect();
 
@@ -427,8 +419,6 @@ const GuestScreen = () => {
 
     // Function to apply location filter
     const applyLocationFilter = (latitude: number, longitude: number, source: string) => {
-      console.log(`Got location from ${source}: ${latitude}, ${longitude}`);
-
       // Filter events by proximity
       const filtered = filterEventsByProximity(events, { latitude, longitude }, 300);
 
@@ -455,7 +445,7 @@ const GuestScreen = () => {
     };
 
     // Function to handle failure
-    const handleFailure = (error: any) => {
+    const handleFailure = (error: unknown) => {
       console.error('Error getting location:', error);
 
       // Try IP-based geolocation as last resort
@@ -528,7 +518,7 @@ const GuestScreen = () => {
         applyLocationFilter(coords.latitude, coords.longitude, 'browser geolocation');
       })
       .catch(handleFailure);
-  }, [events, setSearchParams, filterEventsByProximity]);
+  }, [events, setSearchParams]);
 
   useEffect(() => {
     try {
@@ -605,7 +595,6 @@ const GuestScreen = () => {
       try {
         const isConnected = await spotifyService.isUserAuthenticated();
         setIsSpotifyConnected(isConnected);
-        console.log('Spotify connection status:', isConnected ? 'Connected' : 'Not connected');
       } catch (error) {
         console.error('Error checking Spotify connection:', error);
         setIsSpotifyConnected(false);
@@ -633,7 +622,7 @@ const GuestScreen = () => {
         const allEvents = JSON.parse(allEventsStr);
 
         // If event is not already in storage, add it
-        if (!allEvents.find((e: any) => e.id === randomEvent.id)) {
+        if (!allEvents.find((e: Partial<Event>) => e.id === randomEvent.id)) {
           allEvents.push(randomEvent);
           sessionStorage.setItem('all-events', JSON.stringify(allEvents));
         }
@@ -642,16 +631,13 @@ const GuestScreen = () => {
         sessionStorage.setItem('all-events', JSON.stringify([randomEvent]));
       }
 
-      console.log(`Navigating to random event: ${randomEvent.id}`);
       navigate(`/events/${randomEvent.id}`);
     } else {
       window.scrollTo({ top: 600, behavior: 'smooth' });
     }
   }, [events, navigate]);
 
-  const handleImageError = useCallback((eventId: string) => {
-    console.log(`Failed to load image for event: ${eventId}`);
-  }, []);
+  const handleImageError = useCallback((eventId: string) => {}, []);
 
   // Toggle between card view and detailed view
   const toggleViewMode = useCallback((mode: ViewMode) => {

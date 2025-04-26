@@ -85,14 +85,13 @@ const OrganizerTaskScreen: React.FC = () => {
       }
 
       const data = await response.json();
-      console.log('Tasks data:', data);
 
       // Transform data if needed
       const tasksData = data.tasks || data;
       setTasks(tasksData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching tasks:', err);
-      setError(err.message || 'Failed to load tasks');
+      setError(err instanceof Error ? err.message : 'Failed to load tasks');
     } finally {
       setLoading(false);
     }
@@ -109,7 +108,7 @@ const OrganizerTaskScreen: React.FC = () => {
 
       const data = await response.json();
       setEvents(data.events || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching events:', err);
       // Don't set error state here since tasks are the primary focus
     }
@@ -127,7 +126,7 @@ const OrganizerTaskScreen: React.FC = () => {
 
       const data = await response.json();
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching task logs:', err);
       return [];
     }
@@ -290,9 +289,9 @@ const OrganizerTaskScreen: React.FC = () => {
       });
 
       await fetchTasks();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error ${isCreating ? 'creating' : 'updating'} task:`, err);
-      setError(err.message || `Failed to ${isCreating ? 'create' : 'update'} task`);
+      setError(err instanceof Error ? err.message : `Failed to ${isCreating ? 'create' : 'update'} task`);
     } finally {
       setLoading(false);
     }
@@ -321,9 +320,9 @@ const OrganizerTaskScreen: React.FC = () => {
       setIsCreating(false);
 
       await fetchTasks();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting task:', err);
-      setError(err.message || 'Failed to delete task');
+      setError(err instanceof Error ? err.message : 'Failed to delete task');
     } finally {
       setLoading(false);
     }
@@ -359,9 +358,9 @@ const OrganizerTaskScreen: React.FC = () => {
       }
 
       await fetchTasks();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error completing task:', err);
-      setError(err.message || 'Failed to complete task');
+      setError(err instanceof Error ? err.message : 'Failed to complete task');
     } finally {
       setLoading(false);
     }

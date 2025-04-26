@@ -52,7 +52,6 @@ export const UserRolesTab: React.FC = () => {
         setLoading(true);
         setError('');
 
-        console.log('Fetching users from Firebase...');
         // Try users endpoint
         let response = await fetchWithAuth('/user?limit=100');
 
@@ -68,11 +67,9 @@ export const UserRolesTab: React.FC = () => {
         }
 
         const data = await response.json();
-        console.log('User data received:', data);
 
         // Create dummy data for testing if no users returned
         if (!data.users || data.users.length === 0) {
-          console.log('No users returned, creating dummy data for testing');
           const dummyUsers = [
             { uid: 'dummy-user-1', email: 'user1@example.com', displayName: 'User One', role: 'user' },
             { uid: 'dummy-user-2', email: 'user2@example.com', displayName: 'User Two', role: 'user' },
@@ -103,15 +100,6 @@ export const UserRolesTab: React.FC = () => {
           admins: processedUsers.filter((user: UserData) => user.role === 'admin'),
         };
 
-        console.log('Grouped users:', groupedUsers);
-
-        // Debug log all UIDs to verify they're correct
-        console.log('User UIDs:', {
-          users: groupedUsers.users.map((u: UserData) => u.uid),
-          organizers: groupedUsers.organizers.map((u: UserData) => u.uid),
-          admins: groupedUsers.admins.map((u: UserData) => u.uid),
-        });
-
         setUsers(groupedUsers);
       } catch (err: unknown) {
         console.error('Error fetching users:', err);
@@ -133,7 +121,6 @@ export const UserRolesTab: React.FC = () => {
     // Reset dragging state
     setIsDragging(false);
 
-    console.log('Drag end result:', result);
     const { source, destination, draggableId } = result;
 
     // Dropped outside a droppable area
@@ -144,12 +131,9 @@ export const UserRolesTab: React.FC = () => {
 
     // User was moved to a new role
     if (source.droppableId !== destination.droppableId) {
-      console.log(`Looking for user with draggableId: ${draggableId} in ${source.droppableId}`);
-
       // Get the user being moved
       const sourceUsers = users[source.droppableId];
       if (!sourceUsers) {
-        console.error(`No users in container ${source.droppableId}`);
         return;
       }
 
@@ -157,22 +141,15 @@ export const UserRolesTab: React.FC = () => {
       const userToMove = sourceUsers[source.index];
 
       if (!userToMove) {
-        console.error('Could not find user at index:', source.index);
-        console.error('Available users:', users[source.droppableId]);
         return;
       }
-
-      console.log('Found user to move:', userToMove);
 
       // Convert from frontend container ID to backend role value
       const newRole = ROLE_MAPPINGS[destination.droppableId] || destination.droppableId;
 
-      console.log(`Moving user ${userToMove.email} from ${source.droppableId} to ${newRole}`);
-
       try {
         // Update user role in the backend - try with uid which is the Firebase ID
         const userId = userToMove.uid;
-        console.log(`Sending PATCH request to /user/${userId}/role with role ${newRole}`);
 
         const response = await fetchWithAuth(`/user/${userId}/role`, {
           method: 'PATCH',
@@ -182,7 +159,6 @@ export const UserRolesTab: React.FC = () => {
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Role update failed:', errorText);
           throw new Error('Failed to update user role');
         }
 
@@ -208,7 +184,6 @@ export const UserRolesTab: React.FC = () => {
         // Insert at destination with type safety
         updatedUsers[destKey].splice(destination.index, 0, { ...userToMove, role: newRole });
 
-        console.log('Updated users state:', updatedUsers);
         setUsers(updatedUsers);
       } catch (err: unknown) {
         console.error('Error updating user role:', err);

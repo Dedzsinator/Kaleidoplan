@@ -64,7 +64,7 @@ const HomeScreen: React.FC = () => {
   };
 
   // Define validateEvent before fetchEvents since fetchEvents depends on it
-  const validateEvent = useCallback((event: any, index: number): Event | null => {
+  const validateEvent = useCallback((event: Event, index: number): Event | null => {
     if (!event) return null;
 
     // Create a shallow copy to avoid mutating the original
@@ -79,10 +79,8 @@ const HomeScreen: React.FC = () => {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('Fetching events for logged in user...');
 
       const fetchedEvents = await getEvents({ forceRefresh: true });
-      console.log('Received events:', fetchedEvents.length);
 
       const validatedEvents = fetchedEvents
         .map((event, index) => validateEvent(event, index))
@@ -158,9 +156,7 @@ const HomeScreen: React.FC = () => {
     [navigate],
   );
 
-  const handleImageError = useCallback((eventId: string) => {
-    console.log(`Failed to load image for event: ${eventId}`);
-  }, []);
+  const handleImageError = useCallback((eventId: string) => {}, []);
 
   // Toggle between card view and detailed view
   const toggleViewMode = useCallback((mode: ViewMode) => {

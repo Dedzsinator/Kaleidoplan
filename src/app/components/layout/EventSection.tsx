@@ -7,15 +7,16 @@ import ImageSlideshow from '../ui/SlideShow';
 import '../../styles/EventSection.css';
 import { Event } from '../../models/types';
 
+// Helper to ensure we always have a string ID
+const ensureEventId = (event: Event): string => {
+  return event.id || event._id || `temp-${Math.random().toString(36).substring(2, 9)}`;
+};
+
 interface MapRegion {
   latitude: number;
   longitude: number;
   latitudeDelta: number;
   longitudeDelta: number;
-}
-
-interface NavigationProps {
-  navigate: (route: string, params?: Record<string, unknown>) => void;
 }
 
 interface EventSectionProps {
@@ -28,22 +29,27 @@ interface EventSectionProps {
   sectionY?: number;
 }
 
-// Helper to convert hex to RGBA
+interface EventSectionProps {
+  event: Event;
+  navigation: { navigate: (path: string) => void };
+  onVisibilityChange?: (isVisible: boolean, eventId: string, element: HTMLElement | null) => void;
+  onImageError?: (eventId: string) => void;
+  index: number;
+  scrollY: number;
+  sectionY?: number;
+}
+
 const hexToRgba = (hex: string, alpha: number = 1): string => {
-  // Remove # if present
   hex = hex.replace('#', '');
 
-  // Convert 3-digit hex to 6-digit
   if (hex.length === 3) {
     hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
   }
 
-  // Parse the hex values
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
 
-  // Return rgba value
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
@@ -56,15 +62,14 @@ const EventSection = memo(
     const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
     const [locationError, setLocationError] = useState('');
 
-    // Store event ID in ref to avoid rebuilding effects
     const eventIdRef = useRef(event?.id);
 
-    // Update the ref if event ID changes
+    const definiteEventId = ensureEventId(event);
+
     if (event?.id !== eventIdRef.current) {
       eventIdRef.current = event?.id;
     }
 
-    // Measure the section height for visibility calculations
     useEffect(() => {
       if (containerRef.current) {
         const observer = new ResizeObserver((entries) => {
@@ -100,7 +105,7 @@ const EventSection = memo(
         if (isVisible !== isVisibleRef.current) {
           isVisibleRef.current = isVisible;
           if (onVisibilityChange) {
-            onVisibilityChange(isVisible, event.id, containerRef.current);
+            onVisibilityChange(isVisible, definiteEventId, containerRef.current);
           }
         }
       };
@@ -110,7 +115,7 @@ const EventSection = memo(
       // Also recalculate on scroll
       window.addEventListener('scroll', calculateVisibility);
       return () => window.removeEventListener('scroll', calculateVisibility);
-    }, [event.id, onVisibilityChange, sectionHeight]);
+    }, [event.id, onVisibilityChange, sectionHeight, definiteEventId]);
 
     useEffect(() => {
       // Skip if we don't have location info or we already have map data
@@ -181,7 +186,7 @@ const EventSection = memo(
       // Debounce location fetching
       const timerId = setTimeout(getLocation, 300);
       return () => clearTimeout(timerId);
-    }, [event?.location, event?.latitude, event?.longitude, mapRegion]);
+    }, [event?.location, event?.latitude, event?.longitude, event?.latitudeDelta, event?.longitudeDelta, mapRegion]);
 
     // Get color from event, or use a default
     const eventColor = event?.color || '#3357FF';
@@ -197,9 +202,7 @@ const EventSection = memo(
     } as React.CSSProperties;
 
     // Log the color for debugging
-    useEffect(() => {
-      console.log(`Event ${event.id} color: ${eventColor}`);
-    }, [event.id, eventColor]);
+    useEffect(() => {}, [event.id, eventColor]);
 
     return (
       <div
@@ -214,14 +217,14 @@ const EventSection = memo(
             <div className="event-content-row">
               <div className="event-left-column">
                 <EventPrimaryContent
-                  event={event}
-                  onImageError={() => onImageError?.(event.id)}
-                  onClick={() => navigation.navigate(`/events/${event.id}`)}
+                  event={{ ...event, id: definiteEventId }} // Pass with definite ID
+                  onImageError={() => onImageError?.(definiteEventId)} // Use definite ID
+                  onClick={() => navigation.navigate(`/events/${definiteEventId}`)} // Use definite ID
                 />
               </div>
               <div className="event-right-column">
                 <div className="secondary-container">
-                  <EventSecondaryContent event={event} />
+                  <EventSecondaryContent event={{ ...event, id: definiteEventId }} /> {/* Pass with definite ID */}
                 </div>
 
                 {/* Show map if coordinates are available */}

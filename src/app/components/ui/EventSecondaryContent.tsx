@@ -48,16 +48,16 @@ const EventSecondaryContent = ({ event }: EventSecondaryContentProps) => {
       });
 
       // Handle success
-      console.log('Subscription response:', response.data);
+
       setNotifyMe(true);
 
       // Show success message
       alert(
         `Thank you! We've sent a confirmation email to ${email}. Please check your inbox to complete your subscription.`,
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Subscription error:', err);
-      setError(err.response?.data?.error || 'Failed to set up notifications. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to set up notifications. Please try again.');
       setNotifyMe(false);
     } finally {
       setIsSubmitting(false);

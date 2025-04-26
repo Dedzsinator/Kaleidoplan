@@ -47,7 +47,6 @@ const LoginScreen = () => {
       }
     } catch (error: unknown) {
       setError('Invalid email or password. Please try again.');
-      console.log('Login error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +69,6 @@ const LoginScreen = () => {
       }
     } catch (error) {
       setError('Google sign-in failed. Please try again.');
-      console.log('Google login error:', error);
     } finally {
       setIsGoogleLoading(false);
     }

@@ -1,44 +1,30 @@
 import api from './api';
-import { getAuth } from 'firebase/auth';
+import { User, ApiResponse } from '../app/models/types';
 
-/**
- * Get all users (admin only)
- */
-export const getAllUsers = async (): Promise<any[]> => {
+export const getAllUsers = async (): Promise<User[]> => {
   try {
-    console.log('Fetching all users...');
-    // Use the correct endpoint - the empty string is causing 404
     const response = await api.get('/user?limit=100');
 
-    // Log the actual response to debug
-    console.log('Users API response:', response);
-
-    // Handle different response formats
+    // Type assertion after receiving the response
     if (Array.isArray(response)) {
-      return response;
-    } else if (response && response.users) {
-      return response.users;
+      return response as User[];
+    } else if (response && 'users' in response) {
+      return (response as { users: User[] }).users;
     }
     return [];
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching users:', error);
-    // Return empty array to prevent UI errors
     return [];
   }
 };
 
-/**
- * Update a user's role
- * @param userId The ID of the user to update
- * @param role The new role to assign
- */
-export const updateUserRole = async (userId: string, role: string): Promise<any> => {
+export const updateUserRole = async (userId: string, role: string): Promise<ApiResponse<User>> => {
   try {
-    console.log(`Updating user ${userId} to role: ${role}`);
-    const response = await api.patch(`/user/${userId}/role`, { role });
+    const response = await api.patch<ApiResponse<User>>(`/user/${userId}/role`, { role });
     return response;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating user role:', error);
+    // Re-throw the error after logging
     throw error;
   }
 };

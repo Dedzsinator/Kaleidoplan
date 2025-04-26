@@ -1,39 +1,11 @@
-import { Event } from '../app/models/types';
+import { Event, Performer } from '../app/models/types';
 import { fetchEventsFromApi, fetchEventByIdFromApi } from './api';
 
 // Define proper API response types
 interface ApiResponse {
-  events?: any[];
-  [key: string]: any;
+  events?: Record<string, unknown>[];
+  [key: string]: unknown;
 }
-
-// Fix the interface to only omit fields that need a different type
-// and explicitly declare properties with different types
-interface MongoDBEvent extends Omit<Event, 'id' | 'slideshowImages' | 'startDate' | 'endDate'> {
-  _id?: string;
-  id?: string;
-  startDate: Date | string;
-  endDate: Date | string;
-  coverImage?: string;
-  slideshowImages?: string[] | string; // This can be string in MongoDB but array in frontend
-}
-
-// Debug helper to log event data structure
-const logEventData = (event: any, prefix: string = '') => {
-  if (!event) return;
-  console.log(`${prefix} Event ID:`, event._id || event.id);
-  console.log(`${prefix} Fields:`, Object.keys(event));
-  console.log(`${prefix} Images:`, {
-    coverImage: event.coverImage?.substring(0, 30),
-    coverImageUrl: event.coverImageUrl?.substring(0, 30),
-    hasSlideshow: Array.isArray(event.slideshowImages),
-    slideshowCount: Array.isArray(event.slideshowImages) ? event.slideshowImages.length : 0,
-  });
-  console.log(`${prefix} Location:`, {
-    location: event.location,
-    coordinates: `${event.latitude},${event.longitude}`,
-  });
-};
 
 // Calculate event status based on dates
 const calculateStatus = (startDate: Date, endDate: Date): string => {
@@ -47,112 +19,151 @@ const calculateStatus = (startDate: Date, endDate: Date): string => {
   }
 };
 
+// Helper to safely parse dates from unknown input
+const safeParseDate = (dateValue: unknown): Date => {
+  if (dateValue instanceof Date) return dateValue;
+  if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+    const parsed = new Date(dateValue);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return new Date();
+};
+
+// Helper to safely parse numbers from unknown input
+const safeParseNumber = (numValue: unknown, defaultValue: number): number => {
+  if (typeof numValue === 'number') return numValue;
+  if (typeof numValue === 'string') {
+    const parsed = parseFloat(numValue);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return defaultValue;
+};
+
+// Helper to normalize a single raw event object to the Event type
+const normalizeRawEvent = (rawEvent: Record<string, unknown>, fallbackId?: string): Event => {
+  // --- ID ---
+  const eventId = String(rawEvent._id || rawEvent.id || fallbackId || '');
+
+  // --- Images ---
+  const coverImageUrl = String(rawEvent.coverImageUrl || rawEvent.coverImage || '');
+  let slideshowImages: string[] = [];
+  const rawSlideshow = rawEvent.slideshowImages;
+
+  if (Array.isArray(rawSlideshow)) {
+    slideshowImages = rawSlideshow.filter((img): img is string => typeof img === 'string');
+  } else if (typeof rawSlideshow === 'string') {
+    slideshowImages = rawSlideshow
+      .split(',')
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0);
+  } else if (coverImageUrl) {
+    slideshowImages = [coverImageUrl];
+  }
+
+  // --- Dates ---
+  const startDate = safeParseDate(rawEvent.startDate);
+  const endDate = safeParseDate(rawEvent.endDate);
+
+  // --- Status ---
+  const status = typeof rawEvent.status === 'string' ? rawEvent.status : calculateStatus(startDate, endDate);
+
+  // --- Location/Coords ---
+  const latitude = safeParseNumber(rawEvent.latitude, 0);
+  const longitude = safeParseNumber(rawEvent.longitude, 0);
+  const latitudeDelta = safeParseNumber(rawEvent.latitudeDelta, 0.01);
+  const longitudeDelta = safeParseNumber(rawEvent.longitudeDelta, 0.01);
+
+  // --- Color ---
+  const color = typeof rawEvent.color === 'string' ? rawEvent.color : '#4285F4';
+
+  // --- Performers ---
+  let performers: Performer[] | undefined = undefined;
+  if (Array.isArray(rawEvent.performers)) {
+    performers = rawEvent.performers.filter((p): p is Performer => typeof p === 'object' && p !== null);
+  }
+
+  // Construct the final Event object
+  return {
+    name: String(rawEvent.name || 'Unnamed Event'),
+    startDate: startDate,
+    endDate: endDate,
+    color: color,
+    status: status,
+    id: eventId,
+    _id: String(rawEvent._id || ''),
+    description: typeof rawEvent.description === 'string' ? rawEvent.description : undefined,
+    location: typeof rawEvent.location === 'string' ? rawEvent.location : undefined,
+    coverImageUrl: coverImageUrl,
+    slideshowImages: slideshowImages,
+    playlistId: typeof rawEvent.playlistId === 'string' ? rawEvent.playlistId : undefined,
+    createdBy: typeof rawEvent.createdBy === 'string' ? rawEvent.createdBy : undefined,
+    createdAt: rawEvent.createdAt as string | Date | undefined,
+    updatedAt: rawEvent.updatedAt as string | Date | undefined,
+    themeColor: typeof rawEvent.themeColor === 'string' ? rawEvent.themeColor : undefined,
+    performers: performers,
+    latitude: latitude,
+    longitude: longitude,
+    latitudeDelta: latitudeDelta,
+    longitudeDelta: longitudeDelta,
+    sponsorIds: Array.isArray(rawEvent.sponsorIds)
+      ? rawEvent.sponsorIds.filter((id): id is string => typeof id === 'string')
+      : undefined,
+    ticketUrl: typeof rawEvent.ticketUrl === 'string' ? rawEvent.ticketUrl : undefined,
+    type: typeof rawEvent.type === 'string' ? rawEvent.type : undefined,
+    website: typeof rawEvent.website === 'string' ? rawEvent.website : undefined,
+    spotifyPlaylistId: typeof rawEvent.spotifyPlaylistId === 'string' ? rawEvent.spotifyPlaylistId : undefined,
+    coverImage: typeof rawEvent.coverImage === 'string' ? rawEvent.coverImage : undefined,
+  };
+};
+
 export async function getEvents(options: { forceRefresh?: boolean } = {}): Promise<Event[]> {
   try {
-    console.log('EventService: Fetching events from MongoDB server');
-
-    // Always force refresh in dev mode
     const opts = {
       forceRefresh: process.env.NODE_ENV === 'development' || options.forceRefresh,
     };
-
-    // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
 
     try {
-      console.log('About to fetch events from API...');
       const response = await fetchEventsFromApi({ ...opts, timestamp });
-      console.log('Raw API response received:', response);
 
-      // Handle both { events: [...] } and direct array formats
-      let eventsData: any[] = [];
+      let rawEventsData: Record<string, unknown>[] = [];
       if (Array.isArray(response)) {
-        eventsData = response;
-      } else if (response && typeof response === 'object' && 'events' in response) {
-        eventsData = response.events;
+        rawEventsData = response;
+      } else if (response && typeof response === 'object' && Array.isArray(response.events)) {
+        rawEventsData = response.events;
       }
 
-      if (!eventsData || eventsData.length === 0) {
-        console.warn('EventService: MongoDB returned empty events array');
+      if (!rawEventsData.length) {
+        console.warn('EventService: API returned empty events array');
         return [];
       }
 
-      console.log('EventService: Successfully got MongoDB data with', eventsData.length, 'events');
-
-      // Map and normalize all events
-      const normalizedEvents = eventsData.map((event: any) => {
-        // Use MongoDB `_id` as the `id` field
-        const eventId = event._id ? event._id.toString() : event.id;
-
-        // Normalize image URLs
-        const coverImageUrl = event.coverImageUrl || event.coverImage || '';
-
-        // Handle slideshow images (could be array, string, or missing)
-        let slideshowImages: string[] = [];
-        if (Array.isArray(event.slideshowImages)) {
-          slideshowImages = event.slideshowImages;
-        } else if (typeof event.slideshowImages === 'string' && event.slideshowImages.trim() !== '') {
-          slideshowImages = event.slideshowImages
-            .split(',')
-            .map((url: string) => url.trim())
-            .filter((url: string) => url.length > 0);
-        } else if (coverImageUrl) {
-          slideshowImages = [coverImageUrl];
-        }
-
-        // Parse dates safely
-        const startDate = new Date(event.startDate || Date.now());
-        const endDate = new Date(event.endDate || Date.now());
-
-        // Create normalized event object
-        return {
-          ...event,
-          id: eventId, // Ensure `id` is set to `_id`
-          coverImageUrl,
-          slideshowImages,
-          startDate,
-          endDate,
-          status: event.status || calculateStatus(startDate, endDate),
-          location: event.location || 'Location not specified',
-          latitude: event.latitude || 0,
-          longitude: event.longitude || 0,
-          latitudeDelta: event.latitudeDelta || 0.01,
-          longitudeDelta: event.longitudeDelta || 0.01,
-          color: event.color || '#4285F4', // Provide a default color
-        } as Event;
-      });
-
-      console.log(`EventService: Processed ${normalizedEvents.length} events from MongoDB`);
+      const normalizedEvents: Event[] = rawEventsData.map((rawEvent) => normalizeRawEvent(rawEvent));
       return normalizedEvents;
     } catch (error) {
       console.error('Error fetching events from API:', error);
-      return []; // Return empty array on error
+      return [];
     }
   } catch (error) {
     console.error('Error in getEvents service:', error);
-    return []; // Return empty array as fallback
+    return [];
   }
 }
 
-// Get single event by ID - MongoDB only implementation
 export const getEventById = async (eventId: string): Promise<Event> => {
-  console.log(`EventService: Fetching event ${eventId}`);
-
   try {
-    const eventData = await fetchEventByIdFromApi(eventId);
+    const rawEventData = await fetchEventByIdFromApi(eventId);
 
-    // Log the structure to debug
-    console.log('Event data received:', {
-      id: eventData.id || eventData._id,
-      name: eventData.name,
-      hasPerformers: Boolean(eventData.performers?.length),
-      performerCount: eventData.performers?.length || 0,
-      hasSponsorIds: Boolean(eventData.sponsorIds?.length),
-      hasLatLong: Boolean(eventData.latitude && eventData.longitude),
-    });
+    if (!rawEventData) {
+      throw new Error(`Event with ID ${eventId} not found.`);
+    }
 
-    // Return the full object without modifications
-    return eventData;
+    const normalizedEvent: Event = normalizeRawEvent(rawEventData as Record<string, unknown>, eventId);
+    return normalizedEvent;
   } catch (error) {
     console.error(`Error fetching event ${eventId}:`, error);
     throw error;

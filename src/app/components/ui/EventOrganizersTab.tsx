@@ -1,256 +1,230 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../../services/api';
 import { getAllUsers, updateUserRole } from '../../../services/userService';
 import { assignOrganizerToEvent, getEventsWithOrganizers } from '../../../services/adminService';
 import '../../styles/EventOrganizersTab.css';
+// Use the main Event and User types directly
 import { Event, User } from '../../models/types';
 
+const getUserId = (user: User): string => {
+  return user.id;
+};
+
+// Helper function to safely get an event ID (handles _id, id)
+// Ensures a non-undefined string is returned for use cases needing it
+const getEventId = (event: Event | { _id?: string; id?: string }): string => {
+  return event.id || event._id || '';
+};
+
+// Helper function to normalize event IDs for consistent lookup (e.g., in assignments map)
+const normalizeEventId = (eventId: string | number | undefined | null): string => {
+  const idStr = String(eventId || '').trim();
+  // For MongoDB ObjectIDs (24-character hex strings), ensure consistent format
+  if (idStr.match(/^[0-9a-f]{24}$/i)) {
+    return idStr.toLowerCase();
+  }
+  return idStr;
+};
+
 export const EventOrganizersTab: React.FC = () => {
+  // State uses the main Event and User types
   const [events, setEvents] = useState<Event[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedEvent, setSelectedEvent] = useState<string>('');
-  const [selectedUser, setSelectedUser] = useState<string>('');
+  // Keep selected IDs as strings, ensure they are never undefined when used
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [organizerAssignments, setOrganizerAssignments] = useState<{ [eventId: string]: string[] }>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
 
-  const normalizeEventId = (eventId: string | any): string => {
-    // Convert to string and trim whitespace
-    const idStr = String(eventId || '').trim();
-
-    // For MongoDB ObjectIDs (24-character hex strings), ensure consistent format
-    if (idStr.match(/^[0-9a-f]{24}$/i)) {
-      return idStr.toLowerCase();
+  // Memoize the assignment reload function
+  const reloadOrganizerAssignments = useCallback(async () => {
+    try {
+      const response = await api.get('/admin/organizer-assignments');
+      const normalizedAssignments: { [eventId: string]: string[] } = {};
+      if (response && response.assignments) {
+        Object.keys(response.assignments).forEach((key) => {
+          normalizedAssignments[normalizeEventId(key)] = response.assignments[key];
+        });
+      }
+      setOrganizerAssignments(normalizedAssignments);
+    } catch (assignmentsError) {
+      console.error('Error reloading organizer assignments:', assignmentsError);
+      // Optionally set an error state here
     }
-
-    return idStr;
-  };
-
-  const getUserId = (user: any): string => {
-    // Firebase uses uid, MongoDB might use _id, and your frontend might use id
-    return user.uid || user._id || user.id || '';
-  };
+  }, []); // Empty dependency array means this function is created once
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log('Fetching events and users...');
+        setError(''); // Clear previous errors
 
-        // Use the updated service that explicitly requests organizer info
-        const [eventsData, usersData] = await Promise.all([getEventsWithOrganizers(), getAllUsers()]);
+        // Fetch raw data
+        const [rawEventsData, rawUsersData] = await Promise.all([
+          getEventsWithOrganizers(), // Assuming this returns data compatible with Event[]
+          getAllUsers(), // Assuming this returns data compatible with User[]
+        ]);
 
-        console.log('Events data received:', eventsData);
-        console.log('Users data received:', usersData);
-
-        let assignments: { [eventId: string]: string[] } = {};
-
-        try {
-          const organizerAssignmentsResponse = await api.get('/admin/organizer-assignments');
-          console.log('Organizer assignments response:', organizerAssignmentsResponse);
-
-          // Normalize all assignment keys for consistent lookup
-          if (organizerAssignmentsResponse && organizerAssignmentsResponse.assignments) {
-            Object.keys(organizerAssignmentsResponse.assignments).forEach((eventId) => {
-              const normalizedId = normalizeEventId(eventId);
-              assignments[normalizedId] = organizerAssignmentsResponse.assignments[eventId];
-            });
-          }
-        } catch (assignmentsError) {
-          console.error('Error fetching organizer assignments:', assignmentsError);
-        }
-
-        console.log('Final normalized organizer assignments:', assignments);
-
-        // Add this debugging to see the ID mismatch
-        console.log('Available keys in assignments:', Object.keys(assignments));
-
-        // Rest of your function remains the same
-        const allNormalizedUsers = usersData.map((user: any) => ({
-          ...user,
-          id: getUserId(user),
+        // 1. Normalize Users: Ensure each user object conforms to the User type and has a definite 'id'
+        const allNormalizedUsers: User[] = rawUsersData.map((user) => ({
+          ...user, // Spread existing user data
+          id: getUserId(user), // Ensure 'id' is set using the helper
+          // Ensure other fields match the User type (handle nulls if necessary)
+          email: user.email ?? null,
+          displayName: user.displayName ?? null,
+          photoURL: user.photoURL ?? null,
+          role: user.role || 'user', // Default role if missing
         }));
 
-        // Also normalize the event IDs to be consistent
-        const normalizedEvents = eventsData.map((event: any) => {
-          const normalizedId = normalizeEventId(event._id || event.id);
-          return {
-            ...event,
-            id: event.id || event._id,
-            _id: event._id || event.id,
-            // Add a normalized ID for consistent lookup
-            normalizedId,
-          };
-        });
+        // 2. Normalize Events: Ensure each event object conforms to the Event type
+        const normalizedEvents: Event[] = rawEventsData.map((event) => ({
+          ...event, // Spread existing event data
+          id: getEventId(event), // Ensure 'id' is set
+          _id: event._id || getEventId(event), // Ensure _id is also present if needed
+          normalizedId: normalizeEventId(event._id || event.id), // Add normalized ID for lookups
+          // Ensure date fields are Date objects or valid strings if needed by Event type
+          startDate: typeof event.startDate === 'string' ? new Date(event.startDate) : event.startDate,
+          endDate: typeof event.endDate === 'string' ? new Date(event.endDate) : event.endDate,
+          // Provide defaults for required fields if they might be missing
+          name: event.name || 'Untitled Event',
+          color: event.color || '#3357FF',
+          status: event.status || 'upcoming',
+        }));
 
-        console.log(
-          'Normalized events:',
-          normalizedEvents.map((e: Event) => ({
-            id: e.id,
-            _id: e._id,
-            normalizedId: e.normalizedId,
-            name: e.name,
-          })),
-        );
+        // 3. Fetch and Normalize Assignments
+        await reloadOrganizerAssignments(); // Use the memoized function
 
+        // Separate users by role after normalization
         const organizers = allNormalizedUsers.filter((user) => user.role === 'organizer');
-        const regularUsers = allNormalizedUsers.filter((user) => user.role === 'user');
+        const regularUsers = allNormalizedUsers.filter((user) => user.role !== 'organizer'); // More robust check
 
-        // Use the normalized events instead
+        // Update state with fully typed data
         setEvents(normalizedEvents);
-        setUsers([...organizers, ...regularUsers]);
-        setOrganizerAssignments(assignments);
+        setUsers([...organizers, ...regularUsers]); // Keep consistent order
         setLoading(false);
       } catch (err) {
         console.error('Error fetching data:', err);
-        setError('Failed to load data. Please try again.');
+        setError(`Failed to load data: ${err instanceof Error ? err.message : 'Unknown error'}`);
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [reloadOrganizerAssignments]); // Add reloadOrganizerAssignments as a dependency
 
   const handleAssignOrganizer = async () => {
-    if (!selectedEvent || !selectedUser) {
+    // Use the state variables directly (selectedEventId, selectedUserId)
+    if (!selectedEventId || !selectedUserId) {
       setError('Please select both an event and a user.');
+      return;
+    }
+
+    // Find the event and user objects using the selected IDs
+    const selectedEventObj = events.find((e) => getEventId(e) === selectedEventId);
+    const selectedUserObj = users.find((u) => getUserId(u) === selectedUserId);
+
+    if (!selectedEventObj) {
+      setError('Selected event not found. Please refresh.');
+      return;
+    }
+    if (!selectedUserObj) {
+      setError('Selected user not found. Please refresh.');
+      return;
+    }
+
+    // Use the definite event ID for the API call
+    const eventIdForApi = getEventId(selectedEventObj); // Use helper to ensure it's a string
+
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+
+      // Ensure user has organizer role if they don't already
+      if (selectedUserObj.role !== 'organizer') {
+        await updateUserRole(selectedUserId, 'organizer');
+        // Optimistically update local state or refetch users
+        setUsers((prevUsers) =>
+          prevUsers.map((u) => (getUserId(u) === selectedUserId ? { ...u, role: 'organizer' } : u)),
+        );
+      }
+
+      // Attempt to assign
+      await assignOrganizerToEvent(eventIdForApi, selectedUserId);
+
+      // Reload assignments and clear selections on success
+      await reloadOrganizerAssignments();
+      setSelectedEventId('');
+      setSelectedUserId('');
+      setSuccess('Organizer assigned successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      // Handle specific "already organizer" case gracefully
+      if (err instanceof Error && err.message.includes('already an organizer')) {
+        setSuccess('This user is already an organizer for this event.');
+        // Ensure local assignments reflect this state if needed
+        const normalizedEventLookupId = normalizeEventId(eventIdForApi);
+        if (!organizerAssignments[normalizedEventLookupId]?.includes(selectedUserId)) {
+          await reloadOrganizerAssignments(); // Reload to be sure
+        }
+        setSelectedEventId('');
+        setSelectedUserId('');
+      } else {
+        setError(`Failed to assign organizer: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveOrganizer = async (eventIdToRemoveFrom: string, userIdToRemove: string) => {
+    // Ensure eventIdToRemoveFrom is a valid string ID
+    if (!eventIdToRemoveFrom) {
+      setError('Invalid event ID provided for removal.');
       return;
     }
 
     try {
       setLoading(true);
-      setError(''); // Clear any previous errors
+      setError('');
+      setSuccess('');
 
-      // Find the complete event object to get the MongoDB _id
-      const selectedEventObj = events.find((e) => e.id === selectedEvent);
+      // Call API to remove assignment
+      await assignOrganizerToEvent(eventIdToRemoveFrom, userIdToRemove, 'remove');
 
-      if (!selectedEventObj) {
-        setError('Selected event no longer exists.');
-        setLoading(false);
-        return;
-      }
-
-      // Use MongoDB _id if available (for proper ObjectId format), otherwise fall back to id
-      const eventIdForApi = selectedEventObj._id || selectedEventObj.id;
-      const isDraftEvent = selectedEventObj?.status === 'draft';
-
-      console.log(`Assigning user ${selectedUser} to ${isDraftEvent ? 'draft' : 'published'} event ${eventIdForApi}`);
-
-      // First ensure user has organizer role
-      const selectedUserObj = users.find((user) => getUserId(user) === selectedUser);
-      console.log('Selected user object:', selectedUserObj);
-
-      if (selectedUserObj && selectedUserObj.role !== 'organizer') {
-        console.log(`Updating role of user ${selectedUser} to organizer`);
-        await updateUserRole(selectedUser, 'organizer');
-      }
-
-      // Then assign to event with the proper MongoDB ID
-      console.log(`Making API call to assign user ${selectedUser} to event ${eventIdForApi}`);
-      try {
-        await assignOrganizerToEvent(eventIdForApi, selectedUser);
-
-        // After successful assignment, reload all assignments from server
-        await reloadOrganizerAssignments();
-
-        setSelectedEvent('');
-        setSelectedUser('');
-        setSuccess('Organizer assigned successfully!');
-      } catch (assignError) {
-        console.error('Error in assignOrganizerToEvent:', assignError);
-        if (assignError instanceof Error && assignError.message.includes('already an organizer')) {
-          // This is actually a success case - the user is already an organizer
-          setSuccess('This user is already an organizer for this event.');
-
-          // Still update the UI if needed
-          if (!organizerAssignments[selectedEvent]?.includes(selectedUser)) {
-            setOrganizerAssignments((prev) => ({
-              ...prev,
-              [selectedEvent]: [...(prev[selectedEvent] || []), selectedUser],
-            }));
-          }
-
-          setSelectedEvent('');
-          setSelectedUser('');
-        } else {
-          // Real error
-          throw assignError;
-        }
-      }
-
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (err) {
-      console.error('Error assigning organizer:', err);
-      // Display more specific error message
-      if (err instanceof Error) {
-        setError(`Failed to assign organizer: ${err.message}`);
-      } else {
-        setError('Failed to assign organizer. Please check the server logs for details.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRemoveOrganizer = async (eventId: string, userId: string) => {
-    try {
-      setLoading(true);
-
-      // Find the event to get the proper MongoDB _id
-      const eventObj = events.find((e) => e.id === eventId);
-      if (!eventObj) {
-        setError('Event not found. Please refresh the page.');
-        setLoading(false);
-        return;
-      }
-
-      // Use _id if available, otherwise fall back to id
-      const eventIdForApi = eventObj._id || eventObj.id;
-
-      await assignOrganizerToEvent(eventIdForApi, userId, 'remove');
-
-      // After successful removal, reload all assignments from server
+      // Reload assignments and show success
       await reloadOrganizerAssignments();
-
       setSuccess('Organizer removed successfully.');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error removing organizer:', err);
-      setError('Failed to remove organizer. Please try again.');
+      setError(`Failed to remove organizer: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const reloadOrganizerAssignments = async () => {
-    try {
-      // Fetch fresh organizer assignments from the server
-      const organizerAssignmentsResponse = await api.get('/admin/organizer-assignments');
-
-      if (organizerAssignmentsResponse && organizerAssignmentsResponse.assignments) {
-        setOrganizerAssignments(organizerAssignmentsResponse.assignments);
-        console.log('Reloaded organizer assignments:', organizerAssignmentsResponse.assignments);
-      }
-    } catch (assignmentsError) {
-      console.error('Error reloading organizer assignments:', assignmentsError);
-    }
-  };
-
-  const filteredEvents = events.filter((event) => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Filtering logic remains largely the same, but uses helpers
+  const filteredEvents = events.filter((event) => (event.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
   const filteredUsers = users.filter(
     (user) =>
-      user.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-      user.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase()),
+      (user.email || '').toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      (user.displayName || '').toLowerCase().includes(userSearchTerm.toLowerCase()),
   );
 
-  const getOrganizerName = (userId: string) => {
+  // Helper to get display name, uses the main User type
+  const getOrganizerName = (userId: string): string => {
     const user = users.find((u) => getUserId(u) === userId);
-    return user ? user.displayName || user.email : 'Unknown User';
+    return user ? user.displayName || user.email || 'Unknown User' : 'Unknown User';
   };
+
+  // --- JSX Rendering ---
+  // Uses helpers like getEventId and getUserId where necessary
 
   return (
     <div className="event-organizers-tab">
@@ -260,6 +234,7 @@ export const EventOrganizersTab: React.FC = () => {
         assigned events.
       </p>
 
+      {/* Error/Success Messages */}
       {error && (
         <div className="error-message-container">
           <div className="error-icon">⚠️</div>
@@ -271,7 +246,9 @@ export const EventOrganizersTab: React.FC = () => {
       )}
       {success && <div className="success-message">{success}</div>}
 
+      {/* Assignment Section */}
       <div className="assignment-section">
+        {/* Event Selection */}
         <div className="event-selection">
           <h3>Select Event</h3>
           <div className="search-box">
@@ -288,23 +265,31 @@ export const EventOrganizersTab: React.FC = () => {
             ) : filteredEvents.length === 0 ? (
               <p className="no-results">No events found</p>
             ) : (
-              filteredEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className={`event-item ${selectedEvent === event.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedEvent(event.id)}
-                >
-                  <div className="event-color" style={{ backgroundColor: event.color || '#3357FF' }}></div>
-                  <div className="event-details">
-                    <div className="event-name">{event.name}</div>
-                    <div className="event-date">{new Date(event.startDate).toLocaleDateString()}</div>
+              filteredEvents.map((event) => {
+                const eventId = getEventId(event); // Get definite string ID
+                return (
+                  <div
+                    key={eventId} // Use definite ID
+                    className={`event-item ${selectedEventId === eventId ? 'selected' : ''}`}
+                    onClick={() => setSelectedEventId(eventId)} // Use definite ID
+                  >
+                    <div className="event-color" style={{ backgroundColor: event.color || '#3357FF' }}></div>
+                    <div className="event-details">
+                      <div className="event-name">{event.name}</div>
+                      <div className="event-date">
+                        {event.startDate instanceof Date
+                          ? event.startDate.toLocaleDateString()
+                          : new Date(event.startDate).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
 
+        {/* User Selection */}
         <div className="user-selection">
           <h3>Select User</h3>
           <div className="search-box">
@@ -329,59 +314,65 @@ export const EventOrganizersTab: React.FC = () => {
                 ) : (
                   filteredUsers
                     .filter((user) => user.role === 'organizer')
-                    .map((user) => (
-                      <div
-                        key={getUserId(user)}
-                        className={`user-item ${selectedUser === getUserId(user) ? 'selected' : ''}`}
-                        onClick={() => setSelectedUser(getUserId(user))}
-                      >
-                        <div className="user-avatar">
-                          {user.photoURL ? (
-                            <img src={user.photoURL || undefined} alt={'DISP'} />
-                          ) : (
-                            <div className="avatar-placeholder">
-                              {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                    .map((user) => {
+                      const userId = getUserId(user); // Get definite string ID
+                      return (
+                        <div
+                          key={userId} // Use definite ID
+                          className={`user-item ${selectedUserId === userId ? 'selected' : ''}`}
+                          onClick={() => setSelectedUserId(userId)} // Use definite ID
+                        >
+                          <div className="user-avatar">
+                            {user.photoURL ? (
+                              <img src={user.photoURL} alt={user.displayName || 'User'} />
+                            ) : (
+                              <div className="avatar-placeholder">
+                                {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="user-details">
+                            <div className="user-name">{user.displayName || 'Unnamed User'}</div>
+                            <div className="user-email">{user.email || 'No email'}</div>
+                            <div className="user-role organizer-badge">Organizer</div>
+                          </div>
                         </div>
-                        <div className="user-details">
-                          <div className="user-name">{user.displayName || 'Unnamed User'}</div>
-                          <div className="user-email">{user.email}</div>
-                          <div className="user-role organizer-badge">Organizer</div>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                 )}
 
-                {/* Regular Users Group - can be promoted to organizers */}
+                {/* Regular Users Group */}
                 <div className="user-group-header">Regular Users</div>
-                {filteredUsers.filter((user) => user.role === 'user').length === 0 ? (
+                {filteredUsers.filter((user) => user.role !== 'organizer').length === 0 ? (
                   <p className="no-results-subgroup">No regular users found</p>
                 ) : (
                   filteredUsers
-                    .filter((user) => user.role === 'user')
-                    .map((user) => (
-                      <div
-                        key={getUserId(user)}
-                        className={`user-item ${selectedUser === getUserId(user) ? 'selected' : ''}`}
-                        onClick={() => setSelectedUser(getUserId(user))}
-                      >
-                        <div className="user-avatar">
-                          {user.photoURL ? (
-                            <img src={user.photoURL} alt={'DISP'} />
-                          ) : (
-                            <div className="avatar-placeholder">
-                              {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                    .filter((user) => user.role !== 'organizer')
+                    .map((user) => {
+                      const userId = getUserId(user); // Get definite string ID
+                      return (
+                        <div
+                          key={userId} // Use definite ID
+                          className={`user-item ${selectedUserId === userId ? 'selected' : ''}`}
+                          onClick={() => setSelectedUserId(userId)} // Use definite ID
+                        >
+                          <div className="user-avatar">
+                            {user.photoURL ? (
+                              <img src={user.photoURL} alt={user.displayName || 'User'} />
+                            ) : (
+                              <div className="avatar-placeholder">
+                                {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="user-details">
+                            <div className="user-name">{user.displayName || 'Unnamed User'}</div>
+                            <div className="user-email">{user.email || 'No email'}</div>
+                            <div className="user-role user-badge">Will be promoted to Organizer</div>
+                          </div>
                         </div>
-                        <div className="user-details">
-                          <div className="user-name">{user.displayName || 'Unnamed User'}</div>
-                          <div className="user-email">{user.email}</div>
-                          <div className="user-role user-badge">Will be promoted to Organizer</div>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                 )}
               </>
             )}
@@ -389,48 +380,38 @@ export const EventOrganizersTab: React.FC = () => {
         </div>
       </div>
 
+      {/* Action Buttons */}
       <div className="action-buttons">
         <button
           className="assign-button"
-          disabled={!selectedEvent || !selectedUser || loading}
+          disabled={!selectedEventId || !selectedUserId || loading}
           onClick={handleAssignOrganizer}
         >
           {loading ? 'Processing...' : 'Assign Organizer to Event'}
         </button>
       </div>
 
+      {/* Current Assignments */}
       <div className="current-assignments">
         <h3>Current Organizer Assignments</h3>
-        {events.length === 0 ? (
+        {loading ? (
+          <div className="loading-spinner">Loading assignments...</div>
+        ) : events.length === 0 ? (
           <p className="no-results">No events available</p>
         ) : (
-          events.map((event) => (
-            <div key={event.id} className="event-assignment">
-              <div className="event-header">
-                <div className="event-color" style={{ backgroundColor: event.color || '#3357FF' }}></div>
-                <h4 className="event-name">{event.name}</h4>
-              </div>
+          events.map((event) => {
+            const eventId = getEventId(event); // Definite ID for key
+            const normalizedLookupId = normalizeEventId(eventId); // Normalized for assignment lookup
+            const assignments = organizerAssignments[normalizedLookupId] || [];
 
-              <div className="organizers-list">
-                {(() => {
-                  // Get event ID in multiple formats to ensure a match
-                  const eventId = event.id;
-                  const mongoId = event._id;
-                  const normalizedId = event.normalizedId || normalizeEventId(eventId);
-
-                  // Try multiple formats of the ID to find assignments
-                  const assignments = organizerAssignments[normalizedId] || organizerAssignments[eventId] || [];
-
-                  // Log each event with its assignments to debug
-                  console.log(`Event ${event.name}:`, {
-                    eventId,
-                    mongoId,
-                    normalizedId,
-                    hasAssignments: assignments.length > 0,
-                    assignments,
-                  });
-
-                  return assignments.length === 0 ? (
+            return (
+              <div key={eventId} className="event-assignment">
+                <div className="event-header">
+                  <div className="event-color" style={{ backgroundColor: event.color || '#3357FF' }}></div>
+                  <h4 className="event-name">{event.name}</h4>
+                </div>
+                <div className="organizers-list">
+                  {assignments.length === 0 ? (
                     <p className="no-organizers">No organizers assigned</p>
                   ) : (
                     assignments.map((organizerId) => (
@@ -438,18 +419,19 @@ export const EventOrganizersTab: React.FC = () => {
                         <span className="organizer-name">{getOrganizerName(organizerId)}</span>
                         <button
                           className="remove-button"
-                          onClick={() => handleRemoveOrganizer(event.id, organizerId)}
+                          onClick={() => handleRemoveOrganizer(eventId, organizerId)} // Pass definite event ID
                           title="Remove organizer"
+                          disabled={loading} // Disable while loading
                         >
                           ×
                         </button>
                       </div>
                     ))
-                  );
-                })()}
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
