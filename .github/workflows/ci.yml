@@ -5,6 +5,13 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  checks: write
+  pull-requests: write
 
 jobs:
   # Commenting out the labeler job as requested

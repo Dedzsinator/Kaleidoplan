@@ -1,6 +1,6 @@
 # Kaleidoplan Documentation and Usage Guide
 
-[![Lines of Code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Dedzsinator/Kaleidoplan/loc-badge/loc-badge.json)](https://github.com/Dedzsinator/Kaleidoplan)
+[![Lines of Code](https://img.shields.io/tokei/lines/github/Dedzsinator/Kaleidoplan)](https://github.com/Dedzsinator/Kaleidoplan)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/Dedzsinator/Kaleidoplan/ci.yml?branch=main)](https://github.com/Dedzsinator/Kaleidoplan/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-5.0.0-brightgreen)](package.json)

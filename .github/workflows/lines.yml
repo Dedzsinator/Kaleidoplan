@@ -28,9 +28,20 @@ jobs:
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
-          git fetch origin loc-badge || git checkout --orphan loc-badge
-          git checkout loc-badge || git checkout -b loc-badge
-          mv loc-badge.json ./loc-badge.json
+
+          # Create orphan branch (no history) if it doesn't exist
+          if ! git ls-remote --heads origin loc-badge | grep loc-badge; then
+            git checkout --orphan loc-badge
+            git rm -rf .
+          else
+            git fetch origin loc-badge
+            git checkout loc-badge
+          fi
+
+          # Move the badge file to the root directory
+          cp ../loc-badge.json .
+
+          # Commit and push changes
           git add loc-badge.json
           git commit -m "Update LOC badge" || echo "No changes to commit"
           git push origin loc-badge
