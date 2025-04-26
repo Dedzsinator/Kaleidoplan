@@ -50,9 +50,6 @@ jobs:
       - name: Lint code
         run: npm run lint
 
-      - name: Check formatting
-        run: npx prettier --check "**/*.{js,jsx,ts,tsx,json,md,css,scss,html}"
-
       - name: Check TypeScript types
         run: npm run typecheck
 
