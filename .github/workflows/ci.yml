@@ -38,7 +38,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       # Adding the conditional HTML linting from GitLab CI
       - name: Check for HTML files and lint if found
