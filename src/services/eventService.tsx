@@ -148,7 +148,7 @@ export const getEventById = async (eventId: string): Promise<Event> => {
       hasPerformers: Boolean(eventData.performers?.length),
       performerCount: eventData.performers?.length || 0,
       hasSponsorIds: Boolean(eventData.sponsorIds?.length),
-      hasLatLong: Boolean(eventData.latitude && eventData.longitude)
+      hasLatLong: Boolean(eventData.latitude && eventData.longitude),
     });
 
     // Return the full object without modifications

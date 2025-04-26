@@ -7,12 +7,13 @@ on:
     branches: [main, develop]
 
 jobs:
-  label:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/labeler@v4
-        with:
-          repo-token: ${{ secrets.PAT_TOKEN }}
+  # Commenting out the labeler job as requested
+  # label:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/labeler@v4
+  #       with:
+  #         repo-token: ${{ secrets.PAT_TOKEN }}
 
   lint-and-test:
     name: Lint & Test
@@ -24,14 +25,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20.10.0"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
+      # Adding the conditional HTML linting from GitLab CI
+      - name: Check for HTML files and lint if found
+        run: |
+          if [ "$(find . -path './node_modules' -prune -o -type f -name '*.html' -print)" ]; then 
+            npm run lint-html
+          fi
+
       - name: Lint code
-        run: npm run lint || npm run validate
+        run: npm run lint
 
       - name: Check formatting
         run: npx prettier --check "**/*.{js,jsx,ts,tsx,json,md,css,scss,html}"
@@ -59,7 +67,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20.10.0"
           cache: "npm"
 
       - name: Install dependencies
@@ -86,7 +94,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20.10.0"
           cache: "npm"
           cache-dependency-path: "./server/package-lock.json"
 
@@ -117,7 +125,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20.10.0"
 
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli@0.12.x

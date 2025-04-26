@@ -15,6 +15,7 @@ import UserManagement from './app/screen/UserManagementScreen';
 import EventManagement from './app/screen/EventManagementScreen';
 import EventDetailScreen from './app/screen/EventDetailScreen';
 import ConfirmationPage from './app/components/user/ConfirmationPage';
+import SpotifyCallback from './app/components/actions/SpotifyCallback';
 
 // Import Firebase configuration to ensure it's initialized
 import './app/config/firebase';
@@ -32,6 +33,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/events/:eventId" element={<EventDetailScreen />} />
           <Route path="/confirm-subscription/:token" element={<ConfirmationPage />} />
+          <Route path="/spotify-callback" element={<SpotifyCallback />} />
 
           {/* Protected routes - any authenticated user */}
           <Route

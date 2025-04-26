@@ -20,7 +20,8 @@ interface MapRegion {
 }
 
 const DEFAULT_COLOR = '#3357FF';
-const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
+const DEFAULT_IMAGE =
+  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
 
 const EventDetailScreen: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
@@ -52,13 +53,15 @@ const EventDetailScreen: React.FC = () => {
   };
 
   // CSS variables based on event color
-  const colorStyles = event?.color ? {
-    '--event-color': event.color,
-    '--event-color-light': `${event.color}33`, // 20% opacity
-    '--event-color-medium': `${event.color}99`, // 60% opacity
-    '--text-on-color': getContrastColor(event.color),
-    '--border-color': `${event.color}66` // 40% opacity
-  } as React.CSSProperties : {};
+  const colorStyles = event?.color
+    ? ({
+        '--event-color': event.color,
+        '--event-color-light': `${event.color}33`, // 20% opacity
+        '--event-color-medium': `${event.color}99`, // 60% opacity
+        '--text-on-color': getContrastColor(event.color),
+        '--border-color': `${event.color}66`, // 40% opacity
+      } as React.CSSProperties)
+    : {};
 
   const fetchEventData = useCallback(async () => {
     if (!eventId) return;
@@ -114,7 +117,7 @@ const EventDetailScreen: React.FC = () => {
             latitude: eventData.latitude,
             longitude: eventData.longitude,
             latitudeDelta: eventData.latitudeDelta || 0.01,
-            longitudeDelta: eventData.longitudeDelta || 0.01
+            longitudeDelta: eventData.longitudeDelta || 0.01,
           });
         }
 
@@ -191,15 +194,12 @@ const EventDetailScreen: React.FC = () => {
         <div className="event-hero-overlay" style={{ backgroundColor: event.color || DEFAULT_COLOR }}></div>
         <div className="event-hero-content">
           <h1 className="event-title">{event.name}</h1>
-          <p className="event-date">{new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}</p>
+          <p className="event-date">
+            {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
+          </p>
 
           {event.ticketUrl && (
-            <a
-              href={event.ticketUrl}
-              className="ticket-button"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={event.ticketUrl} className="ticket-button" target="_blank" rel="noopener noreferrer">
               Get Tickets
             </a>
           )}
@@ -283,7 +283,7 @@ const EventDetailScreen: React.FC = () => {
         </section>
 
         {/* Performers Section - Enhanced Version */}
-        {(event.performers && Array.isArray(event.performers) && event.performers.length > 0) ? (
+        {event.performers && Array.isArray(event.performers) && event.performers.length > 0 ? (
           <section className="event-performers">
             <div className="event-card">
               <h2>Performers</h2>
@@ -316,7 +316,7 @@ const EventDetailScreen: React.FC = () => {
                     name: performerName,
                     hasImage: !!performerImage,
                     hasRequiredFields: !!(typedPerformer.createdAt && typedPerformer.updatedAt),
-                    rawPerformer: typedPerformer
+                    rawPerformer: typedPerformer,
                   });
 
                   return (
@@ -327,12 +327,12 @@ const EventDetailScreen: React.FC = () => {
                         borderColor: `${event.color || DEFAULT_COLOR}66`,
                       }}
                     >
-                      <div
-                        className="performer-image-container"
-                        style={{ borderColor: event.color }}
-                      >
+                      <div className="performer-image-container" style={{ borderColor: event.color }}>
                         <img
-                          src={performerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(performerName)}&background=${event.color?.substring(1) || '3357FF'}&color=fff`}
+                          src={
+                            performerImage ||
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(performerName)}&background=${event.color?.substring(1) || '3357FF'}&color=fff`
+                          }
                           alt={performerName}
                           className="performer-image"
                           onError={(e) => {
@@ -380,25 +380,16 @@ const EventDetailScreen: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="sponsor-fallback-name">
-                        {sponsor.name}
-                      </div>
+                      <div className="sponsor-fallback-name">{sponsor.name}</div>
                     )}
                     <div className="sponsor-details">
                       <h3 className="sponsor-name">{sponsor.name}</h3>
                       <p className={`sponsor-level ${(sponsor.level || 'partner').toLowerCase()}`}>
                         {sponsor.level || 'Partner'}
                       </p>
-                      {sponsor.description && (
-                        <p className="sponsor-description">{sponsor.description}</p>
-                      )}
+                      {sponsor.description && <p className="sponsor-description">{sponsor.description}</p>}
                       {sponsor.website && (
-                        <a
-                          href={sponsor.website}
-                          className="sponsor-website"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
+                        <a href={sponsor.website} className="sponsor-website" target="_blank" rel="noopener noreferrer">
                           Visit Website
                         </a>
                       )}
@@ -418,16 +409,10 @@ const EventDetailScreen: React.FC = () => {
               <p className="spotify-intro">Listen to tracks curated for this event</p>
 
               <div className="spotify-controls">
-                <button
-                  className={`spotify-button ${isSpotifyPlaying ? 'playing' : ''}`}
-                  onClick={handleToggleSpotify}
-                >
+                <button className={`spotify-button ${isSpotifyPlaying ? 'playing' : ''}`} onClick={handleToggleSpotify}>
                   {isSpotifyPlaying ? 'Pause' : 'Play'} Soundtrack
                 </button>
-                <button
-                  className="spotify-expand-button"
-                  onClick={handleExpandSpotify}
-                >
+                <button className="spotify-expand-button" onClick={handleExpandSpotify}>
                   {spotifyExpanded ? 'Collapse' : 'Expand'} Player
                 </button>
               </div>
@@ -440,12 +425,7 @@ const EventDetailScreen: React.FC = () => {
           <section className="event-gallery">
             <div className="event-card">
               <h2>Gallery</h2>
-              <ImageSlideshow
-                images={slideshowImages}
-                height={400}
-                interval={5000}
-                showGradient={true}
-              />
+              <ImageSlideshow images={slideshowImages} height={400} interval={5000} showGradient={true} />
             </div>
           </section>
         )}

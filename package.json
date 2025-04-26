@@ -73,9 +73,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "lint-html": "html-validate --max-warnings=0 --ext .html .",
-    "lint": "eslint --no-error-on-unmatched-pattern --max-warnings=0 --ext .js,.mjs,.cjs .",
+    "lint": "eslint --no-error-on-unmatched-pattern --max-warnings=0 --ext .js,.mjs,.cjs,.jsx,.ts,.tsx .",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,css,html}\"",
-    "validate:js": "eslint --fix \"**/*.{js,jsx,ts,tsx}\"",
+    "validate:js": "eslint --config eslint.config.js --fix \"**/*.{js,jsx,ts,tsx}\"",
     "validate:html": "html-validate \"**/*.html\"",
     "validate": "npm run validate:js && npm run validate:html",
     "typecheck": "tsc --noEmit"

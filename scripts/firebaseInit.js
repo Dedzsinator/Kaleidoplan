@@ -93,14 +93,7 @@ async function createUsers() {
     }
 
     // Print created users
-    console.log('\n===== CREATED USERS =====');
-    createdUsers.forEach((user) => {
-      console.log(`\n${user.displayName} (${user.role})`);
-      console.log(`Email: ${user.email}`);
-      console.log(`Password: ${user.password}`);
-      console.log(`UID: ${user.uid}`);
-    });
-    console.log('\n=========================');
+    createdUsers.forEach((user) => {});
 
     // Return the user ID of the admin and organizer for reference
     return {
@@ -112,7 +105,6 @@ async function createUsers() {
     console.error('Error in createUsers function:', error);
   } finally {
     // Let the process exit naturally
-    console.log('User creation complete');
   }
 }
 
@@ -123,8 +115,6 @@ async function createOrGetUser(auth, userData) {
     const existingUser = await auth.getUserByEmail(userData.email).catch(() => null);
 
     if (existingUser) {
-      console.log(`User ${userData.email} already exists`);
-
       // Update custom claims if needed
       await auth.setCustomUserClaims(existingUser.uid, { role: userData.role });
 
@@ -142,7 +132,6 @@ async function createOrGetUser(auth, userData) {
     // Set role as custom claim
     await auth.setCustomUserClaims(userRecord.uid, { role: userData.role });
 
-    console.log(`Created user: ${userData.email} (${userData.role})`);
     return userRecord;
   } catch (error) {
     console.error(`Error with user ${userData.email}:`, error);
@@ -153,7 +142,6 @@ async function createOrGetUser(auth, userData) {
 // Run the script
 createUsers()
   .then(() => {
-    console.log('Exiting...');
     process.exit(0);
   })
   .catch((error) => {

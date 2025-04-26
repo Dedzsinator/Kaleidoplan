@@ -69,7 +69,6 @@ exports.updateCurrentUser = async (req, res) => {
 // Get all users from Firebase
 exports.getAllUsers = async (req, res) => {
   try {
-    console.log('Getting all users from Firebase...');
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100; // Firebase has different pagination
 
@@ -80,8 +79,6 @@ exports.getAllUsers = async (req, res) => {
     // Get batch of users from Firebase
     const listUsersResult = await admin.auth().listUsers(limit);
     users = listUsersResult.users;
-
-    console.log(`Found ${users.length} users from Firebase`);
 
     // Format user data to match expected format in frontend
     const formattedUsers = users.map((user) => {
@@ -169,26 +166,23 @@ exports.assignEventToOrganizer = async (req, res) => {
   try {
     const userId = req.params.userId;
     const eventId = req.params.eventId;
-    
-    console.log(`Server: Assigning event ${eventId} to user ${userId}`);
-    
+
     // Check if this is a temporary event ID
     const isTemporaryEvent = eventId.startsWith('temp-');
-    console.log(`Is temporary event: ${isTemporaryEvent}`);
-    
+
     // Only validate against MongoDB if it's not a temporary event
     if (!isTemporaryEvent) {
       // Check if the event exists
       if (!mongoose.Types.ObjectId.isValid(eventId)) {
         return res.status(400).json({ error: 'Invalid event ID format' });
       }
-      
+
       const event = await Event.findById(eventId);
       if (!event) {
         return res.status(404).json({ error: 'Event not found' });
       }
     }
-    
+
     // Get user from Firebase
     let userRecord;
     try {
@@ -197,104 +191,97 @@ exports.assignEventToOrganizer = async (req, res) => {
       console.error('Firebase error getting user:', firebaseError);
       return res.status(404).json({ error: 'User not found in Firebase' });
     }
-    
+
     // Set custom claims to make user an organizer if not already
     try {
       const customClaims = userRecord.customClaims || {};
       if (customClaims.role !== 'organizer' && customClaims.role !== 'admin') {
-        console.log(`Updating Firebase role for user ${userId} to organizer`);
-        await admin.auth().setCustomUserClaims(userId, { 
+        await admin.auth().setCustomUserClaims(userId, {
           ...customClaims,
-          role: 'organizer' 
+          role: 'organizer',
         });
       }
     } catch (claimsError) {
       console.error('Error setting Firebase custom claims:', claimsError);
       // Continue anyway - we'll still create the relationship in MongoDB
     }
-    
+
     // Ensure user exists in MongoDB
     let user = await User.findOne({ uid: userId });
-    
+
     if (!user) {
       // Create user in MongoDB if not exists
       try {
         let user = await User.findOne({ uid: userId });
-        
+
         if (!user) {
           // Create new user - IMPORTANT: use uid field, not userId
           user = new User({
-            uid: userId,  // This is the critical field - must use uid, not userId
+            uid: userId, // This is the critical field - must use uid, not userId
             email: userRecord.email,
             displayName: userRecord.displayName || userRecord.email.split('@')[0],
             photoURL: userRecord.photoURL,
             role: 'organizer',
-            lastLogin: new Date()
+            lastLogin: new Date(),
           });
           await user.save();
-          console.log(`Created new MongoDB user for ${userId}`);
         } else {
           // Update existing user
           user.role = 'organizer';
           await user.save();
-          console.log(`Updated existing MongoDB user ${userId} to organizer role`);
         }
       } catch (userUpdateError) {
         console.error('Error updating user in MongoDB:', userUpdateError);
         // Continue anyway
       }
     }
-    
+
     // Create the organizer-event relationship
     try {
       // First check if relationship already exists
       const existingRelationship = await OrganizerEvent.findOne({
         userId: userId,
-        eventId: eventId
+        eventId: eventId,
       });
-      
+
       if (existingRelationship) {
-        console.log('User is already an organizer for this event');
         return res.status(200).json({
           message: 'User is already an organizer for this event',
           user: {
             uid: userRecord.uid,
             email: userRecord.email,
             displayName: userRecord.displayName,
-            role: 'organizer'
+            role: 'organizer',
           },
           eventId: eventId,
-          isTemporary: isTemporaryEvent
+          isTemporary: isTemporaryEvent,
         });
       }
-      
+
       // Create new relationship
       const organizerEvent = new OrganizerEvent({
-        userId: userId,  // This is correct - continue using userId here
+        userId: userId, // This is correct - continue using userId here
         eventId: eventId,
         isTemporary: isTemporaryEvent,
-        assignedBy: req.user?.uid || 'system'
+        assignedBy: req.user?.uid || 'system',
       });
-      
+
       await organizerEvent.save();
-      console.log(`Successfully created organizer-event relationship between ${userId} and ${eventId}`);
     } catch (saveError) {
       console.error('Error saving organizer-event relationship:', saveError);
       throw saveError;
     }
-    
-    console.log(`User ${userId} is now assigned to event ${eventId}`);
-    
+
     res.status(200).json({
       message: 'User assigned as organizer for event',
       user: {
         uid: userRecord.uid,
         email: userRecord.email,
         displayName: userRecord.displayName,
-        role: 'organizer'
+        role: 'organizer',
       },
       eventId: eventId,
-      isTemporary: isTemporaryEvent
+      isTemporary: isTemporaryEvent,
     });
   } catch (error) {
     console.error('Error assigning event to organizer:', error);
@@ -306,46 +293,44 @@ exports.removeEventFromOrganizer = async (req, res) => {
   try {
     const userId = req.params.userId;
     const eventId = req.params.eventId;
-    
-    console.log(`Server: Removing event ${eventId} from user ${userId}`);
-    
+
     // Delete the organizer-event relationship
     const result = await OrganizerEvent.deleteOne({ userId, eventId });
-    
+
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Organizer assignment not found' });
     }
-    
+
     // Check if user still organizes any events
     const organizerCount = await OrganizerEvent.countDocuments({ userId });
-    
+
     // If this was the last event, update user role if necessary
     if (organizerCount === 0) {
       // Check if user exists in MongoDB
       const user = await User.findOne({ uid: userId });
-      
+
       if (user && user.role === 'organizer') {
         // Only update if they don't have admin role
         const userRecord = await admin.auth().getUser(userId);
         const customClaims = userRecord.customClaims || {};
-        
+
         if (customClaims.role === 'organizer') {
           // Update Firebase claims - change back to regular user
-          await admin.auth().setCustomUserClaims(userId, { 
+          await admin.auth().setCustomUserClaims(userId, {
             ...customClaims,
-            role: 'user' 
+            role: 'user',
           });
-          
+
           // Update MongoDB user role
           user.role = 'user';
           await user.save();
         }
       }
     }
-    
+
     res.status(200).json({
       message: 'Event removed from organizer',
-      remaining: organizerCount
+      remaining: organizerCount,
     });
   } catch (error) {
     console.error('Error removing event from organizer:', error);
@@ -355,88 +340,77 @@ exports.removeEventFromOrganizer = async (req, res) => {
 
 exports.getUserEvents = async (req, res) => {
   try {
-    if (!req.user || !req.user.uid) { // Make sure we check req.user.uid, not req.uid
+    if (!req.user || !req.user.uid) {
+      // Make sure we check req.user.uid, not req.uid
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const userId = req.user.uid; // Use this consistently
-    console.log(`Fetching events for user ${userId}`);
-    
+
     const eventInterests = await EventInterest.find({ userId });
-    
-    console.log(`Found ${eventInterests.length} event interests for user ${userId}`);
-    
+
     if (eventInterests.length === 0) {
-      console.log('No event interests found, returning empty array');
       return res.json({ events: [] });
     }
-    
+
     // Extract the event IDs
-    const eventIds = eventInterests.map(interest => interest.eventId);
-    console.log('Event IDs from interests:', eventIds);
-    
+    const eventIds = eventInterests.map((interest) => interest.eventId);
+
     // Fetch the events
     let events = [];
     const Event = require('../models/event.model');
-    
+
     // First, try direct string ID lookup which is more likely to work
     try {
       events = await Event.find({ id: { $in: eventIds } });
-      console.log(`Found ${events.length} events by string ID lookup`);
     } catch (error) {
       console.error('Error during string ID lookup:', error);
     }
-    
+
     // If we didn't find all events by string ID, try ObjectId lookup as fallback
     if (events.length < eventIds.length) {
       try {
         // Only try to convert IDs that are valid ObjectIds
         const mongoose = require('mongoose');
         const objectIdEventIds = eventIds
-          .filter(id => mongoose.Types.ObjectId.isValid(id))
-          .map(id => mongoose.Types.ObjectId(id));
-        
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          .map((id) => mongoose.Types.ObjectId(id));
+
         if (objectIdEventIds.length > 0) {
           const objectIdEvents = await Event.find({ _id: { $in: objectIdEventIds } });
-          console.log(`Found ${objectIdEvents.length} additional events by ObjectId lookup`);
-          
+
           // Merge events, avoiding duplicates
-          const existingIds = events.map(e => e.id || e._id.toString());
-          const newEvents = objectIdEvents.filter(e => 
-            !existingIds.includes(e.id || e._id.toString())
-          );
-          
+          const existingIds = events.map((e) => e.id || e._id.toString());
+          const newEvents = objectIdEvents.filter((e) => !existingIds.includes(e.id || e._id.toString()));
+
           events = [...events, ...newEvents];
         }
       } catch (error) {
         console.error('Error during ObjectId lookup:', error);
       }
     }
-    
-    console.log(`Found ${events.length} total events out of ${eventIds.length} interest records`);
-    
+
     // Format events with interest level
-    const formattedEvents = events.map(event => {
+    const formattedEvents = events.map((event) => {
       // Convert event to a plain object
-      const eventObj = event.toObject ? event.toObject() : {...event};
-      
+      const eventObj = event.toObject ? event.toObject() : { ...event };
+
       // Ensure id field is set
       if (!eventObj.id && eventObj._id) {
         eventObj.id = eventObj._id.toString();
       }
-      
+
       // Find corresponding interest
-      const interest = eventInterests.find(i => 
-        i.eventId === eventObj.id || i.eventId === (eventObj._id ? eventObj._id.toString() : null)
+      const interest = eventInterests.find(
+        (i) => i.eventId === eventObj.id || i.eventId === (eventObj._id ? eventObj._id.toString() : null),
       );
-      
+
       // Add interest level
       eventObj.interestLevel = interest ? interest.interestLevel : 'interested';
-      
+
       return eventObj;
     });
-    
-    console.log(`Returning ${formattedEvents.length} events to client`);
+
     return res.json({ events: formattedEvents });
   } catch (error) {
     console.error('Error getting user events:', error);

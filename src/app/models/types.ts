@@ -131,7 +131,7 @@ export interface Event {
   longitude?: number;
   latitudeDelta?: number;
   longitudeDelta?: number;
-  sponsorIds? : string[];
+  sponsorIds?: string[];
   [key: string]: any;
 }
 

@@ -13,26 +13,21 @@ const DEFAULT_IMAGES = [
 // Get all public events - no authentication required
 router.get('/events', async (req, res, next) => {
   try {
-    console.log('Fetching public events');
-
     // First, check if we have any events at all (debugging)
     const totalEvents = await Event.countDocuments({});
-    console.log(`Total events in database: ${totalEvents}`);
 
     // Find events that are public - don't filter by public field since your data.csv doesn't have it
     const events = await Event.find({}).sort({ startDate: 1 }).limit(15);
 
-    console.log(`Found ${events.length} public events`);
-
     // Process events to match frontend expectations
     const processedEvents = events.map((event, index) => {
       const eventObj = event.toObject();
-    
+
       // Always use MongoDB _id as id, never use temp-
       if (eventObj._id) {
         eventObj.id = eventObj._id.toString();
       }
-    
+
       // Make sure name is properly set
       if (!eventObj.name && eventObj.eventId) {
         eventObj.name = `Event ${eventObj.eventId}`;
@@ -54,7 +49,6 @@ router.get('/events', async (req, res, next) => {
       // Add default dates if missing
       if (!eventObj.startDate) {
         eventObj.startDate = new Date();
-        console.log(`Added default startDate to event: ${eventObj.name}`);
       }
 
       if (!eventObj.endDate) {
@@ -62,7 +56,6 @@ router.get('/events', async (req, res, next) => {
         const endDate = new Date(eventObj.startDate);
         endDate.setDate(endDate.getDate() + 5);
         eventObj.endDate = endDate;
-        console.log(`Added default endDate to event: ${eventObj.name}`);
       }
 
       // Handle status calculation
@@ -96,17 +89,11 @@ router.get('/events', async (req, res, next) => {
         eventObj.slideshowImages = [eventObj.coverImageUrl];
       }
 
-      // Add debugging info
-      console.log(
-        `Event: ${eventObj.name}, Start: ${eventObj.startDate}, End: ${eventObj.endDate}, PlaylistId: ${eventObj.playlistId}`,
-      );
-
       return eventObj;
     });
 
     // If no events found after processing, create demo events
     if (processedEvents.length === 0) {
-      console.log('No valid events found, creating demo events');
       const demoEvents = createDemoEvents();
       return res.json({ events: demoEvents });
     }
@@ -139,7 +126,6 @@ router.get('/events/:id', async (req, res, next) => {
       event = await Event.findById(id);
     } catch (error) {
       // If ObjectId casting fails, try finding by string ID field
-      console.log(`Error finding by _id, trying string id field: ${error.message}`);
       event = await Event.findOne({ id: id });
     }
 

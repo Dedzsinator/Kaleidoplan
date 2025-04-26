@@ -191,7 +191,9 @@ hr {
 .navbar-search.focused {
   width: 350px;
   background-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(52, 152, 219, 0.2);
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.2),
+    0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
 .navbar-search input {
@@ -260,7 +262,7 @@ hr {
   .navbar-search {
     width: 220px;
   }
-  
+
   .navbar-search.focused {
     width: 280px;
   }
@@ -270,14 +272,14 @@ hr {
   .navbar-container {
     flex-wrap: wrap;
   }
-  
+
   .navbar-search {
     order: 3;
     width: 100%;
     margin: 10px 0;
     max-width: none;
   }
-  
+
   .navbar-search.focused {
     width: 100%;
   }
@@ -332,6 +334,68 @@ hr {
 }
 
 @keyframes location-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Add to your NavBar.css file */
+.spotify-badge {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #1db954;
+}
+
+.spotify-connect,
+.spotify-disconnect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spotify-connect {
+  color: #1db954;
+}
+
+.spotify-disconnect {
+  color: #ffba69;
+}
+
+.spotify-connect i,
+.spotify-disconnect i {
+  font-size: 18px;
+}
+
+.spotify-connection-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  margin: 20px 0;
+  background-color: rgba(29, 185, 84, 0.1);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.spotify-connect-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #1db954;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.spotify-connect-button:hover {
+  background-color: #1ed760;
+  transform: scale(1.03);
 }

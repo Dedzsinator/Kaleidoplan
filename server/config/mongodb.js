@@ -16,8 +16,6 @@ const connectToMongoDB = async () => {
       useUnifiedTopology: true,
     });
 
-    console.log(`Connected to MongoDB database: ${DB_NAME}`);
-
     // Set up error handling for the connection
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
@@ -29,7 +27,6 @@ const connectToMongoDB = async () => {
 
     process.on('SIGINT', async () => {
       await mongoose.connection.close();
-      console.log('MongoDB connection closed due to app termination');
       process.exit(0);
     });
   } catch (error) {

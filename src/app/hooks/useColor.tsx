@@ -42,7 +42,7 @@ export function interpolateColors(color1: RGB, color2: RGB, progress: number): R
   return {
     r: Math.round(color1.r + (color2.r - color1.r) * p),
     g: Math.round(color1.g + (color2.g - color1.g) * p),
-    b: Math.round(color1.b + (color2.b - color1.b) * p)
+    b: Math.round(color1.b + (color2.b - color1.b) * p),
   };
 }
 

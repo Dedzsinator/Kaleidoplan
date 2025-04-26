@@ -18,9 +18,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/kaleidopl
 const db = mongoose.connection;
 
 db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => {
-  console.log('Connected to MongoDB via Mongoose');
-});
+db.once('open', () => {});
 
 // Define Mongoose schemas based on the new collection structure
 const eventSchema = new mongoose.Schema({
@@ -126,21 +124,16 @@ app.use(express.json());
 
 // Authentication middleware
 const authenticate = async (req, res, next) => {
-  console.log('Authentication attempt:', req.path);
-
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('No valid authorization header found');
       return res.status(401).json({ error: 'Unauthorized - No valid token' });
     }
 
     const token = authHeader.split('Bearer ')[1];
-    console.log('Token found, verifying with Firebase Admin...');
 
     try {
       const decodedToken = await admin.auth().verifyIdToken(token);
-      console.log('Token verified successfully for user:', decodedToken.uid);
       req.user = decodedToken;
       next();
     } catch (verifyError) {
@@ -167,11 +160,7 @@ app.use((err, req, res, next) => {
 // Get all public events
 app.get('/api/public/events', async (req, res) => {
   try {
-    console.log('Fetching public events (no auth)');
-
     const events = await Event.find().populate('performers', 'name image');
-
-    console.log(`Found ${events.length} public events`);
 
     // Calculate status based on dates if not set
     const now = new Date();
@@ -223,8 +212,6 @@ app.get('/api/playlists/:id', async (req, res) => {
 // Get public event by ID
 app.get('/api/public/events/:id', async (req, res) => {
   try {
-    console.log(`Fetching public event ${req.params.id} (no auth)`);
-
     let eventId;
     try {
       eventId = new mongoose.Types.ObjectId(req.params.id);
@@ -238,7 +225,6 @@ app.get('/api/public/events/:id', async (req, res) => {
     }).populate('performers', 'name bio image');
 
     if (!event) {
-      console.log(`Public event ${req.params.id} not found`);
       return res.status(404).json({ error: 'Event not found' });
     }
 
@@ -256,7 +242,6 @@ app.get('/api/public/events/:id', async (req, res) => {
       }
     }
 
-    console.log(`Found public event: ${event.name}`);
     res.json(eventObj);
   } catch (error) {
     console.error(`Error fetching public event ${req.params.id}:`, error);
@@ -269,11 +254,7 @@ app.get('/api/public/events/:id', async (req, res) => {
 // Get all events (authenticated)
 app.get('/api/events', authenticate, async (req, res) => {
   try {
-    console.log('Fetching events, user:', req.user?.uid);
-
     const events = await Event.find().populate('performers', 'name image');
-
-    console.log(`Found ${events.length} events`);
 
     // Calculate status based on dates if not set
     const now = new Date();
@@ -653,8 +634,6 @@ const sendReminderEmail = async (interest) => {
     await EventInterest.findByIdAndUpdate(interest._id, {
       lastReminded: new Date(),
     });
-
-    console.log(`Reminder sent to ${interest.userEmail} for event ${event.name}`);
   } catch (error) {
     console.error('Error sending reminder:', error);
   }
@@ -662,7 +641,6 @@ const sendReminderEmail = async (interest) => {
 
 // Schedule daily job to send reminders at 9:00 AM
 cron.schedule('0 9 * * *', async () => {
-  console.log('Running scheduled reminder job...');
   try {
     const interests = await EventInterest.find({});
 
@@ -720,6 +698,4 @@ cron.schedule('0 9 * * *', async () => {
 
 // Start the server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => {});

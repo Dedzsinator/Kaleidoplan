@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ManagedEvent, Task, TaskStatus } from '../models/types';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../../services/api'
+import api from '../../services/api';
 import { fetchWithAuth } from '../../services/api';
 import '../styles/DashboardScreen.css';
 
@@ -24,12 +24,10 @@ const OrganizerDashboard: React.FC = () => {
     if (!managedEvents || !tasks) return [];
 
     // Get all managed event IDs (in both formats)
-    const managedEventIds = new Set(
-      managedEvents.map(event => event.id || event._id)
-    );
+    const managedEventIds = new Set(managedEvents.map((event) => event.id || event._id));
 
     // Filter tasks to only include those associated with managed events
-    return tasks.filter(task => {
+    return tasks.filter((task) => {
       // Extract the task's eventId in string format
       let taskEventId = '';
       if (typeof task.eventId === 'string' || typeof task.eventId === 'number') {
@@ -46,54 +44,57 @@ const OrganizerDashboard: React.FC = () => {
   const taskMetrics = React.useMemo(() => {
     return {
       total: relevantTasks.length,
-      pending: relevantTasks.filter(t => t.status !== 'completed').length,
-      completed: relevantTasks.filter(t => t.status === 'completed').length
+      pending: relevantTasks.filter((t) => t.status !== 'completed').length,
+      completed: relevantTasks.filter((t) => t.status === 'completed').length,
     };
   }, [relevantTasks]);
 
-  const tasksByEvent = tasks.reduce((acc, task) => {
-    // Extract the event ID, handling all possible formats
-    let taskEventId = '';
+  const tasksByEvent = tasks.reduce(
+    (acc, task) => {
+      // Extract the event ID, handling all possible formats
+      let taskEventId = '';
 
-    if (!task.eventId) {
-      // Skip if eventId is not defined
+      if (!task.eventId) {
+        // Skip if eventId is not defined
+        return acc;
+      }
+
+      if (typeof task.eventId === 'string' || typeof task.eventId === 'number') {
+        // Simple string or number ID (MongoDB stores these as numbers)
+        taskEventId = String(task.eventId);
+      } else if (typeof task.eventId === 'object') {
+        // Object with potential _id or id property
+        taskEventId = String(task.eventId?._id);
+      }
+
+      if (!taskEventId) {
+        // Still no eventId found, try logging for debugging and skip
+        console.log('Task without valid eventId:', task);
+        return acc;
+      }
+
+      // Initialize array if needed
+      if (!acc[taskEventId]) {
+        acc[taskEventId] = [];
+      }
+
+      // Add task to the appropriate event group
+      acc[taskEventId].push(task);
       return acc;
-    }
-
-    if (typeof task.eventId === 'string' || typeof task.eventId === 'number') {
-      // Simple string or number ID (MongoDB stores these as numbers)
-      taskEventId = String(task.eventId);
-    } else if (typeof task.eventId === 'object') {
-      // Object with potential _id or id property
-      taskEventId = String(task.eventId?._id);
-    }
-
-    if (!taskEventId) {
-      // Still no eventId found, try logging for debugging and skip
-      console.log('Task without valid eventId:', task);
-      return acc;
-    }
-
-    // Initialize array if needed
-    if (!acc[taskEventId]) {
-      acc[taskEventId] = [];
-    }
-
-    // Add task to the appropriate event group
-    acc[taskEventId].push(task);
-    return acc;
-  }, {} as Record<string, Task[]>);
+    },
+    {} as Record<string, Task[]>,
+  );
 
   const toggleEventExpanded = (eventId: string) => {
-    setExpandedEvents(prev => ({
+    setExpandedEvents((prev) => ({
       ...prev,
-      [eventId]: !prev[eventId]
+      [eventId]: !prev[eventId],
     }));
   };
 
   const handleCompleteTask = async (taskId: string) => {
     try {
-      setTaskCompletingIds(prev => [...prev, taskId]);
+      setTaskCompletingIds((prev) => [...prev, taskId]);
       setError('');
 
       console.log(`Completing task with ID: ${taskId}`);
@@ -102,33 +103,35 @@ const OrganizerDashboard: React.FC = () => {
       await api.put(`/tasks/${taskId}`, {
         status: 'completed',
         updatedBy: currentUser?.uid,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
 
       console.log(`Task ${taskId} marked as completed`);
 
       // Update local task state
-      setTasks(prevTasks => prevTasks.map(task =>
-        task._id === taskId
-          ? {
-            ...task,
-            status: 'completed',
-            updatedBy: currentUser?.uid,
-            updatedAt: new Date().toISOString()
-          }
-          : task
-      ));
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
+          task._id === taskId
+            ? {
+                ...task,
+                status: 'completed',
+                updatedBy: currentUser?.uid,
+                updatedAt: new Date().toISOString(),
+              }
+            : task,
+        ),
+      );
     } catch (err: any) {
       setError(`Failed to complete task: ${err.message || 'Unknown error'}`);
       console.error('Error completing task:', err);
     } finally {
-      setTaskCompletingIds(prev => prev.filter(id => id !== taskId));
+      setTaskCompletingIds((prev) => prev.filter((id) => id !== taskId));
     }
   };
 
   const handleCreateTask = (eventId: string) => {
     // Find the event to get its name
-    const event = managedEvents.find(e => e.id === eventId || e._id === eventId);
+    const event = managedEvents.find((e) => e.id === eventId || e._id === eventId);
 
     setIsCreatingTask(true);
     setCurrentTask({
@@ -152,7 +155,7 @@ const OrganizerDashboard: React.FC = () => {
 
   const handleTaskInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setCurrentTask(prev => prev ? { ...prev, [name]: value } : null);
+    setCurrentTask((prev) => (prev ? { ...prev, [name]: value } : null));
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
@@ -168,7 +171,7 @@ const OrganizerDashboard: React.FC = () => {
         ...currentTask,
         assignedTo: currentTask.assignedTo || currentUser?.uid || '',
         updatedAt: new Date().toISOString(),
-        updatedBy: currentUser?.uid
+        updatedBy: currentUser?.uid,
       };
 
       if (isCreatingTask) {
@@ -178,9 +181,7 @@ const OrganizerDashboard: React.FC = () => {
 
         // Find the event to include the event name
         if (taskData.eventId) {
-          const event = managedEvents.find(
-            e => e.id === taskData.eventId || e._id === taskData.eventId
-          );
+          const event = managedEvents.find((e) => e.id === taskData.eventId || e._id === taskData.eventId);
           if (event) {
             taskData.eventName = event.name;
           }
@@ -191,7 +192,7 @@ const OrganizerDashboard: React.FC = () => {
 
         // Add the new task to state
         if (response && (response._id || response.taskId)) {
-          setTasks(prev => [...prev, response as Task]);
+          setTasks((prev) => [...prev, response as Task]);
         } else {
           // Refresh all tasks to ensure we get the latest data
           const tasksData = await api.get('/tasks');
@@ -203,9 +204,7 @@ const OrganizerDashboard: React.FC = () => {
         await api.put(`/tasks/${idToUse}`, taskData);
 
         // Update task in state
-        setTasks(prev => prev.map(task =>
-          (task._id === idToUse) ? { ...task, ...taskData } : task
-        ));
+        setTasks((prev) => prev.map((task) => (task._id === idToUse ? { ...task, ...taskData } : task)));
       }
 
       // Close modal on success
@@ -228,13 +227,10 @@ const OrganizerDashboard: React.FC = () => {
         console.log('Fetching events and tasks...');
 
         // Use api.get with the correct paths
-        const [eventsData, tasksData] = await Promise.all([
-          api.get('/events/managed'),
-          api.get('/tasks')
-        ]);
+        const [eventsData, tasksData] = await Promise.all([api.get('/events/managed'), api.get('/tasks')]);
 
-        console.log("Received events:", eventsData);
-        console.log("Received tasks:", tasksData);
+        console.log('Received events:', eventsData);
+        console.log('Received tasks:', tasksData);
 
         // Handle different response formats
         const formattedEvents = eventsData?.events || eventsData || [];
@@ -242,7 +238,7 @@ const OrganizerDashboard: React.FC = () => {
         // tasksData is already JSON parsed when using api.get
         const formattedTasks = tasksData?.tasks || tasksData || [];
 
-        console.log("Formatted tasks:", formattedTasks);
+        console.log('Formatted tasks:', formattedTasks);
 
         // Initialize all events as expanded
         const initialExpandedState = formattedEvents.reduce((acc: Record<string, boolean>, event: ManagedEvent) => {
@@ -376,11 +372,7 @@ const OrganizerDashboard: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="submit-button"
-                  disabled={taskSubmitting}
-                >
+                <button type="submit" className="submit-button" disabled={taskSubmitting}>
                   {taskSubmitting ? 'Saving...' : isCreatingTask ? 'Create Task' : 'Update Task'}
                 </button>
               </div>
@@ -441,10 +433,13 @@ const OrganizerDashboard: React.FC = () => {
               return (
                 <div key={eventId} className="event-container">
                   <div className="event-header" onClick={() => toggleEventExpanded(eventId)}>
-                    <div className="event-indicator" style={{
-                      backgroundColor: event.status === 'ongoing' ? '#4CAF50' :
-                        event.status === 'upcoming' ? '#2196F3' : '#9E9E9E'
-                    }}></div>
+                    <div
+                      className="event-indicator"
+                      style={{
+                        backgroundColor:
+                          event.status === 'ongoing' ? '#4CAF50' : event.status === 'upcoming' ? '#2196F3' : '#9E9E9E',
+                      }}
+                    ></div>
                     <h3 className="event-title">{event.name}</h3>
                     <span className={`status-badge ${event.status}`}>
                       {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
@@ -452,9 +447,7 @@ const OrganizerDashboard: React.FC = () => {
                     <span className="event-date">
                       {new Date(event.startDate).toLocaleDateString()} - {new Date(event.endDate).toLocaleDateString()}
                     </span>
-                    <span className="expand-indicator">
-                      {expandedEvents[eventId] ? '▼' : '►'}
-                    </span>
+                    <span className="expand-indicator">{expandedEvents[eventId] ? '▼' : '►'}</span>
                   </div>
 
                   {expandedEvents[eventId] && (
@@ -462,19 +455,16 @@ const OrganizerDashboard: React.FC = () => {
                       <div className="task-section">
                         <h4>Tasks</h4>
                         {/* Add create task button in the header */}
-                        <button
-                          className="add-task-btn"
-                          onClick={() => handleCreateTask(eventId)}
-                        >
+                        <button className="add-task-btn" onClick={() => handleCreateTask(eventId)}>
                           + Add Task
                         </button>
 
                         {(!tasksByEvent[eventId] && !tasksByEvent[event._id]) ||
-                          (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
+                        (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
                           <p className="no-tasks">No tasks assigned to this event</p>
                         ) : (
                           <ul className="task-list">
-                            {(tasksByEvent[eventId] || tasksByEvent[event._id] || []).map(task => (
+                            {(tasksByEvent[eventId] || tasksByEvent[event._id] || []).map((task) => (
                               <li
                                 key={task._id}
                                 className={`task-item ${task.status}`}
@@ -485,12 +475,8 @@ const OrganizerDashboard: React.FC = () => {
                                   {task.name}
                                 </div>
                                 <div className="task-metadata">
-                                  <span className={`priority-badge ${task.priority}`}>
-                                    {task.priority}
-                                  </span>
-                                  <span className="deadline">
-                                    Due: {new Date(task.deadline).toLocaleDateString()}
-                                  </span>
+                                  <span className={`priority-badge ${task.priority}`}>{task.priority}</span>
+                                  <span className="deadline">Due: {new Date(task.deadline).toLocaleDateString()}</span>
                                 </div>
 
                                 {/* Add Complete button if task is not already completed */}

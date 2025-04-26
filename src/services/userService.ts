@@ -9,10 +9,10 @@ export const getAllUsers = async (): Promise<any[]> => {
     console.log('Fetching all users...');
     // Use the correct endpoint - the empty string is causing 404
     const response = await api.get('/user?limit=100');
-    
+
     // Log the actual response to debug
     console.log('Users API response:', response);
-    
+
     // Handle different response formats
     if (Array.isArray(response)) {
       return response;

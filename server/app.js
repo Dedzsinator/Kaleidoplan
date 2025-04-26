@@ -32,7 +32,6 @@ const PORT = process.env.PORT || 3000;
 // Initialize Firebase Admin SDK
 const admin = require('./config/firebase');
 // Firebase is already initialized when we require the module
-console.log('Firebase Admin SDK initialized');
 
 // Connect to MongoDB
 connectToMongoDB();
@@ -62,7 +61,7 @@ require('./models/playlist.model');
 require('./models/user.model');
 require('./models/event.model');
 require('./models/event-interest.model'); // Add this line
-require('./models/event-sponsor.model');  // Add this for completeness
+require('./models/event-sponsor.model'); // Add this for completeness
 require('./models/organizer-event.model'); // Add this for completeness
 
 // API Routes
@@ -90,8 +89,6 @@ app.get('/api/health', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Kaleidoplan unified API server running on port ${PORT}`);
-});
+app.listen(PORT, () => {});
 
 module.exports = app;

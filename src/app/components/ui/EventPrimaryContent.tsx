@@ -126,11 +126,7 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
 
         {event.description && <p className="event-description">{event.description}</p>}
 
-        <button
-          className="event-button"
-          style={{ backgroundColor: themeColor }}
-          onClick={onClick}
-        >
+        <button className="event-button" style={{ backgroundColor: themeColor }} onClick={onClick}>
           View Details
         </button>
       </div>

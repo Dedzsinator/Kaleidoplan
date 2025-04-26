@@ -73,8 +73,6 @@ function parseDataCsv(filePath) {
       if (line.startsWith('_id,')) {
         // Get the headers
         headers = parseCSVLine(line);
-        console.log('Found header line:', line);
-        console.log('Parsed headers:', headers);
 
         // Determine which collection this is based on the headers
         if (headers.includes('bio') && headers.includes('image')) {
@@ -89,13 +87,11 @@ function parseDataCsv(filePath) {
           currentCollection = 'sponsors';
         } else if (headers.includes('startDate') && headers.includes('endDate')) {
           currentCollection = 'events';
-          console.log('Identified events collection!');
         } else {
           console.warn('Could not identify collection for headers:', headers);
           currentCollection = null;
         }
 
-        console.log(`Found headers for collection: ${currentCollection}`);
         continue;
       }
 
@@ -120,13 +116,6 @@ function parseDataCsv(filePath) {
         }
       }
     }
-
-    console.log(`Parsed ${collections.performers.length} performers`);
-    console.log(`Parsed ${collections.tasks.length} tasks`);
-    console.log(`Parsed ${collections.logs.length} logs`);
-    console.log(`Parsed ${collections.eventSponsors.length} event sponsors`);
-    console.log(`Parsed ${collections.sponsors.length} sponsors`);
-    console.log(`Parsed ${collections.events.length} events`);
 
     return collections;
   } catch (error) {
@@ -238,8 +227,6 @@ async function seedDatabase() {
     await db.collection('logs').deleteMany({});
     await db.collection('eventInterest').deleteMany({});
 
-    console.log('Cleared existing data from MongoDB collections');
-
     // Define path to data.csv file
     const dataFilePath = path.join(__dirname, 'data.csv');
 
@@ -249,16 +236,12 @@ async function seedDatabase() {
       return;
     }
 
-    console.log(`Reading data file from: ${dataFilePath}`);
-
     // Parse the data.csv file
     const parsedData = parseDataCsv(dataFilePath);
 
     // Convert field types for each collection
-    console.log('Converting field types...');
 
     const events = convertFieldTypes(parsedData.events, 'events');
-    console.log(`Converted ${events.length} events data`);
 
     const performers = convertFieldTypes(parsedData.performers, 'performers');
     const tasks = convertFieldTypes(parsedData.tasks, 'tasks');
@@ -269,52 +252,37 @@ async function seedDatabase() {
     // Insert data into MongoDB
     if (events.length > 0) {
       await db.collection('events').insertMany(events);
-      console.log(`Inserted ${events.length} events into MongoDB`);
     } else {
-      console.log('No events data to insert');
     }
 
     if (performers.length > 0) {
       await db.collection('performers').insertMany(performers);
-      console.log(`Inserted ${performers.length} performers into MongoDB`);
     } else {
-      console.log('No performers data to insert');
     }
 
     if (sponsors.length > 0) {
       await db.collection('sponsors').insertMany(sponsors);
-      console.log(`Inserted ${sponsors.length} sponsors into MongoDB`);
     } else {
-      console.log('No sponsors data to insert');
     }
 
     if (tasks.length > 0) {
       await db.collection('tasks').insertMany(tasks);
-      console.log(`Inserted ${tasks.length} tasks into MongoDB`);
     } else {
-      console.log('No tasks data to insert');
     }
 
     if (eventSponsors.length > 0) {
       await db.collection('eventSponsors').insertMany(eventSponsors);
-      console.log(`Inserted ${eventSponsors.length} event sponsors into MongoDB`);
     } else {
-      console.log('No event sponsors data to insert');
     }
 
     if (logs.length > 0) {
       await db.collection('logs').insertMany(logs);
-      console.log(`Inserted ${logs.length} logs into MongoDB`);
     } else {
-      console.log('No logs data to insert');
     }
-
-    console.log('Database seeding completed successfully!');
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {
     // Close the database connection before exiting
-    console.log('Closing database connection...');
     process.exit();
   }
 }

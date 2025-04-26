@@ -17,7 +17,7 @@ router.get(
   authMiddleware.verifyToken,
   authMiddleware.attachUserData,
   authMiddleware.requireAdmin,
-  adminController.getOrganizerAssignments
+  adminController.getOrganizerAssignments,
 );
 
 module.exports = router;

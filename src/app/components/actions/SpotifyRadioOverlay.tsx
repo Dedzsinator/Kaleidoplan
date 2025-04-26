@@ -1,8 +1,51 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Event, Playlist, Track, SpotifyTrack } from '../../models/types';
+import { Event, Playlist, Track } from '../../models/types';
 import { usePlaylist } from '../../hooks/usePlaylist';
 import spotifyService from '../../../services/spotify-web-api';
 import '../../styles/SpotifyRadioOverlay.css';
+
+// Add SVG icons as components for better appearance
+const PlayIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
+
+const PauseIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+  </svg>
+);
+
+const PrevIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+  </svg>
+);
+
+const NextIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+  </svg>
+);
+
+const LoadingIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="loading-icon">
+    <path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8Z" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+  </svg>
+);
+
+const ErrorIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+  </svg>
+);
 
 interface SpotifyRadioOverlayProps {
   currentEvent: Event;
@@ -24,33 +67,57 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   const [audioInitialized, setAudioInitialized] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [trackData, setTrackData] = useState<Track[]>([]);
+  const [usingSdkPlayback, setUsingSdkPlayback] = useState(false);
+  const [isPremiumUser, setIsPremiumUser] = useState<boolean | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch playlist data using the hook
   const { playlist, loading: playlistLoading, error } = usePlaylist(currentEvent?.playlistId);
 
-  // Initialize Audio
+  // Initialize Audio or Spotify Player
   useEffect(() => {
-    const initAudio = async () => {
+    const initPlayback = async () => {
       try {
-        // For web, we'll create an audio element
+        // First check if user is authenticated with Spotify
+        const isAuthenticated = await spotifyService.isUserAuthenticated();
+
+        if (isAuthenticated) {
+          // Try to initialize the Spotify Web Playback SDK
+          console.log('Trying to initialize Spotify Web Playback SDK');
+          const sdkInitialized = await spotifyService.initializePlayer();
+
+          if (sdkInitialized) {
+            console.log('Successfully initialized Spotify Web Playback SDK');
+            setUsingSdkPlayback(true);
+            setIsPremiumUser(true);
+            setAudioInitialized(true);
+            return;
+          } else {
+            console.log('Failed to initialize Spotify Web Playback SDK, falling back to audio element');
+            setIsPremiumUser(false);
+          }
+        }
+
+        // Fall back to audio element for non-authenticated or non-Premium users
         if (!audioRef.current) {
           audioRef.current = new Audio();
           audioRef.current.onended = () => {
             nextTrack();
           };
         }
+        setUsingSdkPlayback(false);
         setAudioInitialized(true);
       } catch (error) {
-        console.error('Error initializing audio:', error);
+        console.error('Error initializing playback:', error);
         setPlaybackError('Could not initialize audio system');
+        setAudioInitialized(true); // Still set to true so we can show error state
       }
     };
 
-    initAudio();
+    initPlayback();
 
-    // Cleanup audio on unmount
+    // Cleanup
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -157,121 +224,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     return trackData[currentTrackIndex % trackData.length];
   }, [trackData, currentTrackIndex]);
 
-  // Handle playback state changes
-  useEffect(() => {
-    const handlePlayback = async () => {
-      const track = getCurrentTrack();
-      if (!track || !audioRef.current) return;
-
-      if (isPlaying) {
-        setIsLoading(true);
-        setPlaybackError(null);
-
-        try {
-          // Get either the proxy URL or direct Spotify URL
-          let previewUrl = await spotifyService.playTrack(track.spotifyId);
-          console.log(`Got preview URL: ${previewUrl}`);
-
-          if (!previewUrl) {
-            throw new Error('No preview available for this track');
-          }
-
-          // Set up error handler first
-          audioRef.current.onerror = (e) => {
-            console.error('Audio error:', e);
-            setPlaybackError(`Audio error: ${audioRef.current?.error?.message || 'Unknown error'}`);
-            setIsLoading(false);
-
-            // If using proxy URL and it fails, try direct Spotify URL as fallback
-            if (previewUrl?.startsWith('/api/spotify/preview/')) {
-              const previewId = previewUrl.split('/api/spotify/preview/')[1];
-              const directUrl = `https://p.scdn.co/mp3-preview/${previewId}`;
-              console.log(`Fallback: trying direct Spotify URL: ${directUrl}`);
-
-              // Try the direct URL
-              audioRef.current!.src = directUrl;
-              audioRef.current!.load();
-
-              // Try playing with the direct URL
-              audioRef.current!.play().catch(directError => {
-                console.error('Error with direct URL fallback:', directError);
-                onTogglePlay(); // Turn off play state if all fallbacks fail
-                setTimeout(() => nextTrack(), 1000); // Try next track
-              });
-
-              return; // Exit error handler if we're trying the fallback
-            }
-
-            // If we're already using a direct URL or if we can't parse the preview ID
-            onTogglePlay(); // Turn off the play state
-            // Try next track
-            setTimeout(() => nextTrack(), 1000);
-          };
-
-          // Set the audio source to the preview URL
-          audioRef.current.src = previewUrl;
-          audioRef.current.load(); // Force reload
-
-          // Play the audio
-          const playPromise = audioRef.current.play();
-
-          // Handle the play promise
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                setIsLoading(false);
-              })
-              .catch((error) => {
-                console.error('Error playing track:', error);
-                setPlaybackError(`Couldn't play track: ${error.message}`);
-                setIsLoading(false);
-
-                // If using proxy URL and it fails, try direct Spotify URL as fallback
-                if (previewUrl?.startsWith('/api/spotify/preview/')) {
-                  const previewId = previewUrl.split('/api/spotify/preview/')[1];
-                  const directUrl = `https://p.scdn.co/mp3-preview/${previewId}`;
-                  console.log(`Fallback: trying direct Spotify URL: ${directUrl}`);
-
-                  // Try the direct URL
-                  audioRef.current!.src = directUrl;
-                  audioRef.current!.load();
-
-                  // Try playing with the direct URL
-                  audioRef.current!.play().catch(directError => {
-                    console.error('Error with direct URL fallback:', directError);
-                    onTogglePlay(); // Turn off play state if all fallbacks fail
-                    setTimeout(() => nextTrack(), 1000); // Try next track
-                  });
-
-                  return; // Exit error handler if we're trying the fallback
-                }
-
-                onTogglePlay(); // Turn off the play state if no fallback
-                // Try the next track automatically
-                setTimeout(() => nextTrack(), 1000);
-              });
-          }
-        } catch (error) {
-          console.error('Error playing track:', error);
-          setPlaybackError(`${error instanceof Error ? error.message : 'Error playing track'}`);
-          setIsLoading(false);
-          onTogglePlay(); // Turn off the play state
-
-          // Try the next track automatically
-          setTimeout(() => nextTrack(), 1000);
-        }
-      } else {
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-      }
-    };
-
-    if (audioInitialized) {
-      handlePlayback();
-    }
-  }, [isPlaying, audioInitialized, getCurrentTrack, onTogglePlay]);
-
   // Next track function
   const nextTrack = useCallback(() => {
     if (trackData.length === 0) return;
@@ -279,12 +231,15 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     setCurrentTrackIndex((prev) => (prev + 1) % trackData.length);
 
     // If playing, restart with new track
-    if (isPlaying && audioRef.current) {
-      audioRef.current.pause();
-
+    if (isPlaying) {
+      if (usingSdkPlayback) {
+        // For SDK playback, we'll trigger playback in the handlePlayback function
+      } else if (audioRef.current) {
+        audioRef.current.pause();
+      }
       // Play will be triggered by the effect
     }
-  }, [trackData, isPlaying]);
+  }, [trackData.length, isPlaying, usingSdkPlayback]);
 
   // Previous track function
   const prevTrack = useCallback(() => {
@@ -293,12 +248,110 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     setCurrentTrackIndex((prev) => (prev - 1 + trackData.length) % trackData.length);
 
     // If playing, restart with new track
-    if (isPlaying && audioRef.current) {
-      audioRef.current.pause();
-
+    if (isPlaying) {
+      if (usingSdkPlayback) {
+        // For SDK playback, we'll trigger in handlePlayback
+      } else if (audioRef.current) {
+        audioRef.current.pause();
+      }
       // Play will be triggered by the effect
     }
-  }, [trackData, isPlaying]);
+  }, [trackData.length, isPlaying, usingSdkPlayback]);
+
+  // Handle playback state changes
+  useEffect(() => {
+    const handlePlayback = async () => {
+      const track = getCurrentTrack();
+      if (!track) return;
+
+      if (isPlaying) {
+        setIsLoading(true);
+        setPlaybackError(null);
+
+        try {
+          if (usingSdkPlayback) {
+            // Use Spotify Web Playback SDK (for Premium users)
+            console.log(`Playing track ${track.spotifyId} via Spotify SDK`);
+            try {
+              const success = await spotifyService.playTrackWithSpotify(track.spotifyId || '');
+
+              if (success) {
+                console.log('Playback started via SDK');
+                setIsLoading(false);
+                return;
+              } else {
+                console.warn('SDK playback failed, falling back to preview URL');
+              }
+            } catch (sdkError) {
+              console.warn('SDK error occurred, falling back to preview URL', sdkError);
+              // Don't change usingSdkPlayback here - we'll still try SDK for other tracks
+            }
+          }
+
+          // Fall back to audio element for preview URLs
+          if (!audioRef.current) {
+            audioRef.current = new Audio();
+            audioRef.current.onended = nextTrack;
+          }
+
+          // Get preview URL for playback
+          const previewUrl = await spotifyService.playTrack(track.spotifyId);
+          console.log(`Got preview URL: ${previewUrl}`);
+
+          if (!previewUrl) {
+            throw new Error('No audio available for this track');
+          }
+
+          // Set up error handler
+          audioRef.current.onerror = (e) => {
+            console.error('Audio error:', e);
+            const errorDetails = audioRef.current?.error
+              ? `${audioRef.current.error.code}: ${audioRef.current.error.message}`
+              : 'Unknown error';
+            setPlaybackError(`Audio error: ${errorDetails}`);
+            setIsLoading(false);
+
+            // Skip to next track after error
+            setTimeout(() => nextTrack(), 1000);
+          };
+
+          // Set the audio source
+          audioRef.current.src = previewUrl;
+          audioRef.current.crossOrigin = 'anonymous';
+          audioRef.current.load();
+
+          // Play the audio
+          try {
+            await audioRef.current.play();
+            setIsLoading(false);
+          } catch (playError) {
+            console.error('Error playing track:', playError);
+            setPlaybackError(
+              `Couldn't play track: ${playError instanceof Error ? playError.message : 'unknown error'}`,
+            );
+            setIsLoading(false);
+            setTimeout(() => nextTrack(), 1000);
+          }
+        } catch (error) {
+          console.error('Error playing track:', error);
+          setPlaybackError(`${error instanceof Error ? error.message : 'Error playing track'}`);
+          setIsLoading(false);
+          setTimeout(() => nextTrack(), 1000);
+        }
+      } else {
+        // Pause playback
+        if (usingSdkPlayback) {
+          await spotifyService.pausePlayback();
+        } else if (audioRef.current) {
+          audioRef.current.pause();
+        }
+      }
+    };
+
+    if (audioInitialized) {
+      handlePlayback();
+    }
+  }, [isPlaying, audioInitialized, getCurrentTrack, nextTrack, usingSdkPlayback]);
 
   // Get the current track
   const currentTrack = getCurrentTrack();
@@ -317,7 +370,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
           <span className="mini-artist">Please wait</span>
         </div>
         <button className="mini-play-button" disabled={true}>
-          <span className="play-button-icon">⏳</span>
+          <LoadingIcon />
         </button>
       </div>
     );
@@ -340,7 +393,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
           </span>
         </div>
         <button className="mini-play-button" disabled={true}>
-          <span className="play-button-icon">❌</span>
+          <ErrorIcon />
         </button>
       </div>
     );
@@ -355,7 +408,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   return expanded ? (
     <div className={`spotify-overlay expanded-container`}>
       <button className="close-button" onClick={onExpand}>
-        <span className="close-button-text">×</span>
+        <CloseIcon />
       </button>
 
       <div className="expanded-player">
@@ -371,17 +424,21 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
 
         {playbackError && <span className="error-text">{playbackError}</span>}
 
+        {isPremiumUser === false && (
+          <span className="premium-notice">Connect with Spotify Premium for full tracks</span>
+        )}
+
         <div className="controls">
           <button className="control-button" onClick={prevTrack}>
-            <span className="control-button-icon">⏮️</span>
+            <PrevIcon />
           </button>
 
           <button className="play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
-            <span className="play-button-icon">{isLoading ? '⌛' : isPlaying ? '⏸' : '▶'}</span>
+            {isLoading ? <LoadingIcon /> : isPlaying ? <PauseIcon /> : <PlayIcon />}
           </button>
 
           <button className="control-button" onClick={nextTrack}>
-            <span className="control-button-icon">⏭️</span>
+            <NextIcon />
           </button>
         </div>
 
@@ -407,9 +464,19 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
         </span>
       </div>
 
-      <button className="mini-play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
-        <span className="play-button-icon">{isLoading ? '⏳' : isPlaying ? '⏸' : '▶️'}</span>
-      </button>
+      <div className="mini-controls">
+        <button className="mini-control-button" onClick={prevTrack}>
+          <PrevIcon />
+        </button>
+
+        <button className="mini-play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
+          {isLoading ? <LoadingIcon /> : isPlaying ? <PauseIcon /> : <PlayIcon />}
+        </button>
+
+        <button className="mini-control-button" onClick={nextTrack}>
+          <NextIcon />
+        </button>
+      </div>
     </div>
   );
 };

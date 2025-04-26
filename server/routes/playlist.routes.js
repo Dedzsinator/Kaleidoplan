@@ -53,11 +53,8 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    console.log(`Getting playlist with ID: ${id}`);
 
     if (id.startsWith('pl-temp-') || id.startsWith('pl-demo-')) {
-      console.log(`Creating mock playlist for temporary ID: ${id}`);
-
       // VERIFIED working track IDs with previews
       const trackSelection = [
         '7ouMYWpwJ422jRcDASZB7P', // Drake - God's Plan
@@ -95,16 +92,13 @@ router.get('/:id', async (req, res, next) => {
       }).populate('eventId', 'name startDate endDate');
     } catch (error) {
       // If ObjectId cast fails, try string matching only on playlistId
-      console.log(`ID cast failed, trying string match: ${error.message}`);
       playlist = await Playlist.findOne({ playlistId: id }).populate('eventId', 'name startDate endDate');
     }
 
     if (!playlist) {
-      console.log(`Playlist not found: ${id}`);
       return res.status(404).json({ error: 'Playlist not found' });
     }
 
-    console.log(`Found playlist: ${playlist.name}`);
     res.json(playlist);
   } catch (error) {
     console.error(`Error getting playlist: ${error.message}`);

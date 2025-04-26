@@ -10,11 +10,7 @@ interface InterestButtonProps {
   showText?: boolean;
 }
 
-const InterestButton: React.FC<InterestButtonProps> = ({
-  eventId,
-  size = 'medium',
-  showText = false
-}) => {
+const InterestButton: React.FC<InterestButtonProps> = ({ eventId, size = 'medium', showText = false }) => {
   const { currentUser, isAuthenticated } = useAuth();
   const [interestLevel, setInterestLevel] = useState<'interested' | 'attending' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +46,7 @@ const InterestButton: React.FC<InterestButtonProps> = ({
     setIsLoading(true);
     try {
       const response = await api.post(`/events/${eventId}/interest`, {
-        interestLevel: level
+        interestLevel: level,
       });
 
       if (response.status === 'removed') {

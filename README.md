@@ -1,5 +1,16 @@
 # Kaleidoplan Documentation and Usage Guide
 
+[![Lines of Code](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Dedzsinator/Kaleidoplan/loc-badge/loc-badge.json)](https://github.com/Dedzsinator/Kaleidoplan)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/Dedzsinator/Kaleidoplan/ci.yml?branch=main)](https://github.com/Dedzsinator/Kaleidoplan/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-5.0.0-brightgreen)](package.json)
+[![Node.js](https://img.shields.io/badge/node-20.10.0-green)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue)](package.json)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](package.json)
+[![MongoDB](https://img.shields.io/badge/MongoDB-4.4+-47A248?logo=mongodb&logoColor=white)](server/package.json)
+[![Firebase](https://img.shields.io/badge/Firebase-9.0+-FFCA28?logo=firebase&logoColor=black)](package.json)
+[![Spotify API](https://img.shields.io/badge/Spotify%20API-integrated-1DB954?logo=spotify&logoColor=white)](src/services/spotify-web-api.js)
+
 ## Table of Contents
 
 1. [Introduction](#introduction)

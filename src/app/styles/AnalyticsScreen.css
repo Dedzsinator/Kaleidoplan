@@ -142,7 +142,9 @@
   text-align: center;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
   position: relative;
   overflow: hidden;
 }
@@ -154,11 +156,7 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
   transform: rotate(-45deg);
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -192,9 +190,15 @@
 }
 
 @keyframes pulsate {
-  0% { opacity: 0.9; }
-  50% { opacity: 1; }
-  100% { opacity: 0.9; }
+  0% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.9;
+  }
 }
 
 .analytics-charts {
@@ -318,7 +322,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -342,16 +348,16 @@
   .analytics-charts {
     grid-template-columns: 1fr;
   }
-  
+
   .analytics-container {
     padding: 20px;
     border-radius: 12px;
   }
-  
+
   .summary-card {
     padding: 16px;
   }
-  
+
   .summary-value {
     font-size: 2.2rem;
   }

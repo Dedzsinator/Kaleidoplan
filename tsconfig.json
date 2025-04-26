@@ -22,8 +22,5 @@
       "@services/*": ["services/*"]
     }
   },
-  "include": [
-    "src/**/*",
-    "src/types/custom.d.ts"
-, "src/app/config/firebase.tsx"  ]
+  "include": ["src/**/*", "src/types/custom.d.ts", "src/app/config/firebase.tsx"]
 }

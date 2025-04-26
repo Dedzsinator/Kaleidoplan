@@ -8,7 +8,6 @@ require('dotenv').config();
 async function generateDummyData() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
 
     // Generate events
     for (let i = 0; i < 15; i++) {
@@ -40,8 +39,6 @@ async function generateDummyData() {
       user.lastLogin = lastLogin;
       await user.save();
     }
-
-    console.log('Dummy data generated successfully!');
   } catch (error) {
     console.error('Error generating dummy data:', error);
   } finally {

@@ -3,17 +3,17 @@ import api from './api';
 export const assignOrganizerToEvent = async (
   eventId: string,
   userId: string,
-  action: 'assign' | 'remove' = 'assign'
+  action: 'assign' | 'remove' = 'assign',
 ): Promise<any> => {
   try {
     console.log(`${action === 'assign' ? 'Assigning' : 'Removing'} user ${userId} as organizer for event ${eventId}`);
-    
+
     if (action === 'assign') {
       // Make sure the event ID is a valid ObjectId string - critical for MongoDB
       if (eventId && eventId.match(/^[0-9a-fA-F]{24}$/)) {
-        const response = await api.post(`/user/${userId}/events/${eventId}`, { 
+        const response = await api.post(`/user/${userId}/events/${eventId}`, {
           isDraft: false,
-          source: 'admin-panel'
+          source: 'admin-panel',
         });
         return response;
       } else {
@@ -37,7 +37,7 @@ export const getEventsWithOrganizers = async (): Promise<any> => {
     // Add /api prefix and explicitly request events with organizers
     const response = await api.get('/events?includeOrganizers=true');
     console.log('Events with organizers API response:', response);
-    
+
     // Handle different response formats
     if (Array.isArray(response)) {
       return response;

@@ -42,54 +42,40 @@ const getAllTasks = async (req, res, next) => {
     }
     */
 
-    console.log('Task filter:', JSON.stringify(filter));
-
     // Execute query with pagination
     const tasks = await Task.find(filter)
       .sort({ [sort.startsWith('-') ? sort.substring(1) : sort]: sort.startsWith('-') ? -1 : 1 })
       .skip((parseInt(page) - 1) * parseInt(limit))
       .limit(parseInt(limit));
 
-    console.log(`Found ${tasks.length} tasks matching filter`);
+    const formattedTasks = tasks.map((task) => {
+      const taskObj = task.toObject();
 
-  const formattedTasks = tasks.map(task => {
-    const taskObj = task.toObject();
-    
-    // Handle eventId more safely - some tasks may have invalid references
-    if (taskObj.eventId) {
-      // Only try to access _id if eventId is an object
-      if (typeof taskObj.eventId === 'object') {
-        // Some objects might have _id as null or undefined
-        if (taskObj.eventId?._id) {
-          taskObj.eventId = taskObj.eventId._id.toString();
-        } else if (taskObj.eventId?.id) {
-          // Try fallback to regular id if _id is not available
-          taskObj.eventId = taskObj.eventId.id.toString();
+      // Handle eventId more safely - some tasks may have invalid references
+      if (taskObj.eventId) {
+        // Only try to access _id if eventId is an object
+        if (typeof taskObj.eventId === 'object') {
+          // Some objects might have _id as null or undefined
+          if (taskObj.eventId?._id) {
+            taskObj.eventId = taskObj.eventId._id.toString();
+          } else if (taskObj.eventId?.id) {
+            // Try fallback to regular id if _id is not available
+            taskObj.eventId = taskObj.eventId.id.toString();
+          }
+          // If we get here and both are undefined, just leave eventId as is
         }
-        // If we get here and both are undefined, just leave eventId as is
+        // If eventId is already a string or number, no conversion needed
       }
-      // If eventId is already a string or number, no conversion needed
-    }
-    
-    return {
-      ...taskObj,
-      // Safer version - handle possibly undefined _id
-      id: taskObj.id || (taskObj._id ? taskObj._id.toString() : `task-${Math.random().toString(36).substr(2, 9)}`)
-    };
-  });
+
+      return {
+        ...taskObj,
+        // Safer version - handle possibly undefined _id
+        id: taskObj.id || (taskObj._id ? taskObj._id.toString() : `task-${Math.random().toString(36).substr(2, 9)}`),
+      };
+    });
 
     // Get total count
     const totalTasks = await Task.countDocuments(filter);
-
-    // Debug - log the first few tasks
-    if (formattedTasks.length > 0) {
-      console.log('Sample task:', {
-        id: formattedTasks[0].id,
-        _id: formattedTasks[0]._id,
-        name: formattedTasks[0].name,
-        eventId: formattedTasks[0].eventId
-      });
-    }
 
     // Return data with pagination info
     res.json({
@@ -110,13 +96,10 @@ const getAllTasks = async (req, res, next) => {
 const getTaskById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     // Try to find task by both _id and id fields
     const task = await Task.findOne({
-      $or: [
-        { _id: mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id },
-        { id: id }
-      ]
+      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id }, { id: id }],
     });
 
     if (!task) {

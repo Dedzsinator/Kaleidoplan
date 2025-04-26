@@ -38,11 +38,11 @@ const subscriptionSchema = new Schema(
     isConfirmed: {
       type: Boolean,
       default: false,
-    }
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model('Subscription', subscriptionSchema);

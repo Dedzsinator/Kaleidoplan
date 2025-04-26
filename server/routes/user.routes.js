@@ -69,10 +69,6 @@ router.get(
 router.get('/events', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.getUserEvents);
 
 router.get('/verify-admin', authMiddleware.verifyToken, authMiddleware.attachUserData, (req, res) => {
-  console.log('Admin verification request from:', req.user?.email);
-  console.log('User data from MongoDB:', req.userData);
-  console.log('Firebase claims:', req.user);
-
   res.json({
     isAdmin: !!(req.userData?.role === 'admin' || req.user?.role === 'admin'),
     userData: {

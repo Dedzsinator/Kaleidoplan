@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const eventSchema = new mongoose.Schema(
   {
     // Use _id from MongoDB or imported ID for compatibility
-    id : {
+    id: {
       type: String,
       index: true, // Index for faster lookups
     },

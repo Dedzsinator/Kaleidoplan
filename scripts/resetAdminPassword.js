@@ -8,16 +8,11 @@ async function resetAdminPassword() {
 
     // Get the user record
     const userRecord = await admin.auth().getUserByEmail(adminEmail);
-    console.log(`Found admin user: ${userRecord.email}`);
 
     // Update the password
     await admin.auth().updateUser(userRecord.uid, {
       password: newPassword,
     });
-
-    console.log('Password reset successful!');
-    console.log(`Email: ${adminEmail}`);
-    console.log(`New Password: ${newPassword}`);
   } catch (error) {
     console.error('Error resetting admin password:', error);
   } finally {

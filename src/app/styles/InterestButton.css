@@ -1,75 +1,75 @@
 .interest-button-container {
-    display: flex;
-    gap: 8px;
-  }
-  
-  .interest-button,
-  .attending-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(5px);
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: white;
-  }
-  
-  .interest-button:hover {
-    background: rgba(255, 102, 102, 0.3);
-    transform: scale(1.05);
-  }
-  
-  .attending-button:hover {
-    background: rgba(102, 204, 153, 0.3);
-    transform: scale(1.05);
-  }
-  
-  .interest-button.active {
-    background: rgba(255, 102, 102, 0.8);
-    color: white;
-    box-shadow: 0 0 10px rgba(255, 102, 102, 0.5);
-  }
-  
-  .attending-button.active {
-    background: rgba(102, 204, 153, 0.8);
-    color: white;
-    box-shadow: 0 0 10px rgba(102, 204, 153, 0.5);
-  }
-  
-  /* Size variations */
-  .interest-button-container.small .interest-button,
-  .interest-button-container.small .attending-button {
-    width: 30px;
-    height: 30px;
-    font-size: 14px;
-  }
-  
-  .interest-button-container.medium .interest-button,
-  .interest-button-container.medium .attending-button {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-  }
-  
-  .interest-button-container.large .interest-button,
-  .interest-button-container.large .attending-button {
-    width: 50px;
-    height: 50px;
-    font-size: 22px;
-  }
-  
-  /* With text */
-  .interest-button-container .interest-button span,
-  .interest-button-container .attending-button span {
-    margin-left: 6px;
-  }
-  
-  .interest-button-container .interest-button:has(span),
-  .interest-button-container .attending-button:has(span) {
-    border-radius: 20px;
-    padding: 0 12px;
-    width: auto;
-  }
+  display: flex;
+  gap: 8px;
+}
+
+.interest-button,
+.attending-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(5px);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: white;
+}
+
+.interest-button:hover {
+  background: rgba(255, 102, 102, 0.3);
+  transform: scale(1.05);
+}
+
+.attending-button:hover {
+  background: rgba(102, 204, 153, 0.3);
+  transform: scale(1.05);
+}
+
+.interest-button.active {
+  background: rgba(255, 102, 102, 0.8);
+  color: white;
+  box-shadow: 0 0 10px rgba(255, 102, 102, 0.5);
+}
+
+.attending-button.active {
+  background: rgba(102, 204, 153, 0.8);
+  color: white;
+  box-shadow: 0 0 10px rgba(102, 204, 153, 0.5);
+}
+
+/* Size variations */
+.interest-button-container.small .interest-button,
+.interest-button-container.small .attending-button {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+}
+
+.interest-button-container.medium .interest-button,
+.interest-button-container.medium .attending-button {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+
+.interest-button-container.large .interest-button,
+.interest-button-container.large .attending-button {
+  width: 50px;
+  height: 50px;
+  font-size: 22px;
+}
+
+/* With text */
+.interest-button-container .interest-button span,
+.interest-button-container .attending-button span {
+  margin-left: 6px;
+}
+
+.interest-button-container .interest-button:has(span),
+.interest-button-container .attending-button:has(span) {
+  border-radius: 20px;
+  padding: 0 12px;
+  width: auto;
+}

@@ -16,9 +16,8 @@ export const getAllSponsors = async (options?: { forceRefresh?: boolean }): Prom
   try {
     // Check if we should use cache
     const currentTime = Date.now();
-    const shouldUseCache = !options?.forceRefresh &&
-      Object.keys(sponsorCache).length > 0 &&
-      (currentTime - lastFetch) < CACHE_DURATION;
+    const shouldUseCache =
+      !options?.forceRefresh && Object.keys(sponsorCache).length > 0 && currentTime - lastFetch < CACHE_DURATION;
 
     if (shouldUseCache) {
       console.log('Using cached sponsors data');
@@ -86,11 +85,11 @@ export const getSponsors = async (sponsorIds: string[]): Promise<Sponsor[]> => {
     }
 
     // Check if all requested sponsors are in cache
-    const allInCache = sponsorIds.every(id => !!sponsorCache[id]);
+    const allInCache = sponsorIds.every((id) => !!sponsorCache[id]);
 
     if (allInCache) {
       console.log('Using cached sponsors for event');
-      return sponsorIds.map(id => sponsorCache[id]);
+      return sponsorIds.map((id) => sponsorCache[id]);
     }
 
     // Fetch from API - optimally would use a batch endpoint
@@ -108,9 +107,7 @@ export const getSponsors = async (sponsorIds: string[]): Promise<Sponsor[]> => {
     console.error('Error fetching sponsors for event:', error);
 
     // Try to get as many sponsors from cache as possible
-    const cachedSponsors = sponsorIds
-      .filter(id => !!sponsorCache[id])
-      .map(id => sponsorCache[id]);
+    const cachedSponsors = sponsorIds.filter((id) => !!sponsorCache[id]).map((id) => sponsorCache[id]);
 
     if (cachedSponsors.length > 0) {
       console.log('Using partially cached sponsors due to fetch error');
@@ -126,16 +123,18 @@ export const getSponsors = async (sponsorIds: string[]): Promise<Sponsor[]> => {
  * Mock sponsors for development and fallback
  */
 const getMockSponsors = (): Sponsor[] => {
-  return Array(20).fill(0).map((_, index) => ({
-    id: `${index + 1}`,
-    name: `Sponsor ${index + 1}`,
-    description: `Description for Sponsor ${index + 1}`,
-    website: `https://sponsor${index + 1}.com`,
-    logoUrl: `https://ui-avatars.com/api/?name=S${index + 1}&background=random`,
-    level: index % 3 === 0 ? 'Platinum' : index % 3 === 1 ? 'Gold' : 'Silver',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }));
+  return Array(20)
+    .fill(0)
+    .map((_, index) => ({
+      id: `${index + 1}`,
+      name: `Sponsor ${index + 1}`,
+      description: `Description for Sponsor ${index + 1}`,
+      website: `https://sponsor${index + 1}.com`,
+      logoUrl: `https://ui-avatars.com/api/?name=S${index + 1}&background=random`,
+      level: index % 3 === 0 ? 'Platinum' : index % 3 === 1 ? 'Gold' : 'Silver',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
 };
 
 /**
@@ -151,7 +150,7 @@ const getMockSponsorById = (id: string): Sponsor => {
     logoUrl: `https://ui-avatars.com/api/?name=S${idNum}&background=random`,
     level: idNum % 3 === 0 ? 'Platinum' : idNum % 3 === 1 ? 'Gold' : 'Silver',
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   };
 };
 
@@ -159,11 +158,11 @@ const getMockSponsorById = (id: string): Sponsor => {
  * Get multiple mock sponsors by IDs for development and fallback
  */
 const getMockSponsorsByIds = (ids: string[]): Sponsor[] => {
-  return ids.map(id => getMockSponsorById(id));
+  return ids.map((id) => getMockSponsorById(id));
 };
 
 export default {
   getAllSponsors,
   getSponsorById,
-  getSponsors
+  getSponsors,
 };

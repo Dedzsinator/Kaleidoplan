@@ -28,6 +28,25 @@ interface EventSectionProps {
   sectionY?: number;
 }
 
+// Helper to convert hex to RGBA
+const hexToRgba = (hex: string, alpha: number = 1): string => {
+  // Remove # if present
+  hex = hex.replace('#', '');
+
+  // Convert 3-digit hex to 6-digit
+  if (hex.length === 3) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+  }
+
+  // Parse the hex values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Return rgba value
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const EventSection = memo(
   ({ event, navigation, onImageError, index, scrollY, sectionY = 0, onVisibilityChange }: EventSectionProps) => {
     const delay = index * 150;
@@ -59,30 +78,40 @@ const EventSection = memo(
       }
     }, []);
 
+    // Calculate visibility and call the callback
     useEffect(() => {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
+      const calculateVisibility = () => {
+        if (!containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const windowHeight = window.innerHeight;
+        const visibilityThreshold = windowHeight * 0.3; // Consider visible when 30% in viewport
+
+        // Calculate how much of the section is in the viewport
+        const inViewportTop = Math.min(windowHeight, Math.max(0, rect.bottom));
+        const inViewportBottom = Math.max(0, Math.min(windowHeight, rect.top));
+        const inViewport = inViewportTop - inViewportBottom;
+
+        // Calculate visibility percentage
+        const visibilityPercentage = inViewport / rect.height;
+        const isVisible = visibilityPercentage >= 0.3;
+
+        // Only call callback when visibility state changes
+        if (isVisible !== isVisibleRef.current) {
+          isVisibleRef.current = isVisible;
           if (onVisibilityChange) {
-            // Use the containerRef.current as the element
-            onVisibilityChange(entry.isIntersecting, event.id, containerRef.current);
+            onVisibilityChange(isVisible, event.id, containerRef.current);
           }
-        },
-        { threshold: [0.1, 0.5, 0.9] }
-      );
-
-      // Use containerRef instead of undefined ref
-      if (containerRef.current) {
-        observer.observe(containerRef.current);
-      }
-
-      return () => {
-        if (containerRef.current) {
-          observer.unobserve(containerRef.current);
         }
       };
-    }, [event.id, onVisibilityChange]);
 
-    // Get location for map - with optimization
+      calculateVisibility();
+
+      // Also recalculate on scroll
+      window.addEventListener('scroll', calculateVisibility);
+      return () => window.removeEventListener('scroll', calculateVisibility);
+    }, [event.id, onVisibilityChange, sectionHeight]);
+
     useEffect(() => {
       // Skip if we don't have location info or we already have map data
       if (
@@ -154,124 +183,97 @@ const EventSection = memo(
       return () => clearTimeout(timerId);
     }, [event?.location, event?.latitude, event?.longitude, mapRegion]);
 
-    // If event is missing, render a placeholder
-    if (!event || !event.id) {
-      return (
-        <div className="error-container">
-          <p className="error-text">Invalid event data at position {index}</p>
-        </div>
-      );
-    }
+    // Get color from event, or use a default
+    const eventColor = event?.color || '#3357FF';
 
-    const slideshowImages = Array.isArray(event.slideshowImages)
-      ? event.slideshowImages
-      : event.coverImageUrl
-        ? [event.coverImageUrl]
-        : [];
+    // Create CSS variable styles for the event color
+    const colorStyles = {
+      '--event-color': eventColor,
+      '--event-glow-filter': `drop-shadow(0 0 8px ${hexToRgba(eventColor, 0.7)})`,
+      '--event-box-shadow': `0 0 20px ${hexToRgba(eventColor, 0.3)}, 
+                             inset 0 0 20px ${hexToRgba(eventColor, 0.1)}`,
+      '--event-border-color': hexToRgba(eventColor, 0.3),
+      '--event-wave-color': hexToRgba(eventColor, 0.15),
+    } as React.CSSProperties;
 
-    // Handle image error safely
-    const handleImageError = () => {
-      if (onImageError) {
-        onImageError(event.id);
-      }
-    };
+    // Log the color for debugging
+    useEffect(() => {
+      console.log(`Event ${event.id} color: ${eventColor}`);
+    }, [event.id, eventColor]);
 
     return (
-      <div className="event-section-container" ref={containerRef}>
-        <div className="event-section-inner">
-          <div className="event-content-row">
-            {/* Left column */}
-            <div className="event-left-column">
-              <AnimatedSection scrollY={scrollY} sectionY={sectionY} delay={delay}>
+      <div
+        ref={containerRef}
+        className="event-section-container"
+        style={colorStyles}
+        data-event-id={event.id}
+        data-event-color={eventColor}
+      >
+        <AnimatedSection delay={delay} scrollY={scrollY} sectionY={sectionY} triggerPoint={window.innerHeight * 0.7}>
+          <div className="event-section-inner">
+            <div className="event-content-row">
+              <div className="event-left-column">
                 <EventPrimaryContent
                   event={event}
-                  onImageError={handleImageError}
-                  onClick={() => {
-                    console.log('Navigating to event:', event.id);
-                    // Store current events in session storage before navigating
-                    try {
-                      const existingEvents = sessionStorage.getItem('all-events');
-                      if (!existingEvents) {
-                        sessionStorage.setItem('all-events', JSON.stringify([event]));
-                      } else {
-                        const events = JSON.parse(existingEvents);
-                        // If event is not already in storage, add it
-                        if (!events.find((e: any) => e.id === event.id)) {
-                          events.push(event);
-                          sessionStorage.setItem('all-events', JSON.stringify(events));
-                        }
-                      }
-                    } catch (e) {
-                      console.error('Error storing event in session storage:', e);
-                    }
-
-                    navigation.navigate(`/events/${event.id}`);
-                  }}
+                  onImageError={() => onImageError?.(event.id)}
+                  onClick={() => navigation.navigate(`/events/${event.id}`)}
                 />
-
-                {slideshowImages.length > 0 && (
-                  <div className="slideshow-container">
-                    <ImageSlideshow images={slideshowImages} height={200} interval={5000} showGradient={true} />
-                  </div>
-                )}
-
-                <div className="description-container">
-                  <h3 className="section-title">About this event</h3>
-                  <p className="description-text">{event.description || 'No description available'}</p>
-                </div>
-              </AnimatedSection>
-            </div>
-
-            {/* Right column */}
-            <div className="event-right-column">
-              <AnimatedSection scrollY={scrollY} sectionY={sectionY} delay={delay + 200}>
+              </div>
+              <div className="event-right-column">
                 <div className="secondary-container">
                   <EventSecondaryContent event={event} />
                 </div>
 
-                <div className="map-wrapper">
-                  <h3 className="section-title">Event Location</h3>
-                  <div className="map-container">
-                    {mapRegion ? (
-                      <Map
-                        region={mapRegion}
-                        markers={[
-                          {
-                            coordinate: {
-                              latitude: mapRegion.latitude,
-                              longitude: mapRegion.longitude,
-                            },
-                            title: event.name,
-                            description: event.location,
-                          },
-                        ]}
-                        style={{ width: '100%', height: '100%' }}
-                      />
-                    ) : (
-                      <div className="map-placeholder">
-                        <p className="placeholder-text">{locationError || 'Loading location...'}</p>
-                      </div>
-                    )}
+                {/* Show map if coordinates are available */}
+                {mapRegion ? (
+                  <div className="map-wrapper">
+                    <h3 className="section-title">Location</h3>
+                    <div className="map-container">
+                      <Map region={mapRegion} />
+                    </div>
+                    <p className="location-text">
+                      {typeof event.location === 'string' ? event.location : 'See map for details'}
+                    </p>
                   </div>
-                  <p className="location-text">
-                    {event.location || 'Location not specified'}
-                    {event.latitude && event.longitude
-                      ? ` (${event.latitude.toFixed(4)}, ${event.longitude.toFixed(4)})`
-                      : ''}
-                  </p>
-                </div>
-              </AnimatedSection>
-            </div>
-          </div>
-        </div>
+                ) : event.location ? (
+                  <div className="map-wrapper">
+                    <h3 className="section-title">Location</h3>
+                    <div className="map-placeholder">
+                      <p className="placeholder-text">
+                        {typeof event.location === 'string' ? event.location : 'Location information unavailable'}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
 
-        <div className="event-divider"></div>
+                {locationError && (
+                  <div className="error-container">
+                    <p className="error-text">{locationError}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Add slideshow if images are available */}
+            {event.slideshowImages && event.slideshowImages.length > 0 && (
+              <div className="slideshow-container">
+                <h3 className="section-title">Gallery</h3>
+                <ImageSlideshow images={event.slideshowImages} height={300} showGradient={true} />
+              </div>
+            )}
+
+            {/* Description section */}
+            {event.description && (
+              <div className="description-container">
+                <h3 className="section-title">About this event</h3>
+                <p className="description-text">{event.description}</p>
+              </div>
+            )}
+          </div>
+        </AnimatedSection>
       </div>
     );
   },
 );
-
-// Add display name for debugging
-EventSection.displayName = 'EventSection';
 
 export default EventSection;

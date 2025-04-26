@@ -5,6 +5,7 @@ import { filterEventsByProximity, getCurrentLocation, Coordinates } from '../../
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
+import spotifyService from '../../services/spotify-web-api';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import '../styles/Guest.css';
 
@@ -46,32 +47,30 @@ const GuestScreen = () => {
     radius?: number;
   }>({});
   const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
 
   // Gradient transition states
-  const [backgroundGradient, setBackgroundGradient] = useState('linear-gradient(to bottom, rgba(51, 87, 255, 0.2), rgba(51, 87, 255, 0.05))');
+  const [backgroundGradient, setBackgroundGradient] = useState(
+    'linear-gradient(to bottom, rgba(51, 87, 255, 0.2), rgba(51, 87, 255, 0.05))',
+  );
   const [currentColor, setCurrentColor] = useState(DEFAULT_COLOR);
   const [nextColor, setNextColor] = useState(DEFAULT_COLOR);
   const [transitionProgress, setTransitionProgress] = useState(0);
 
   const visibleEventsRef = useRef<{
     [id: string]: {
-      element: HTMLElement,
-      color: string,
-      top: number,
-      height: number,
-      visible: boolean
-    }
+      element: HTMLElement;
+      color: string;
+      top: number;
+      height: number;
+      visible: boolean;
+    };
   }>({});
 
   const navigate = useNavigate();
 
-  // Use ref for currentVisibleEvent to avoid triggering renders
   const currentVisibleEventRef = useRef<{ id: string; name: string }>({ id: '', name: '' });
-
-  // Refs for section positions
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-
-  // Flag to control re-fetches
   const hasLoadedEvents = useRef(false);
 
   const validateEvent = useCallback((event: any, index: number): Event | null => {
@@ -80,7 +79,6 @@ const GuestScreen = () => {
       return null;
     }
 
-    // Create a shallow copy to avoid mutating the original
     const validatedEvent = { ...event };
 
     // Always use MongoDB _id if available
@@ -88,8 +86,7 @@ const GuestScreen = () => {
       validatedEvent.id = validatedEvent._id.toString();
     } else if (!validatedEvent.id) {
       // Generate a proper MongoDB-like ID (24 hex chars)
-      const randomId = Array.from({ length: 24 }, () =>
-        Math.floor(Math.random() * 16).toString(16)).join('');
+      const randomId = Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
       validatedEvent.id = randomId; // No temp- prefix
     }
 
@@ -100,8 +97,7 @@ const GuestScreen = () => {
 
     if (!validatedEvent.id) {
       // Generate a valid MongoDB-like ID (24 hex chars)
-      const randomId = Array.from({ length: 24 }, () =>
-        Math.floor(Math.random() * 16).toString(16)).join('');
+      const randomId = Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
       validatedEvent.id = `demo-${randomId}`;
     }
 
@@ -169,7 +165,6 @@ const GuestScreen = () => {
     return validatedEvent;
   }, []);
 
-  // Create demo events if no real events are available
   const createDemoEvents = useCallback(() => {
     console.log('Creating demo events');
     const now = new Date();
@@ -231,13 +226,14 @@ const GuestScreen = () => {
     // Apply search filter if present
     const searchTerm = searchParams.get('search');
     if (searchTerm) {
-      filtered = filtered.filter(event =>
-        event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (event.location && event.location.toLowerCase().includes(searchTerm.toLowerCase()))
+      filtered = filtered.filter(
+        (event) =>
+          event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (event.location && event.location.toLowerCase().includes(searchTerm.toLowerCase())),
       );
       hasFilter = true;
-      setFilterCriteria(prev => ({ ...prev, search: searchTerm }));
+      setFilterCriteria((prev) => ({ ...prev, search: searchTerm }));
     }
 
     // Apply location filter if present
@@ -249,17 +245,17 @@ const GuestScreen = () => {
     if (hasNearbyFilter && lat && lng) {
       const userLocation = {
         latitude: parseFloat(lat),
-        longitude: parseFloat(lng)
+        longitude: parseFloat(lng),
       };
 
       const radiusValue = radius ? parseInt(radius) : 300;
 
       filtered = filterEventsByProximity(filtered, userLocation, radiusValue);
       hasFilter = true;
-      setFilterCriteria(prev => ({
+      setFilterCriteria((prev) => ({
         ...prev,
         nearbyLocation: userLocation,
-        radius: radiusValue
+        radius: radiusValue,
       }));
     }
 
@@ -299,34 +295,8 @@ const GuestScreen = () => {
     }
   }, [validateEvent, createDemoEvents]);
 
-  const handleVisibilityChange = useCallback((isVisible: boolean, eventId: string, element: HTMLElement | null) => {
-    if (!eventId || !element) return;
-
-    const event = events.find(e => e.id === eventId);
-    if (!event) return;
-
-    const eventColor = event.color || DEFAULT_COLOR;
-    const rect = element.getBoundingClientRect();
-
-    // Update our reference of visible events
-    visibleEventsRef.current[eventId] = {
-      element,
-      color: eventColor,
-      top: rect.top,
-      height: rect.height,
-      visible: isVisible
-    };
-
-    if (isVisible) {
-      setActiveEventId(eventId);
-    }
-
-    // Update colors based on visible events
-    updateGradientColors();
-  }, [events]);
-
   const updateGradientColors = useCallback(() => {
-    const visibleEvents = Object.values(visibleEventsRef.current).filter(e => e.visible);
+    const visibleEvents = Object.values(visibleEventsRef.current).filter((e) => e.visible);
     if (visibleEvents.length === 0) return;
 
     // Sort by position (top to bottom)
@@ -368,13 +338,78 @@ const GuestScreen = () => {
       setCurrentColor(closestEvent.color);
       setNextColor(nextEvent.color);
       setTransitionProgress(progress);
+
+      // Debug colors
+      console.log(`Setting colors: current=${closestEvent.color}, next=${nextEvent.color}, progress=${progress}`);
     } else {
       // Just use the current event's color
       setCurrentColor(closestEvent.color);
       setNextColor(closestEvent.color);
       setTransitionProgress(0);
+
+      // Debug color
+      console.log(`Setting single color: ${closestEvent.color}`);
     }
-  }, [scrollPosition]);
+  }, []);
+
+  // Update this part of the handleVisibilityChange function to remove path-specific code
+  const handleVisibilityChange = useCallback(
+    (isVisible: boolean, eventId: string, element: HTMLElement | null) => {
+      if (!eventId || !element) return;
+
+      const event = events.find((e) => e.id === eventId);
+      if (!event) return;
+
+      // Ensure we have a valid color
+      const eventColor = event.color || DEFAULT_COLOR;
+      console.log(
+        `Visibility change for event ${eventId}, name: ${event.name}, color: ${eventColor}, visible: ${isVisible}`,
+      );
+
+      const rect = element.getBoundingClientRect();
+
+      // Update our reference of visible events
+      visibleEventsRef.current[eventId] = {
+        element,
+        color: eventColor,
+        top: rect.top,
+        height: rect.height,
+        visible: isVisible,
+      };
+
+      if (isVisible) {
+        setActiveEventId(eventId);
+
+        // Apply color to the event section container
+        element.style.setProperty('--event-color', eventColor);
+
+        const rgbObj = hexToRgb(eventColor);
+        if (rgbObj) {
+          // First convert the RGB object to string format
+          const rgbString = `rgb(${rgbObj.r}, ${rgbObj.g}, ${rgbObj.b})`;
+
+          // Create CSS custom properties for the different rgba variations
+          const rgbaGlow = rgbString.replace('rgb', 'rgba').replace(')', ', 0.7)');
+          const rgbaShadowOuter = rgbString.replace('rgb', 'rgba').replace(')', ', 0.3)');
+          const rgbaShadowInner = rgbString.replace('rgb', 'rgba').replace(')', ', 0.1)');
+          const rgbaBorder = rgbString.replace('rgb', 'rgba').replace(')', ', 0.3)');
+
+          element.style.setProperty('--event-glow-filter', `drop-shadow(0 0 8px ${rgbaGlow})`);
+          element.style.setProperty(
+            '--event-box-shadow',
+            `0 0 20px ${rgbaShadowOuter}, inset 0 0 20px ${rgbaShadowInner}`,
+          );
+          element.style.setProperty('--event-border-color', rgbaBorder);
+        }
+      }
+
+      // Delay the gradient update slightly to ensure DOM updates have processed
+      requestAnimationFrame(() => {
+        updateGradientColors();
+      });
+    },
+    [events, updateGradientColors],
+  );
 
   const handleAroundMe = useCallback(() => {
     setIsLocationLoading(true);
@@ -395,19 +430,15 @@ const GuestScreen = () => {
       console.log(`Got location from ${source}: ${latitude}, ${longitude}`);
 
       // Filter events by proximity
-      const filtered = filterEventsByProximity(
-        events,
-        { latitude, longitude },
-        300
-      );
+      const filtered = filterEventsByProximity(events, { latitude, longitude }, 300);
 
       // Update state
       setFilteredEvents(filtered);
       setFilterApplied(true);
-      setFilterCriteria(prev => ({
+      setFilterCriteria((prev) => ({
         ...prev,
         nearbyLocation: { latitude, longitude },
-        radius: 300
+        radius: 300,
       }));
 
       // Update URL params
@@ -415,7 +446,7 @@ const GuestScreen = () => {
         near: 'true',
         lat: latitude.toString(),
         lng: longitude.toString(),
-        radius: '300'
+        radius: '300',
       });
 
       // Clean up
@@ -429,8 +460,8 @@ const GuestScreen = () => {
 
       // Try IP-based geolocation as last resort
       fetch('https://ipapi.co/json/')
-        .then(response => response.json())
-        .then(data => {
+        .then((response) => response.json())
+        .then((data) => {
           if (data.latitude && data.longitude) {
             applyLocationFilter(data.latitude, data.longitude, 'IP geolocation');
 
@@ -493,23 +524,28 @@ const GuestScreen = () => {
 
     // Try browser geolocation first
     getCurrentLocation()
-      .then(coords => {
+      .then((coords) => {
         applyLocationFilter(coords.latitude, coords.longitude, 'browser geolocation');
       })
       .catch(handleFailure);
-
   }, [events, setSearchParams, filterEventsByProximity]);
 
   useEffect(() => {
     try {
-      const startRgb = hexToRgb(currentColor) || hexToRgb(DEFAULT_COLOR);
-      const endRgb = hexToRgb(nextColor) || hexToRgb(DEFAULT_COLOR);
+      const startRgb = hexToRgb(currentColor);
+      const endRgb = hexToRgb(nextColor);
 
+      // Create a more complex gradient with the interpolated color
       if (startRgb && endRgb) {
-        const interpolatedColor = interpolateColors(startRgb, endRgb, transitionProgress);
-        const gradient = `linear-gradient(to bottom, 
-          rgba(${interpolatedColor.r}, ${interpolatedColor.g}, ${interpolatedColor.b}, 0.2), 
-          rgba(${interpolatedColor.r}, ${interpolatedColor.g}, ${interpolatedColor.b}, 0.05))`;
+        const gradient = `
+        radial-gradient(circle at 50% 0%, ${startRgb}33 0%, transparent 55%),
+        radial-gradient(circle at 0% 50%, ${startRgb}22 0%, transparent 45%),
+        radial-gradient(circle at 100% 50%, ${endRgb}22 0%, transparent 45%),
+        linear-gradient(to bottom, 
+          ${startRgb}22, 
+          ${endRgb}11
+        )
+      `;
 
         setBackgroundGradient(gradient);
       }
@@ -526,7 +562,7 @@ const GuestScreen = () => {
       setScrollPosition(position);
 
       // Update event visibility measurements
-      Object.keys(visibleEventsRef.current).forEach(id => {
+      Object.keys(visibleEventsRef.current).forEach((id) => {
         const eventInfo = visibleEventsRef.current[id];
         if (eventInfo.element) {
           const rect = eventInfo.element.getBoundingClientRect();
@@ -563,6 +599,21 @@ const GuestScreen = () => {
   useEffect(() => {
     applyFilters();
   }, [applyFilters, events, searchParams]);
+
+  useEffect(() => {
+    const checkSpotifyConnection = async () => {
+      try {
+        const isConnected = await spotifyService.isUserAuthenticated();
+        setIsSpotifyConnected(isConnected);
+        console.log('Spotify connection status:', isConnected ? 'Connected' : 'Not connected');
+      } catch (error) {
+        console.error('Error checking Spotify connection:', error);
+        setIsSpotifyConnected(false);
+      }
+    };
+
+    checkSpotifyConnection();
+  }, []);
 
   const handleEventClick = useCallback(
     (eventId: string) => {
@@ -667,7 +718,7 @@ const GuestScreen = () => {
           right: 0,
           bottom: 0,
           zIndex: -1,
-          transition: 'background 0.8s ease-out'
+          transition: 'background 1.2s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       />
 
@@ -767,7 +818,6 @@ const GuestScreen = () => {
               </button>
             </div>
           )}
-
         </div>
 
         {eventsToDisplay.length === 0 ? (
@@ -775,7 +825,9 @@ const GuestScreen = () => {
             {filterApplied ? (
               <>
                 <p className="no-events-text">No events match your search criteria.</p>
-                <button className="clear-filters-button" onClick={clearFilters}>Clear Filters</button>
+                <button className="clear-filters-button" onClick={clearFilters}>
+                  Clear Filters
+                </button>
               </>
             ) : (
               <p className="no-events-text">No events found. Check back soon for new events!</p>
@@ -788,9 +840,7 @@ const GuestScreen = () => {
         )}
       </main>
 
-
-      {/* Spotify Radio Overlay
-      {currentActiveEvent && (
+      {currentActiveEvent && isSpotifyConnected && (
         <SpotifyRadioOverlay
           currentEvent={currentActiveEvent}
           isPlaying={isRadioPlaying}
@@ -799,7 +849,42 @@ const GuestScreen = () => {
           expanded={isOverlayExpanded}
         />
       )}
-      */}
+
+      {currentActiveEvent && !isSpotifyConnected && scrollPosition > 300 && (
+        <div className="spotify-connection-prompt">
+          <div className="prompt-content">
+            <i className="fab fa-spotify spotify-icon"></i>
+            <p>Connect to Spotify to listen to event soundtracks</p>
+            <button
+              className="connect-button"
+              onClick={async () => {
+                try {
+                  const authUrl = await spotifyService.getAuthorizationUrl();
+                  window.location.href = authUrl;
+                } catch (error) {
+                  console.error('Failed to get Spotify authorization URL:', error);
+                  alert('Could not connect to Spotify. Please try again later.');
+                }
+              }}
+            >
+              Connect
+            </button>
+            <button
+              className="dismiss-button"
+              onClick={() => {
+                const prompt = document.querySelector('.spotify-connection-prompt');
+                if (prompt) prompt.classList.add('dismissed');
+                setTimeout(() => {
+                  const prompt = document.querySelector('.spotify-connection-prompt');
+                  if (prompt) prompt.remove();
+                }, 300);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <Footer />

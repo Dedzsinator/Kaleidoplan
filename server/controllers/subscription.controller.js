@@ -10,7 +10,6 @@ const nodemailer = require('nodemailer');
 const subscribe = async (req, res, next) => {
   try {
     const { email, eventId } = req.body;
-    console.log(`Subscription request for email: ${email}, event: ${eventId}`);
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -32,12 +31,12 @@ const subscribe = async (req, res, next) => {
         if (mongoose.Types.ObjectId.isValid(eventId)) {
           eventObject = await Event.findById(eventId);
         }
-        
+
         // If not found, try string ID
         if (!eventObject) {
           eventObject = await Event.findOne({ id: eventId });
         }
-        
+
         if (eventObject) {
           eventName = eventObject.name;
         }
@@ -52,13 +51,12 @@ const subscribe = async (req, res, next) => {
       if (eventId && !subscription.eventIds.includes(eventId)) {
         subscription.eventIds.push(eventId);
       }
-      
+
       if (!subscription.isConfirmed) {
         subscription.confirmationToken = confirmationToken;
       }
-      
+
       await subscription.save();
-      console.log(`Updated existing subscription for ${email}`);
     } else {
       // Create new subscription
       subscription = new Subscription({
@@ -66,15 +64,13 @@ const subscribe = async (req, res, next) => {
         eventIds: eventId ? [eventId] : [],
         confirmationToken,
       });
-      
+
       await subscription.save();
-      console.log(`Created new subscription for ${email}`);
     }
 
     // Send confirmation email
     try {
       await sendConfirmationEmail(email, confirmationToken, eventName);
-      console.log(`Confirmation email sent to ${email}`);
     } catch (emailError) {
       console.error('Failed to send confirmation email:', emailError);
       // Continue even if email fails - we've saved the subscription
@@ -86,9 +82,9 @@ const subscribe = async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error creating subscription:', error);
-    return res.status(500).json({ 
-      error: 'An error occurred while processing your subscription', 
-      details: error.message 
+    return res.status(500).json({
+      error: 'An error occurred while processing your subscription',
+      details: error.message,
     });
   }
 };
@@ -186,5 +182,5 @@ const unsubscribe = async (req, res, next) => {
 module.exports = {
   subscribe,
   confirmSubscription,
-  unsubscribe
+  unsubscribe,
 };

@@ -43,8 +43,8 @@ const DashboardScreen: React.FC = () => {
           setUserEvents(events);
 
           // Filter events by interest level
-          setAttendingEvents(events.filter(event => event.interestLevel === 'attending'));
-          setInterestedEvents(events.filter(event => event.interestLevel === 'interested'));
+          setAttendingEvents(events.filter((event) => event.interestLevel === 'attending'));
+          setInterestedEvents(events.filter((event) => event.interestLevel === 'interested'));
         } else {
           console.log('No user events found');
           setUserEvents([]);
@@ -77,7 +77,6 @@ const DashboardScreen: React.FC = () => {
 
       // Refresh user data immediately
       await refreshUserToken();
-
     } catch (error: any) {
       console.error('Error setting admin role:', error);
       alert(`Error setting admin role: ${error.message || 'Unknown error'}`);
@@ -121,7 +120,6 @@ const DashboardScreen: React.FC = () => {
       </div>
     );
   };
-
 
   return (
     <div className="dashboard-container">

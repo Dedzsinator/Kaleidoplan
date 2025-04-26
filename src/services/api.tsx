@@ -29,7 +29,7 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
       ...options,
       headers: {
         ...options.headers,
-        'Authorization': token ? `Bearer ${token}` : '',
+        Authorization: token ? `Bearer ${token}` : '',
         'Content-Type': 'application/json',
       },
     };
@@ -40,7 +40,7 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
     if (!response.ok) {
       console.error(`API request failed: ${endpoint}`, {
         status: response.status,
-        statusText: response.statusText
+        statusText: response.statusText,
       });
       // Try to get response body even for errors
       try {
@@ -215,7 +215,7 @@ const post = async (endpoint: string, data: any, options?: RequestInit): Promise
       return {
         success: true,
         message: text || 'Operation completed',
-        statusCode: response.status
+        statusCode: response.status,
       };
     }
   } catch (error) {
@@ -291,7 +291,7 @@ const api = {
   post,
   put,
   patch,
-  delete: deleteRequest
+  delete: deleteRequest,
 };
 
 export default api;

@@ -3,9 +3,6 @@ const User = require('../models/user.model');
 const OrganizerEvent = require('../models/organizer-event.model');
 
 exports.requireAdmin = (req, res, next) => {
-  console.log('Checking admin privileges for user:', req.user?.email);
-  console.log('User claims:', req.user);
-
   // Check for admin role in Firebase custom claims
   if (
     req.user &&
@@ -30,20 +27,18 @@ exports.verifyToken = async (req, res, next) => {
   try {
     // Get token from header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('No auth token provided');
       return res.status(401).json({ error: 'No authentication token provided' });
     }
-    
+
     const token = authHeader.split(' ')[1];
-    
+
     // Verify token with Firebase
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
     req.uid = decodedToken.uid; // Ensure this is set correctly
-    
-    console.log(`Token verified for user: ${decodedToken.email}, UID: ${decodedToken.uid}`);
+
     next();
   } catch (error) {
     console.error('Error verifying token:', error);
@@ -56,25 +51,23 @@ exports.attachUserData = async (req, res, next) => {
     if (!req.user) {
       return next();
     }
-    
+
     // Make sure we set uid properly from the token
     if (!req.user.uid && req.uid) {
       req.user.uid = req.uid; // Make sure this line exists
     }
-    
+
     const user = await User.findOne({ uid: req.uid });
-    console.log(`Looking for user with uid: ${req.uid}, found: ${user ? 'yes' : 'no'}`);
-    
+
     if (user) {
       // When attaching MongoDB user data, preserve the original uid!
       req.userData = user.toObject();
       req.user = {
         ...req.userData,
-        uid: req.uid // Ensure uid is kept from Firebase token
+        uid: req.uid, // Ensure uid is kept from Firebase token
       };
     }
-    
-    console.log('User data attached:', req.user);
+
     next();
   } catch (error) {
     console.error('Error attaching user data:', error);
@@ -107,17 +100,6 @@ exports.requireRole = (roles) => {
 };
 
 exports.requireAdmin = (req, res, next) => {
-  console.log(
-    'Checking admin privileges for user:',
-    req.userData
-      ? {
-          uid: req.userData.uid,
-          email: req.userData.email,
-          role: req.userData.role,
-        }
-      : 'No user data',
-  );
-
   // Check for admin role in both places
   if (
     (req.userData && req.userData.role === 'admin') ||
@@ -140,35 +122,28 @@ exports.requireAdmin = (req, res, next) => {
 
 exports.requireOrganizerOrAdmin = async (req, res, next) => {
   try {
-    console.log('Checking organizer/admin privileges for user:', req.user?.email);
-    
     // Admin can always access
     if (req.user && req.user.role === 'admin') {
-      console.log('User is admin - access granted');
       return next();
     }
-    
+
     // For organizers, check both in Firebase token claims and MongoDB
     if (req.user && req.user.role === 'organizer') {
-      console.log('User is organizer in Firebase claims');
       return next();
     }
-    
+
     // Also check MongoDB user record
     const user = await User.findOne({ uid: req.user.uid });
     if (user && user.role === 'organizer') {
-      console.log('User is organizer in MongoDB');
       return next();
     }
-    
+
     // Final check - see if they have any event assignments
     const hasEvents = await OrganizerEvent.exists({ userId: req.user.uid });
     if (hasEvents) {
-      console.log('User has organizer event assignments');
       return next();
     }
-    
-    console.log('User is not an organizer or admin');
+
     return res.status(403).json({ error: 'Forbidden: Requires organizer or admin role' });
   } catch (error) {
     console.error('Error in requireOrganizerOrAdmin middleware:', error);
@@ -190,11 +165,11 @@ exports.checkEventOwnership = async (req, res, next) => {
     }
 
     // Check if user is organizer of this specific event
-    const isOrganizer = await OrganizerEvent.exists({ 
+    const isOrganizer = await OrganizerEvent.exists({
       userId: req.user.uid,
-      eventId: eventId
+      eventId: eventId,
     });
-    
+
     if (isOrganizer) {
       return next();
     }

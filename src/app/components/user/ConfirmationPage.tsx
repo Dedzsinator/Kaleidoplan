@@ -40,7 +40,9 @@ const SubscriptionConfirmPage = () => {
           <h2>Subscription Confirmed!</h2>
           <p>{message}</p>
           <p>You'll now receive updates about upcoming events every Monday.</p>
-          <Link to="/" className="back-home-button">Back to Events</Link>
+          <Link to="/" className="back-home-button">
+            Back to Events
+          </Link>
         </div>
       )}
 
@@ -49,7 +51,9 @@ const SubscriptionConfirmPage = () => {
           <div className="error-icon">!</div>
           <h2>Confirmation Failed</h2>
           <p>{message}</p>
-          <Link to="/" className="back-home-button">Back to Events</Link>
+          <Link to="/" className="back-home-button">
+            Back to Events
+          </Link>
         </div>
       )}
     </div>

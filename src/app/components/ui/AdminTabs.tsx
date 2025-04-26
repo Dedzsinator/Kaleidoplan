@@ -18,7 +18,10 @@ export const AdminTabs: React.FC<TabsProps> = ({ activeTab, setActiveTab }) => {
         <span className="tab-text">User Roles</span>
       </button>
 
-      <button className={`tab ${activeTab === 'organizers' ? 'active' : ''}`} onClick={() => setActiveTab('organizers')}>
+      <button
+        className={`tab ${activeTab === 'organizers' ? 'active' : ''}`}
+        onClick={() => setActiveTab('organizers')}
+      >
         <span className="tab-icon">🔑</span>
         <span className="tab-text">Event Organizers</span>
       </button>

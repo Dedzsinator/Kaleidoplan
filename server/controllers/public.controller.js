@@ -4,20 +4,14 @@ const Event = require('../models/event.model');
 // Get all public events
 exports.getPublicEvents = async (req, res, next) => {
   try {
-    console.log('Fetching public events');
-
     // First, check total events count
     const totalEvents = await Event.countDocuments({});
-    console.log(`Total events in database: ${totalEvents}`);
 
     // Just get all events without filtering
     const events = await Event.find({}).sort({ startDate: 1 }).limit(15);
 
-    console.log(`Found ${events.length} events`);
-
     // If no events found, create demo events
     if (events.length === 0) {
-      console.log('No events found, creating demo events');
       const demoEvents = createDemoEvents();
       return res.json({ events: demoEvents });
     }

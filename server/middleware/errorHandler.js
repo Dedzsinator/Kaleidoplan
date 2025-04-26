@@ -15,7 +15,7 @@ const errorHandler = (err, req, res, next) => {
     return res.status(409).json({
       error: 'Duplicate Key Error',
       details: `Duplicate value for ${Object.keys(err.keyValue).join(', ')}`,
-      message: 'This organizer is already assigned to this event'
+      message: 'This organizer is already assigned to this event',
     });
   }
 
@@ -23,7 +23,7 @@ const errorHandler = (err, req, res, next) => {
   if (err.name === 'CastError') {
     return res.status(400).json({
       error: 'Invalid ID Format',
-      details: err.message
+      details: err.message,
     });
   }
 

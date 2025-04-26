@@ -41,10 +41,7 @@ export const EventOrganizersTab: React.FC = () => {
         console.log('Fetching events and users...');
 
         // Use the updated service that explicitly requests organizer info
-        const [eventsData, usersData] = await Promise.all([
-          getEventsWithOrganizers(),
-          getAllUsers()
-        ]);
+        const [eventsData, usersData] = await Promise.all([getEventsWithOrganizers(), getAllUsers()]);
 
         console.log('Events data received:', eventsData);
         console.log('Users data received:', usersData);
@@ -57,7 +54,7 @@ export const EventOrganizersTab: React.FC = () => {
 
           // Normalize all assignment keys for consistent lookup
           if (organizerAssignmentsResponse && organizerAssignmentsResponse.assignments) {
-            Object.keys(organizerAssignmentsResponse.assignments).forEach(eventId => {
+            Object.keys(organizerAssignmentsResponse.assignments).forEach((eventId) => {
               const normalizedId = normalizeEventId(eventId);
               assignments[normalizedId] = organizerAssignmentsResponse.assignments[eventId];
             });
@@ -74,7 +71,7 @@ export const EventOrganizersTab: React.FC = () => {
         // Rest of your function remains the same
         const allNormalizedUsers = usersData.map((user: any) => ({
           ...user,
-          id: getUserId(user)
+          id: getUserId(user),
         }));
 
         // Also normalize the event IDs to be consistent
@@ -85,19 +82,22 @@ export const EventOrganizersTab: React.FC = () => {
             id: event.id || event._id,
             _id: event._id || event.id,
             // Add a normalized ID for consistent lookup
-            normalizedId
+            normalizedId,
           };
         });
 
-        console.log('Normalized events:', normalizedEvents.map((e: Event) => ({
-          id: e.id,
-          _id: e._id,
-          normalizedId: e.normalizedId,
-          name: e.name
-        })));
+        console.log(
+          'Normalized events:',
+          normalizedEvents.map((e: Event) => ({
+            id: e.id,
+            _id: e._id,
+            normalizedId: e.normalizedId,
+            name: e.name,
+          })),
+        );
 
-        const organizers = allNormalizedUsers.filter(user => user.role === 'organizer');
-        const regularUsers = allNormalizedUsers.filter(user => user.role === 'user');
+        const organizers = allNormalizedUsers.filter((user) => user.role === 'organizer');
+        const regularUsers = allNormalizedUsers.filter((user) => user.role === 'user');
 
         // Use the normalized events instead
         setEvents(normalizedEvents);
@@ -125,7 +125,7 @@ export const EventOrganizersTab: React.FC = () => {
       setError(''); // Clear any previous errors
 
       // Find the complete event object to get the MongoDB _id
-      const selectedEventObj = events.find(e => e.id === selectedEvent);
+      const selectedEventObj = events.find((e) => e.id === selectedEvent);
 
       if (!selectedEventObj) {
         setError('Selected event no longer exists.');
@@ -140,7 +140,7 @@ export const EventOrganizersTab: React.FC = () => {
       console.log(`Assigning user ${selectedUser} to ${isDraftEvent ? 'draft' : 'published'} event ${eventIdForApi}`);
 
       // First ensure user has organizer role
-      const selectedUserObj = users.find(user => getUserId(user) === selectedUser);
+      const selectedUserObj = users.find((user) => getUserId(user) === selectedUser);
       console.log('Selected user object:', selectedUserObj);
 
       if (selectedUserObj && selectedUserObj.role !== 'organizer') {
@@ -167,9 +167,9 @@ export const EventOrganizersTab: React.FC = () => {
 
           // Still update the UI if needed
           if (!organizerAssignments[selectedEvent]?.includes(selectedUser)) {
-            setOrganizerAssignments(prev => ({
+            setOrganizerAssignments((prev) => ({
               ...prev,
-              [selectedEvent]: [...(prev[selectedEvent] || []), selectedUser]
+              [selectedEvent]: [...(prev[selectedEvent] || []), selectedUser],
             }));
           }
 
@@ -200,7 +200,7 @@ export const EventOrganizersTab: React.FC = () => {
       setLoading(true);
 
       // Find the event to get the proper MongoDB _id
-      const eventObj = events.find(e => e.id === eventId);
+      const eventObj = events.find((e) => e.id === eventId);
       if (!eventObj) {
         setError('Event not found. Please refresh the page.');
         setLoading(false);
@@ -239,25 +239,25 @@ export const EventOrganizersTab: React.FC = () => {
     }
   };
 
-  const filteredEvents = events.filter(event =>
-    event.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredEvents = events.filter((event) => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  const filteredUsers = users.filter(user =>
-  (user.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-    user.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase()))
+  const filteredUsers = users.filter(
+    (user) =>
+      user.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      user.displayName?.toLowerCase().includes(userSearchTerm.toLowerCase()),
   );
 
   const getOrganizerName = (userId: string) => {
-    const user = users.find(u => getUserId(u) === userId);
-    return user ? (user.displayName || user.email) : 'Unknown User';
+    const user = users.find((u) => getUserId(u) === userId);
+    return user ? user.displayName || user.email : 'Unknown User';
   };
 
   return (
     <div className="event-organizers-tab">
       <h2>Assign Organizers to Events</h2>
       <p className="tab-description">
-        Assign users as organizers to specific events. Organizers can manage details, content, and settings for their assigned events.
+        Assign users as organizers to specific events. Organizers can manage details, content, and settings for their
+        assigned events.
       </p>
 
       {error && (
@@ -288,7 +288,7 @@ export const EventOrganizersTab: React.FC = () => {
             ) : filteredEvents.length === 0 ? (
               <p className="no-results">No events found</p>
             ) : (
-              filteredEvents.map(event => (
+              filteredEvents.map((event) => (
                 <div
                   key={event.id}
                   className={`event-item ${selectedEvent === event.id ? 'selected' : ''}`}
@@ -297,9 +297,7 @@ export const EventOrganizersTab: React.FC = () => {
                   <div className="event-color" style={{ backgroundColor: event.color || '#3357FF' }}></div>
                   <div className="event-details">
                     <div className="event-name">{event.name}</div>
-                    <div className="event-date">
-                      {new Date(event.startDate).toLocaleDateString()}
-                    </div>
+                    <div className="event-date">{new Date(event.startDate).toLocaleDateString()}</div>
                   </div>
                 </div>
               ))
@@ -326,12 +324,12 @@ export const EventOrganizersTab: React.FC = () => {
               <>
                 {/* Organizers Group */}
                 <div className="user-group-header">Organizers</div>
-                {filteredUsers.filter(user => user.role === 'organizer').length === 0 ? (
+                {filteredUsers.filter((user) => user.role === 'organizer').length === 0 ? (
                   <p className="no-results-subgroup">No organizers found</p>
                 ) : (
                   filteredUsers
-                    .filter(user => user.role === 'organizer')
-                    .map(user => (
+                    .filter((user) => user.role === 'organizer')
+                    .map((user) => (
                       <div
                         key={getUserId(user)}
                         className={`user-item ${selectedUser === getUserId(user) ? 'selected' : ''}`}
@@ -339,7 +337,7 @@ export const EventOrganizersTab: React.FC = () => {
                       >
                         <div className="user-avatar">
                           {user.photoURL ? (
-                            <img src={user.photoURL || undefined} alt={"DISP"} />
+                            <img src={user.photoURL || undefined} alt={'DISP'} />
                           ) : (
                             <div className="avatar-placeholder">
                               {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
@@ -357,12 +355,12 @@ export const EventOrganizersTab: React.FC = () => {
 
                 {/* Regular Users Group - can be promoted to organizers */}
                 <div className="user-group-header">Regular Users</div>
-                {filteredUsers.filter(user => user.role === 'user').length === 0 ? (
+                {filteredUsers.filter((user) => user.role === 'user').length === 0 ? (
                   <p className="no-results-subgroup">No regular users found</p>
                 ) : (
                   filteredUsers
-                    .filter(user => user.role === 'user')
-                    .map(user => (
+                    .filter((user) => user.role === 'user')
+                    .map((user) => (
                       <div
                         key={getUserId(user)}
                         className={`user-item ${selectedUser === getUserId(user) ? 'selected' : ''}`}
@@ -370,7 +368,7 @@ export const EventOrganizersTab: React.FC = () => {
                       >
                         <div className="user-avatar">
                           {user.photoURL ? (
-                            <img src={user.photoURL} alt={"DISP"} />
+                            <img src={user.photoURL} alt={'DISP'} />
                           ) : (
                             <div className="avatar-placeholder">
                               {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
@@ -406,7 +404,7 @@ export const EventOrganizersTab: React.FC = () => {
         {events.length === 0 ? (
           <p className="no-results">No events available</p>
         ) : (
-          events.map(event => (
+          events.map((event) => (
             <div key={event.id} className="event-assignment">
               <div className="event-header">
                 <div className="event-color" style={{ backgroundColor: event.color || '#3357FF' }}></div>
@@ -421,10 +419,7 @@ export const EventOrganizersTab: React.FC = () => {
                   const normalizedId = event.normalizedId || normalizeEventId(eventId);
 
                   // Try multiple formats of the ID to find assignments
-                  const assignments =
-                    organizerAssignments[normalizedId] ||
-                    organizerAssignments[eventId] ||
-                    [];
+                  const assignments = organizerAssignments[normalizedId] || organizerAssignments[eventId] || [];
 
                   // Log each event with its assignments to debug
                   console.log(`Event ${event.name}:`, {
@@ -432,13 +427,13 @@ export const EventOrganizersTab: React.FC = () => {
                     mongoId,
                     normalizedId,
                     hasAssignments: assignments.length > 0,
-                    assignments
+                    assignments,
                   });
 
                   return assignments.length === 0 ? (
                     <p className="no-organizers">No organizers assigned</p>
                   ) : (
-                    assignments.map(organizerId => (
+                    assignments.map((organizerId) => (
                       <div key={organizerId} className="organizer-item">
                         <span className="organizer-name">{getOrganizerName(organizerId)}</span>
                         <button

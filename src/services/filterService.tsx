@@ -8,10 +8,7 @@ export interface Coordinates {
 /**
  * Calculate distance between two points in kilometers using the Haversine formula
  */
-export const calculateDistance = (
-  coords1: Coordinates,
-  coords2: Coordinates
-): number => {
+export const calculateDistance = (coords1: Coordinates, coords2: Coordinates): number => {
   const toRad = (value: number) => (value * Math.PI) / 180;
 
   const R = 6371; // Earth radius in kilometers
@@ -20,10 +17,7 @@ export const calculateDistance = (
 
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(coords1.latitude)) *
-    Math.cos(toRad(coords2.latitude)) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
+    Math.cos(toRad(coords1.latitude)) * Math.cos(toRad(coords2.latitude)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
@@ -37,7 +31,7 @@ export const calculateDistance = (
 export const filterEventsByProximity = (
   events: Event[],
   userLocation: Coordinates,
-  radiusKm: number = 300
+  radiusKm: number = 300,
 ): Event[] => {
   return events.filter((event) => {
     if (!event.latitude || !event.longitude) return false;
@@ -93,8 +87,8 @@ export const getCurrentLocation = (): Promise<Coordinates> => {
         {
           enableHighAccuracy: false,
           timeout: 5000,
-          maximumAge: 300000 // 5 minutes
-        }
+          maximumAge: 300000, // 5 minutes
+        },
       );
     };
 
@@ -117,8 +111,8 @@ export const getCurrentLocation = (): Promise<Coordinates> => {
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 60000 // 1 minute
-        }
+          maximumAge: 60000, // 1 minute
+        },
       );
     };
 
@@ -141,8 +135,8 @@ export const getCurrentLocation = (): Promise<Coordinates> => {
         {
           enableHighAccuracy: false,
           timeout: 5000,
-          maximumAge: 3600000 // 1 hour - accept any cached position
-        }
+          maximumAge: 3600000, // 1 hour - accept any cached position
+        },
       );
     };
 
@@ -158,7 +152,7 @@ const cacheLocation = (coordinates: Coordinates): void => {
   try {
     const locationData = {
       coordinates,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
     localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify(locationData));
     console.log('Location cached successfully');

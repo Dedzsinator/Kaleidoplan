@@ -420,7 +420,8 @@
   gap: 10px;
 }
 
-.view-tasks, .add-task {
+.view-tasks,
+.add-task {
   padding: 6px 12px;
   font-size: 0.9rem;
   border-radius: 4px;
@@ -430,7 +431,8 @@
   transition: all 0.2s;
 }
 
-.view-tasks:hover, .add-task:hover {
+.view-tasks:hover,
+.add-task:hover {
   background-color: #e0e0e0;
 }
 
@@ -450,7 +452,7 @@
 }
 
 .complete-button {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
   border: none;
   border-radius: 4px;

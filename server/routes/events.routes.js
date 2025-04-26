@@ -3,53 +3,42 @@ const router = express.Router();
 const eventsController = require('../controllers/events.controller');
 const authMiddleware = require('../middleware/auth');
 
-router.get('/managed', 
-  authMiddleware.verifyToken, 
-  eventsController.getManagedEvents
-);
+router.get('/managed', authMiddleware.verifyToken, eventsController.getManagedEvents);
 
-router.get('/all', 
-  authMiddleware.verifyToken, 
-  authMiddleware.attachUserData, 
-  authMiddleware.requireAdmin, 
-  eventsController.getAllEvents
+router.get(
+  '/all',
+  authMiddleware.verifyToken,
+  authMiddleware.attachUserData,
+  authMiddleware.requireAdmin,
+  eventsController.getAllEvents,
 );
 
 // Regular event routes with parameters - must come AFTER special routes
 router.get('/', eventsController.getAllEvents);
 router.get('/:id', eventsController.getEventById);
-router.post('/', 
-  authMiddleware.verifyToken, 
-  authMiddleware.attachUserData, 
-  eventsController.createEvent
-);
-router.put('/:id', 
-  authMiddleware.verifyToken, 
-  authMiddleware.attachUserData, 
-  eventsController.updateEvent
-);
-router.delete('/:id', 
-  authMiddleware.verifyToken, 
-  authMiddleware.attachUserData, 
-  eventsController.deleteEvent
-);
-router.get('/:id/interests', 
-  authMiddleware.verifyToken, 
-  authMiddleware.attachUserData, 
-  eventsController.getEventInterests
+router.post('/', authMiddleware.verifyToken, authMiddleware.attachUserData, eventsController.createEvent);
+router.put('/:id', authMiddleware.verifyToken, authMiddleware.attachUserData, eventsController.updateEvent);
+router.delete('/:id', authMiddleware.verifyToken, authMiddleware.attachUserData, eventsController.deleteEvent);
+router.get(
+  '/:id/interests',
+  authMiddleware.verifyToken,
+  authMiddleware.attachUserData,
+  eventsController.getEventInterests,
 );
 
-router.post('/:id/interest', 
-  authMiddleware.verifyToken, 
+router.post(
+  '/:id/interest',
+  authMiddleware.verifyToken,
   authMiddleware.attachUserData,
-  eventsController.toggleEventInterest
+  eventsController.toggleEventInterest,
 );
 
 // Check if user is interested in an event
-router.get('/:id/interest',
+router.get(
+  '/:id/interest',
   authMiddleware.verifyToken,
   authMiddleware.attachUserData,
-  eventsController.checkEventInterest
+  eventsController.checkEventInterest,
 );
 
 module.exports = router;
