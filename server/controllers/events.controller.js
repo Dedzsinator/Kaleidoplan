@@ -93,23 +93,39 @@ const uploadEventImage = (req, res) => {
       });
     }
 
-    // Create image URL
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const imageUrl = `${baseUrl}/uploads/events/${req.file.filename}`;
+    // Try to update event or perform other operations
+    try {
+      // Create image URL
+      const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+      const imageUrl = `${baseUrl}/uploads/events/${req.file.filename}`;
 
-    // Return success response
-    return res.status(200).json({
-      success: true,
-      message: 'Image uploaded successfully',
-      imageUrl: imageUrl,
-      imageType: req.body.imageType || 'cover',
-    });
+      // Return success response
+      return res.status(200).json({
+        success: true,
+        message: 'Image uploaded successfully',
+        imageUrl: imageUrl,
+        imageType: req.body.imageType || 'cover',
+      });
+    } catch (error) {
+      // Delete the file if any error occurs after upload
+      if (req.file && req.file.path) {
+        fs.unlink(req.file.path, (unlinkErr) => {
+          if (unlinkErr) console.error('Error deleting file:', unlinkErr);
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: `Server error after upload: ${error.message}`,
+      });
+    }
   });
 };
 
-// Multiple image upload controller
 const uploadMultipleEventImages = (req, res) => {
   uploadMultiple(req, res, async function (err) {
+    // Track uploaded files to delete them on error
+    const filesToDelete = [];
+
     if (err instanceof multer.MulterError) {
       console.error('Multer error:', err);
       return res.status(400).json({
@@ -133,37 +149,14 @@ const uploadMultipleEventImages = (req, res) => {
       });
     }
 
-    const { eventId } = req.body;
-
-    if (!eventId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Event ID is required',
-      });
-    }
-
     try {
       // Create image URLs
       const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
       const imageUrls = req.files.map((file) => `${baseUrl}/uploads/events/${file.filename}`);
 
-      try {
-        const event = await Event.findById(eventId);
+      // commented out the part where the event is getting updated (i dont want to save images in static storage, only db)
 
-        if (event) {
-          if (!event.slideshowImages) {
-            event.slideshowImages = [];
-          }
-
-          event.slideshowImages = [...event.slideshowImages, ...imageUrls];
-          await event.save();
-        }
-      } catch (eventError) {
-        console.error('Error updating event with new images:', eventError);
-        // Continue anyway - we'll return the image URLs even if we couldn't update the event
-      }
-
-      // Return success response
+      // Return success response with image URLs
       return res.status(200).json({
         success: true,
         message: 'Images uploaded successfully',
@@ -171,11 +164,27 @@ const uploadMultipleEventImages = (req, res) => {
       });
     } catch (error) {
       console.error('Error in upload handler:', error);
+
+      // Delete all uploaded files on any error
+      deleteUploadedFiles(filesToDelete);
+
       return res.status(500).json({
         success: false,
         message: 'Server error processing uploaded files',
       });
     }
+  });
+};
+
+// Helper function to delete uploaded files
+const deleteUploadedFiles = (filePaths) => {
+  if (!filePaths || !filePaths.length) return;
+
+  filePaths.forEach((filePath) => {
+    fs.unlink(filePath, (err) => {
+      if (err) console.error(`Error deleting file ${filePath}:`, err);
+      else console.warn(`Successfully deleted file: ${filePath}`);
+    });
   });
 };
 
@@ -326,6 +335,29 @@ const createEvent = async (req, res, next) => {
   }
 };
 
+const validateEventData = (data) => {
+  const errors = [];
+
+  // Required fields
+  if (data.name !== undefined && (!data.name || data.name.trim() === '')) {
+    errors.push('Event name cannot be empty');
+  }
+
+  // Type validation
+  if (data.startDate && isNaN(new Date(data.startDate).getTime())) {
+    errors.push('Invalid start date format');
+  }
+  if (data.endDate && isNaN(new Date(data.endDate).getTime())) {
+    errors.push('Invalid end date format');
+  }
+
+  // Logic validation
+  if (data.startDate && data.endDate && new Date(data.startDate) > new Date(data.endDate))
+    errors.push('End date must be after start date');
+
+  return errors;
+};
+
 /**
  * Update existing event
  */
@@ -348,6 +380,14 @@ const updateEvent = async (req, res, next) => {
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const validationErrors = validateEventData(req.body);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        error: 'Invalid event data',
+        details: validationErrors,
+      });
     }
 
     // Prepare update data

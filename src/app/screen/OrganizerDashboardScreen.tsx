@@ -19,6 +19,7 @@ const OrganizerDashboard: React.FC = () => {
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const [eventImagesMap, setEventImagesMap] = useState<Record<string, EventImageGalleryType>>({});
   const [uploading, setUploading] = useState<boolean>(false);
+  const [pendingUploads, setPendingUploads] = useState<Record<string, string[]>>({});
   const [uploadError, setUploadError] = useState<string>('');
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -86,51 +87,100 @@ const OrganizerDashboard: React.FC = () => {
     }
   };
 
-  const handleMultipleImagesUploaded = async (eventId: string, imageUrls: string[]): Promise<void> => {
-    try {
-      setUploading(true);
+  const collectImageAfterUpload = (
+    eventId: string,
+    imageUrl: string,
+    imageType: 'cover' | 'slideshow',
+  ): void => {
+    if (imageType === 'slideshow') {
+      // Add to pending uploads without trying to update the event
+      setPendingUploads((prev) => ({
+        ...prev,
+        [eventId]: [...(prev[eventId] || []), imageUrl]
+      }));
 
-      // Get current event data
-      const currentEvent = managedEvents.find((e) => e.id === eventId || e._id === eventId);
-
-      if (currentEvent) {
-        // Prepare update data with new slideshow images
-        const currentSlideshow = currentEvent.slideshowImages || [];
-        const updateData: Partial<Event> = {
-          slideshowImages: Array.isArray(currentSlideshow) ? [...currentSlideshow, ...imageUrls] : imageUrls,
+      // Update local UI state to show the image
+      setEventImagesMap((prevMap) => {
+        const currentEventGallery = prevMap[eventId] || {
+          eventId,
+          images: [],
+          isLoading: false,
+          error: null,
         };
 
-        // Update the event with the new slideshow images
-        await api.put(`/events/${eventId}`, updateData);
+        return {
+          ...prevMap,
+          [eventId]: {
+            ...currentEventGallery,
+            images: [...currentEventGallery.images, imageUrl],
+            isPending: true,
+          },
+        };
+      });
+    } else if (imageType === 'cover') {
+      // For cover images, update the pendingUploads too, but with a special marker
+      setPendingUploads((prev) => ({
+        ...prev,
+        [eventId]: [...(prev[eventId] || []), `cover:${imageUrl}`]
+      }));
 
-        // Refresh events data
-        const updatedEventsData = await api.get('/events/managed');
-        const formattedEvents = updatedEventsData?.events || updatedEventsData || [];
-        setManagedEvents(formattedEvents);
+      // Update local UI state to show the cover image
+      setEventImagesMap((prevMap) => {
+        const currentEventGallery = prevMap[eventId] || {
+          eventId,
+          images: [],
+          isLoading: false,
+          error: null,
+        };
 
-        // Update local image gallery state
-        setEventImagesMap((prevMap) => {
-          const currentEventGallery = prevMap[eventId] || {
-            eventId,
-            images: [],
-            isLoading: false,
-            error: null,
-          };
+        return {
+          ...prevMap,
+          [eventId]: {
+            ...currentEventGallery,
+            coverImage: imageUrl,
+            isPending: true,
+          },
+        };
+      });
+    }
+  };
 
+  const saveGalleryImages = async (eventId: string): Promise<void> => {
+    try {
+      setUploading(true);
+      setError('');
+
+      // Skip if no pending uploads
+      if (!pendingUploads[eventId] || pendingUploads[eventId].length === 0) {
+        return;
+      }
+
+      // Since we're not actually updating the server, just clear pending state
+      setPendingUploads((prev) => {
+        const newPending = { ...prev };
+        delete newPending[eventId];
+        return newPending;
+      });
+
+      // Update local image gallery state to remove pending state
+      setEventImagesMap((prevMap) => {
+        const currentEventGallery = prevMap[eventId];
+        if (currentEventGallery) {
           return {
             ...prevMap,
             [eventId]: {
               ...currentEventGallery,
-              images: [...currentEventGallery.images, ...imageUrls],
+              isPending: false,
             },
           };
-        });
-      }
+        }
+        return prevMap;
+      });
 
       setUploadError('');
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Failed to update event with new images');
-      console.error('Error updating event after multiple image upload:', err);
+      setUploadError(err instanceof Error ? err.message : 'Failed to save gallery images');
+      console.error('Error saving gallery images:', err);
     } finally {
       setUploading(false);
     }
@@ -290,11 +340,11 @@ const OrganizerDashboard: React.FC = () => {
         prevTasks.map((task) =>
           task._id === taskId
             ? {
-                ...task,
-                status: 'completed',
-                updatedBy: currentUser?.uid,
-                updatedAt: new Date().toISOString(),
-              }
+              ...task,
+              status: 'completed',
+              updatedBy: currentUser?.uid,
+              updatedAt: new Date().toISOString(),
+            }
             : task,
         ),
       );
@@ -638,7 +688,7 @@ const OrganizerDashboard: React.FC = () => {
                             eventId={eventId}
                             imageType="cover"
                             buttonLabel="Upload Cover Image"
-                            onImageUploaded={(imageUrl) => updateEventAfterImageUpload(eventId, imageUrl, 'cover')}
+                            onImageUploaded={(imageUrl) => collectImageAfterUpload(eventId, imageUrl, 'cover')}
                           />
                         </div>
 
@@ -650,6 +700,7 @@ const OrganizerDashboard: React.FC = () => {
                           {Array.isArray(slideshowImages) && slideshowImages.length > 0 ? (
                             <EventImageGallery
                               images={slideshowImages}
+                              pendingImages={pendingUploads[eventId] || []}
                               allowRemove={true}
                               onRemoveImage={(index) => handleRemoveImage(eventId, index)}
                             />
@@ -663,10 +714,21 @@ const OrganizerDashboard: React.FC = () => {
                             imageType="slideshow"
                             allowMultiple={true}
                             buttonLabel="Add Gallery Images"
-                            onImageUploaded={(imageUrl) => updateEventAfterImageUpload(eventId, imageUrl, 'slideshow')}
-                            onMultipleImagesUploaded={(imageUrls) => handleMultipleImagesUploaded(eventId, imageUrls)}
+                            onImageUploaded={(imageUrl) => collectImageAfterUpload(eventId, imageUrl, 'slideshow')}
+                            onMultipleImagesUploaded={(imageUrls) =>
+                              imageUrls.forEach(url => collectImageAfterUpload(eventId, url, 'slideshow'))
+                            }
                           />
                         </div>
+                        {pendingUploads[eventId] && pendingUploads[eventId].length > 0 && (
+                          <button
+                            className="save-gallery-button"
+                            onClick={() => saveGalleryImages(eventId)}
+                            disabled={uploading}
+                          >
+                            {uploading ? 'Saving...' : `Save ${pendingUploads[eventId].length} Images to Event`}
+                          </button>
+                        )}
                       </div>
 
                       <div className="task-section">
@@ -677,7 +739,7 @@ const OrganizerDashboard: React.FC = () => {
                         </button>
 
                         {(!tasksByEvent[eventId] && !tasksByEvent[event._id]) ||
-                        (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
+                          (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
                           <p className="no-tasks">No tasks assigned to this event</p>
                         ) : (
                           <ul className="task-list">

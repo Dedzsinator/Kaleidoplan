@@ -5,9 +5,10 @@ interface EventImageGalleryProps {
   images: string[];
   onRemoveImage?: (index: number) => void;
   allowRemove?: boolean;
+  pendingImages?: string[];
 }
 
-const EventImageGallery: React.FC<EventImageGalleryProps> = ({ images, onRemoveImage, allowRemove = false }) => {
+const EventImageGallery: React.FC<EventImageGalleryProps> = ({ images, onRemoveImage, allowRemove = false, pendingImages = [] }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Handle clicking on an image to view it larger
@@ -32,7 +33,10 @@ const EventImageGallery: React.FC<EventImageGalleryProps> = ({ images, onRemoveI
     <div className="image-gallery">
       <div className="image-gallery-grid">
         {images.map((image, index) => (
-          <div key={`${image}-${index}`} className="gallery-image-container">
+          <div
+            key={`${image}-${index}`}
+            className={`gallery-image-container ${pendingImages.includes(image) ? 'pending' : ''}`}
+          >
             <img
               src={image}
               alt={`Gallery image ${index + 1}`}
