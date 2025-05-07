@@ -8,7 +8,12 @@ interface EventImageGalleryProps {
   pendingImages?: string[];
 }
 
-const EventImageGallery: React.FC<EventImageGalleryProps> = ({ images, onRemoveImage, allowRemove = false, pendingImages = [] }) => {
+const EventImageGallery: React.FC<EventImageGalleryProps> = ({
+  images,
+  onRemoveImage,
+  allowRemove = false,
+  pendingImages = [],
+}) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // Handle clicking on an image to view it larger

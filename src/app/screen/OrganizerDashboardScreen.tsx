@@ -87,16 +87,12 @@ const OrganizerDashboard: React.FC = () => {
     }
   };
 
-  const collectImageAfterUpload = (
-    eventId: string,
-    imageUrl: string,
-    imageType: 'cover' | 'slideshow',
-  ): void => {
+  const collectImageAfterUpload = (eventId: string, imageUrl: string, imageType: 'cover' | 'slideshow'): void => {
     if (imageType === 'slideshow') {
       // Add to pending uploads without trying to update the event
       setPendingUploads((prev) => ({
         ...prev,
-        [eventId]: [...(prev[eventId] || []), imageUrl]
+        [eventId]: [...(prev[eventId] || []), imageUrl],
       }));
 
       // Update local UI state to show the image
@@ -121,7 +117,7 @@ const OrganizerDashboard: React.FC = () => {
       // For cover images, update the pendingUploads too, but with a special marker
       setPendingUploads((prev) => ({
         ...prev,
-        [eventId]: [...(prev[eventId] || []), `cover:${imageUrl}`]
+        [eventId]: [...(prev[eventId] || []), `cover:${imageUrl}`],
       }));
 
       // Update local UI state to show the cover image
@@ -340,11 +336,11 @@ const OrganizerDashboard: React.FC = () => {
         prevTasks.map((task) =>
           task._id === taskId
             ? {
-              ...task,
-              status: 'completed',
-              updatedBy: currentUser?.uid,
-              updatedAt: new Date().toISOString(),
-            }
+                ...task,
+                status: 'completed',
+                updatedBy: currentUser?.uid,
+                updatedAt: new Date().toISOString(),
+              }
             : task,
         ),
       );
@@ -716,7 +712,7 @@ const OrganizerDashboard: React.FC = () => {
                             buttonLabel="Add Gallery Images"
                             onImageUploaded={(imageUrl) => collectImageAfterUpload(eventId, imageUrl, 'slideshow')}
                             onMultipleImagesUploaded={(imageUrls) =>
-                              imageUrls.forEach(url => collectImageAfterUpload(eventId, url, 'slideshow'))
+                              imageUrls.forEach((url) => collectImageAfterUpload(eventId, url, 'slideshow'))
                             }
                           />
                         </div>
@@ -739,7 +735,7 @@ const OrganizerDashboard: React.FC = () => {
                         </button>
 
                         {(!tasksByEvent[eventId] && !tasksByEvent[event._id]) ||
-                          (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
+                        (tasksByEvent[eventId]?.length === 0 && tasksByEvent[event._id]?.length === 0) ? (
                           <p className="no-tasks">No tasks assigned to this event</p>
                         ) : (
                           <ul className="task-list">

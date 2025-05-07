@@ -643,7 +643,7 @@
 }
 
 .gallery-image-container.pending::after {
-  content: "Pending";
+  content: 'Pending';
   position: absolute;
   bottom: 4px;
   left: 4px;
