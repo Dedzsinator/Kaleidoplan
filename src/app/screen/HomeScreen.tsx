@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getEvents } from '../../services/eventService';
@@ -7,6 +7,7 @@ import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
 import UserWelcomeCard from '../components/user/UserWelcomeCard';
 import QuickActions from '../components/user/QuicActions';
+import Pagination from '../components/layout/Pagination';
 import '../styles/Guest.css';
 import '../styles/HomeScreen.css';
 
@@ -29,6 +30,8 @@ const HomeScreen: React.FC = () => {
   const [headerOpacity, setHeaderOpacity] = useState(0.8);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>('card');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -45,12 +48,12 @@ const HomeScreen: React.FC = () => {
   // Create an adapter user for components that need the exact User type
   const adaptedUser: User | null = user
     ? {
-        id: user.uid,
-        email: user.email || '',
-        displayName: user.displayName || null,
-        photoURL: user.photoURL || null,
-        role: user.role || 'user',
-      }
+      id: user.uid,
+      email: user.email || '',
+      displayName: user.displayName || null,
+      photoURL: user.photoURL || null,
+      role: user.role || 'user',
+    }
     : null;
 
   // Handle logout
@@ -102,6 +105,26 @@ const HomeScreen: React.FC = () => {
       hasLoadedEvents.current = true;
     }
   }, [fetchEvents]);
+
+  const currentPageEvents = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return events.slice(startIndex, startIndex + itemsPerPage);
+  }, [events, currentPage, itemsPerPage]);
+
+  // Add this function to handle page changes
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of events list
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    return Math.ceil(events.length / itemsPerPage);
+  }, [events.length, itemsPerPage]);
 
   // Scroll handler with throttling
   useEffect(() => {
@@ -156,16 +179,15 @@ const HomeScreen: React.FC = () => {
     [navigate],
   );
 
-  const handleImageError = useCallback((eventId: string) => {}, []);
+  const handleImageError = useCallback((eventId: string) => { }, []);
 
   // Toggle between card view and detailed view
   const toggleViewMode = useCallback((mode: ViewMode) => {
     setViewMode(mode);
   }, []);
 
-  // Memoize event items creation to prevent unnecessary re-creation
   const renderEventItems = useCallback(() => {
-    return events.map((event, index) => (
+    return currentPageEvents.map((event, index) => (
       <EventSection
         key={event.id}
         event={event}
@@ -177,7 +199,7 @@ const HomeScreen: React.FC = () => {
         onVisibilityChange={handleVisibilityChange}
       />
     ));
-  }, [events, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
+  }, [currentPageEvents, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
 
   if (loading) {
     return (
@@ -215,7 +237,13 @@ const HomeScreen: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <main className="main-content">
+      <main className="main-content"><Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+        itemsPerPage={itemsPerPage}
+        totalItems={events.length}
+      />
         <div className="content-header">
           <h2 className="content-title">Your Events</h2>
           <p className="content-subtitle">Discover upcoming and ongoing experiences</p>
@@ -249,6 +277,14 @@ const HomeScreen: React.FC = () => {
             {renderEventItems()}
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          itemsPerPage={itemsPerPage}
+          totalItems={events.length}
+        />
       </main>
 
       {/* Footer */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getEvents } from '../../services/eventService';
 import { filterEventsByProximity, getCurrentLocation, Coordinates } from '../../services/filterService';
@@ -7,6 +7,7 @@ import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
 import spotifyService from '../../services/spotify-web-api';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
+import Pagination from '../components/layout/Pagination';
 import '../styles/Guest.css';
 
 // Event type import
@@ -48,6 +49,38 @@ const GuestScreen = () => {
   }>({});
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  const eventsToDisplay = useMemo(() => {
+    return filterApplied ? filteredEvents : events;
+  }, [filterApplied, filteredEvents, events]);
+
+  // Now use eventsToDisplay in the pagination calculation
+  const currentPageEvents = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return eventsToDisplay.slice(startIndex, startIndex + itemsPerPage);
+  }, [eventsToDisplay, currentPage, itemsPerPage]);
+
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    return Math.ceil(eventsToDisplay.length / itemsPerPage);
+  }, [eventsToDisplay.length, itemsPerPage]);
+
+  // Add this function to handle page changes
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of events list
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  // Add an effect to reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchParams, filterApplied]);
 
   // Gradient transition states
   const [backgroundGradient, setBackgroundGradient] = useState(
@@ -637,7 +670,7 @@ const GuestScreen = () => {
     }
   }, [events, navigate]);
 
-  const handleImageError = useCallback((eventId: string) => {}, []);
+  const handleImageError = useCallback((eventId: string) => { }, []);
 
   // Toggle between card view and detailed view
   const toggleViewMode = useCallback((mode: ViewMode) => {
@@ -653,8 +686,6 @@ const GuestScreen = () => {
     setIsOverlayExpanded((prev) => !prev);
   }, []);
 
-  const eventsToDisplay = filterApplied ? filteredEvents : events;
-
   const clearFilters = useCallback(() => {
     setSearchParams({});
     setFilterApplied(false);
@@ -662,7 +693,7 @@ const GuestScreen = () => {
   }, [setSearchParams]);
 
   const renderEventItems = useCallback(() => {
-    return eventsToDisplay.map((event, index) => (
+    return currentPageEvents.map((event, index) => (
       <EventSection
         key={event.id}
         event={event}
@@ -674,7 +705,7 @@ const GuestScreen = () => {
         onVisibilityChange={handleVisibilityChange}
       />
     ));
-  }, [eventsToDisplay, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
+  }, [currentPageEvents, scrollPosition, handleVisibilityChange, handleImageError, navigate]);
 
   const currentActiveEvent = events.find((event) => event.id === activeEventId);
 
@@ -824,6 +855,14 @@ const GuestScreen = () => {
             {renderEventItems()}
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          itemsPerPage={itemsPerPage}
+          totalItems={eventsToDisplay.length}
+        />
       </main>
 
       {currentActiveEvent && isSpotifyConnected && (

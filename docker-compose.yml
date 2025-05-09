@@ -1,12 +1,34 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.dockerfile
     ports:
-      - "3000:3000"
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - kaleidoplan-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend.dockerfile
+    ports:
+      - "3001:3001"
     environment:
       - NODE_ENV=production
+      - PORT=3001
       - FIREBASE_API_KEY=${FIREBASE_API_KEY}
       - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
@@ -18,7 +40,7 @@ services:
       - MONGODB_DB_NAME=kaleidoplan
     restart: unless-stopped
     volumes:
-      - uploads:/app/public/uploads
+      - uploads:/app/uploads
     networks:
       - kaleidoplan-network
     depends_on:
@@ -26,20 +48,20 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
+          cpus: '0.5'
           memory: 512M
+        reservations:
+          cpus: '0.15'
+          memory: 256M
 
   mongo:
-    image: mongo:latest
+    image: mongo:5.0-focal
     volumes:
       - mongo-data:/data/db
       - mongo-config:/data/configdb
     ports:
       - "27017:27017"
-    command: mongod --wiredTigerCacheSizeGB 0.5
+    command: mongod --wiredTigerCacheSizeGB 0.25
     networks:
       - kaleidoplan-network
     restart: unless-stopped
@@ -50,10 +72,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.3'
+          memory: 384M
         reservations:
-          memory: 256M
+          memory: 128M
 
 volumes:
   uploads:

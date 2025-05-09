@@ -7,6 +7,7 @@ const { admin } = require('../config/firebase');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const notificationService = require('../services/notification.service');
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -328,7 +329,18 @@ const createEvent = async (req, res, next) => {
       await Promise.all(sponsorPromises);
     }
 
-    res.status(201).json(savedEvent);
+    notificationService.sendNotification(
+      'event:created',
+      {
+        eventId: newEvent._id,
+        name: newEvent.name,
+        createdBy: req.user.displayName || req.user.email || req.user.uid,
+        createdAt: new Date(),
+      },
+      'authenticated',
+    );
+
+    return res.status(201).json(newEvent);
   } catch (error) {
     console.error('Error creating event:', error);
     next(error);
@@ -437,7 +449,18 @@ const updateEvent = async (req, res, next) => {
       await Promise.all(sponsorPromises);
     }
 
-    res.json(updatedEvent);
+    notificationService.sendNotification(
+      'event:updated',
+      {
+        eventId: updatedEvent._id,
+        name: updatedEvent.name,
+        updatedBy: req.user.displayName || req.user.email || req.user.uid,
+        updatedAt: new Date(),
+      },
+      'authenticated',
+    );
+
+    return res.json(updatedEvent);
   } catch (error) {
     console.error(`Error updating event ${req.params.id}:`, error);
     next(error);
@@ -591,19 +614,10 @@ const toggleEventInterest = async (req, res, next) => {
     }
 
     const userId = req.user.uid;
+    const userName = req.user.displayName || req.user.email || req.user.uid;
 
-    // Validate interest level
-    if (!['interested', 'attending'].includes(interestLevel)) {
-      return res.status(400).json({
-        error: 'Invalid interest level. Must be "interested" or "attending"',
-      });
-    }
-
-    // Check if the event exists
-    const event = await Event.findOne({
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id }, { id: id }],
-    });
-
+    // Find event
+    const event = await Event.findById(id);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
@@ -615,28 +629,73 @@ const toggleEventInterest = async (req, res, next) => {
     });
 
     if (existingInterest) {
-      // If interest level is the same, remove the interest (toggle off)
+      // If we're removing the interest (toggle off)
       if (existingInterest.interestLevel === interestLevel) {
-        await EventInterest.deleteOne({ _id: existingInterest._id });
-        return res.json({ status: 'removed', interestLevel: null });
-      }
-      // Otherwise update the interest level
-      else {
+        await EventInterest.findByIdAndDelete(existingInterest._id);
+
+        // Add notification for unlike/unattend action
+        notificationService.sendNotification(
+          'event:liked',
+          {
+            eventId: event._id,
+            name: event.name,
+            userName: userName,
+            interestLevel: interestLevel,
+            action: 'removed',
+          },
+          'authenticated',
+        );
+
+        return res.json({ status: 'removed' });
+      } else {
+        // Update interest level
         existingInterest.interestLevel = interestLevel;
         await existingInterest.save();
+
+        // Send notification about updated interest
+        notificationService.sendNotification(
+          'event:liked',
+          {
+            eventId: event._id,
+            name: event.name,
+            userName: userName,
+            interestLevel: interestLevel,
+            action: 'updated',
+          },
+          'authenticated',
+        );
+
         return res.json({ status: 'updated', interestLevel });
       }
-    }
-    // Create new interest
-    else {
-      const newInterest = new EventInterest({
+    } else {
+      // Create new interest
+      const eventInterest = new EventInterest({
         userId,
+        userName,
+        userEmail: req.user.email,
         eventId: event._id.toString(),
+        eventName: event.name,
+        eventDate: event.startDate,
         interestLevel,
+        createdAt: new Date(),
       });
 
-      await newInterest.save();
-      return res.status(201).json({ status: 'added', interestLevel });
+      await eventInterest.save();
+
+      // Send notification about new interest
+      notificationService.sendNotification(
+        'event:liked',
+        {
+          eventId: event._id,
+          name: event.name,
+          userName: userName,
+          interestLevel: interestLevel,
+          action: 'added',
+        },
+        'authenticated',
+      );
+
+      return res.json({ status: 'created', interestLevel });
     }
   } catch (error) {
     console.error('Error toggling event interest:', error);

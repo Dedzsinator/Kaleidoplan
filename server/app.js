@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
@@ -10,6 +12,7 @@ const { initFirebaseAdmin } = require('./config/firebase');
 const { connectToMongoDB } = require('./config/mongodb');
 const errorHandler = require('./middleware/errorHandler');
 const { scheduleWeeklyEmails } = require('./services/subscription.service');
+const notificationService = require('./services/notification.service');
 
 // Load environment variables
 dotenv.config();
@@ -17,6 +20,62 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:3001', 'http://localhost:3000', process.env.CORS_ORIGIN].filter(Boolean),
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+notificationService.initializeNotificationService(io);
+
+io.on('connection', (socket) => {
+  console.log('New socket connection established:', socket.id);
+
+  // Authenticate user if token provided
+  socket.on('authenticate', async (token) => {
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      socket.userId = decodedToken.uid;
+      socket.join(`user:${decodedToken.uid}`);
+      console.log(`User ${decodedToken.uid} authenticated successfully`);
+
+      // Add to appropriate rooms based on role
+      if (decodedToken.role === 'admin') {
+        socket.join('admins');
+        console.log(`User ${decodedToken.uid} joined 'admins' room`);
+      } else if (decodedToken.role === 'organizer') {
+        socket.join('organizers');
+        console.log(`User ${decodedToken.uid} joined 'organizers' room`);
+      }
+      socket.join('authenticated');
+      console.log(`User ${decodedToken.uid} joined 'authenticated' room`);
+    } catch (error) {
+      console.error('Socket authentication error:', error);
+    }
+  });
+
+  socket.on('subscribe-to-event', (eventId) => {
+    socket.join(`event:${eventId}`);
+    console.log(`Client ${socket.id} subscribed to event: ${eventId}`);
+  });
+
+  socket.on('unsubscribe-from-event', (eventId) => {
+    socket.leave(`event:${eventId}`);
+    console.log(`Client ${socket.id} unsubscribed from event: ${eventId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+  });
+});
+
+// Make io accessible to routes
+app.set('io', io);
 
 // Initialize Firebase Admin SDK
 const admin = require('./config/firebase');
@@ -50,8 +109,6 @@ app.use(cookieParser());
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// CRITICAL FIX: Add route-specific middleware for file uploads BEFORE body parsers
-// This completely bypasses body parsing for upload routes
 app.use((req, res, next) => {
   // Strictly match upload routes and multipart content type
   if (
@@ -116,6 +173,8 @@ app.get('/api/health', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {});
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT} with Socket.IO support`);
+});
 
-module.exports = app;
+module.exports = { app, server, io };

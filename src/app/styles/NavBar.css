@@ -27,6 +27,7 @@
   font-size: 24px;
   font-weight: 700;
   letter-spacing: 1px;
+  white-space: nowrap;
 }
 
 .navbar-logo a {
@@ -57,6 +58,7 @@
   padding: 8px 16px;
   border-radius: 4px;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .navbar-link:hover {
@@ -102,78 +104,6 @@
   z-index: 1001;
 }
 
-.dropdown:hover .dropdown-menu {
-  display: block;
-}
-
-.dropdown-item {
-  display: block;
-  padding: 10px 20px;
-  color: #333;
-  text-decoration: none;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.dropdown-item:hover {
-  background-color: #f5f5f5;
-  color: #3498db;
-}
-
-/* User menu specific styling */
-.user-menu .dropdown-toggle {
-  display: flex;
-  align-items: center;
-  padding: 5px 10px;
-  border-radius: 20px;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.user-menu .dropdown-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-/* Logout button specific styling */
-.logout-button {
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #e74c3c;
-}
-
-.logout-button:hover {
-  background-color: #f5f5f5;
-}
-
-hr {
-  border: 0;
-  height: 1px;
-  background-color: #eee;
-  margin: 5px 0;
-}
-
-/* Media query for responsive design */
-@media (max-width: 768px) {
-  .navbar-container {
-    padding: 0 10px;
-  }
-
-  .navbar-links {
-    gap: 10px;
-  }
-
-  .navbar-link {
-    padding: 6px 10px;
-    font-size: 14px;
-  }
-
-  .navbar-logo {
-    font-size: 20px;
-  }
-}
-
 /* Modern Search Bar Styling */
 .navbar-search {
   display: flex;
@@ -186,6 +116,7 @@ hr {
   border-radius: 24px;
   background-color: rgba(255, 255, 255, 0.08);
   overflow: hidden;
+  flex-shrink: 1;
 }
 
 .navbar-search.focused {
@@ -207,6 +138,7 @@ hr {
   background-color: transparent;
   color: white;
   transition: all 0.25s ease;
+  width: 100%;
 }
 
 .navbar-search input:focus {
@@ -251,38 +183,22 @@ hr {
   color: white;
 }
 
-/* Add a subtle reveal effect when typing */
 .navbar-search input:not(:placeholder-shown) + .search-button {
   background-color: rgba(52, 152, 219, 0.8);
   color: white;
 }
 
-/* Make it more responsive */
-@media (max-width: 992px) {
-  .navbar-search {
-    width: 220px;
-  }
-
-  .navbar-search.focused {
-    width: 280px;
-  }
+/* User menu styling */
+.user-menu .dropdown-toggle {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-@media (max-width: 768px) {
-  .navbar-container {
-    flex-wrap: wrap;
-  }
-
-  .navbar-search {
-    order: 3;
-    width: 100%;
-    margin: 10px 0;
-    max-width: none;
-  }
-
-  .navbar-search.focused {
-    width: 100%;
-  }
+.user-menu .dropdown-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Around Me Button */
@@ -295,22 +211,11 @@ hr {
   cursor: pointer;
   font-size: 16px;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .around-me-button:hover {
   color: #3498db;
-}
-
-.around-me-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
-  position: relative;
 }
 
 .around-me-button.loading {
@@ -323,26 +228,33 @@ hr {
   color: #e74c3c;
 }
 
-.location-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top-color: #3498db;
-  border-radius: 50%;
-  animation: location-spin 1s linear infinite;
-  margin-right: 8px;
+/* Dropdown interactions */
+.dropdown:hover .dropdown-menu {
+  display: block;
 }
 
-@keyframes location-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+/* Logout button specific styling */
+.logout-button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #e74c3c;
 }
 
-/* Add to your NavBar.css file */
+.logout-button:hover {
+  background-color: #f5f5f5;
+}
+
+hr {
+  border: 0;
+  height: 1px;
+  background-color: #eee;
+  margin: 5px 0;
+}
+
+/* Spotify styling */
 .spotify-badge {
   margin-left: 8px;
   font-size: 14px;
@@ -369,33 +281,176 @@ hr {
   font-size: 18px;
 }
 
-.spotify-connection-prompt {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px;
-  margin: 20px 0;
-  background-color: rgba(29, 185, 84, 0.1);
-  border-radius: 8px;
-  text-align: center;
+.dropdown-item {
+  display: block;
+  padding: 10px 20px;
+  color: #333;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background-color 0.2s;
 }
 
-.spotify-connect-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 8px 16px;
-  background-color: #1db954;
-  color: white;
+.dropdown-item:hover {
+  background-color: #f5f5f5;
+  color: #3498db;
+}
+
+/* Loading animation */
+.location-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: location-spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes location-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Mobile menu toggle (hidden by default) */
+.mobile-menu-toggle {
+  display: none;
+  background: none;
   border: none;
-  border-radius: 30px;
-  font-weight: 600;
+  color: white;
+  font-size: 24px;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.spotify-connect-button:hover {
-  background-color: #1ed760;
-  transform: scale(1.03);
+/* Mobile Navigation for Tablet (992px) and below */
+@media (max-width: 992px) {
+  .navbar-search {
+    width: 220px;
+  }
+
+  .navbar-search.focused {
+    width: 280px;
+  }
+  
+  .navbar-links {
+    gap: 10px;
+  }
+}
+
+/* Mobile Navigation for Small Tablet (768px) and below */
+@media (max-width: 768px) {
+  .navbar {
+    height: auto;
+    padding: 10px 0;
+  }
+  
+  .navbar-container {
+    flex-wrap: wrap;
+    padding: 0 15px;
+  }
+  
+  .navbar-logo {
+    font-size: 20px;
+    flex: 1;
+  }
+  
+  .navbar-search {
+    order: 3;
+    width: 100%;
+    margin: 10px 0;
+    flex-basis: 100%;
+  }
+  
+  .navbar-search.focused {
+    width: 100%;
+  }
+  
+  .navbar-links {
+    order: 2;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  
+  .navbar-link {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+  
+  /* Adjust dropdown positioning for mobile */
+  .dropdown-menu {
+    right: -10px;
+    width: 180px;
+  }
+}
+
+/* Mobile Navigation for Phone (576px) and below */
+@media (max-width: 576px) {
+  .navbar-container {
+    padding: 0 10px;
+  }
+  
+  .mobile-menu-toggle {
+    display: block;
+    order: 2;
+  }
+  
+  .navbar-links {
+    flex-basis: 100%;
+    order: 3;
+    flex-direction: column;
+    align-items: flex-start;
+    display: none;
+    padding: 10px 0;
+  }
+  
+  .navbar-links.active {
+    display: flex;
+  }
+  
+  .navbar-links > * {
+    width: 100%;
+    margin: 5px 0;
+  }
+  
+  .navbar-link {
+    width: 100%;
+    text-align: left;
+    padding: 10px;
+  }
+  
+  .navbar-search {
+    order: 2;
+    margin: 10px 0 5px;
+  }
+  
+  .dropdown {
+    width: 100%;
+  }
+  
+  .dropdown-toggle {
+    width: 100%;
+    justify-content: space-between;
+    padding: 10px;
+  }
+  
+  .dropdown-menu {
+    position: static;
+    width: 100%;
+    box-shadow: none;
+    border-radius: 0;
+    margin-top: 5px;
+  }
+  
+  /* Adjust dropdown behavior for mobile */
+  .dropdown:hover .dropdown-menu {
+    display: none;
+  }
+  
+  .dropdown.active .dropdown-menu {
+    display: block;
+  }
 }
