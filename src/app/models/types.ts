@@ -260,3 +260,13 @@ export interface MultipleImageUploadApiResponse {
   success?: boolean;
   message?: string;
 }
+
+export interface Notification {
+  id: string;
+  type: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  eventId?: string;
+  userId?: string;
+}

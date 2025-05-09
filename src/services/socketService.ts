@@ -4,9 +4,9 @@ import { getAuthToken } from './api';
 let socket: Socket | null = null;
 
 // Define notification types
-export type NotificationType = 
-  | 'event:created' 
-  | 'event:updated' 
+export type NotificationType =
+  | 'event:created'
+  | 'event:updated'
   | 'event:deleted'
   | 'event:assigned'
   | 'event:unassigned'
@@ -29,26 +29,21 @@ export const initializeSocket = async (): Promise<Socket> => {
   if (!socket) {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
     const baseUrl = apiUrl.replace(/\/api$/, '');
-    
-    console.log('Connecting to Socket.IO server at:', baseUrl);
-    
     socket = io(baseUrl, {
       autoConnect: false,
-      reconnectionAttempts: 10,  // Increase reconnection attempts
-      reconnection: true,        // Explicitly enable reconnection
+      reconnectionAttempts: 10, // Increase reconnection attempts
+      reconnection: true, // Explicitly enable reconnection
       transports: ['websocket', 'polling'],
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      timeout: 20000            // Increase timeout
+      timeout: 20000, // Increase timeout
     });
-    
+
     socket.on('connect', async () => {
-      console.log('Socket connected successfully!');
       try {
         const token = await getAuthToken();
         if (token && socket) {
           socket.emit('authenticate', token);
-          console.log('Authentication token sent to server');
         } else {
           console.warn('No authentication token available');
         }
@@ -56,35 +51,42 @@ export const initializeSocket = async (): Promise<Socket> => {
         console.error('Socket authentication error:', error);
       }
     });
-    
+
     socket.on('connect_error', (error: unknown) => {
       console.error('Socket connection error details:', error);
     });
-    
+
     socket.on('disconnect', (reason: unknown) => {
-      console.log('Socket disconnected:', reason);
       // Auto reconnect if not closed intentionally
       if (reason === 'io server disconnect' || reason === 'transport close') {
-        console.log('Attempting to reconnect...');
         socket?.connect();
       }
     });
 
     socket.on('notification', (data) => {
-      console.log('Received notification:', data);
-      const notification: Notification = {
-        id: crypto.randomUUID(), // Generate unique ID
-        ...data,
-        read: false,
-      };
-      
-      // Notify all registered handlers
-      notificationHandlers.forEach(handler => handler(notification));
+      try {
+        const notification: Notification = {
+          id: crypto.randomUUID(), // Generate unique ID
+          ...data,
+          read: false,
+        };
+        
+        // Notify all registered handlers
+        notificationHandlers.forEach((handler) => {
+          try {
+            handler(notification);
+          } catch (handlerError) {
+            console.error('Error in notification handler:', handlerError);
+          }
+        });
+      } catch (error) {
+        console.error('Error processing notification:', error);
+      }
     });
-    
+
     socket.connect();
   }
-  
+
   return socket;
 };
 
@@ -102,9 +104,9 @@ export const unsubscribeFromEvent = (eventId: string): void => {
   }
 };
 
-export const addNotificationHandler = (handler: NotificationHandler): () => void => {
+export const addNotificationHandler = (handler: NotificationHandler): (() => void) => {
   notificationHandlers.push(handler);
-  
+
   // Return unsubscribe function
   return () => {
     const index = notificationHandlers.indexOf(handler);

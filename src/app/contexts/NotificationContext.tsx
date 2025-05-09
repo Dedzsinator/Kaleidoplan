@@ -1,9 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  addNotificationHandler,
-  Notification,
-  initializeSocket,
-} from '../../services/socketService';
+import { addNotificationHandler, Notification, initializeSocket } from '../../services/socketService';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -24,7 +20,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Initialize socket connection with better error handling
     const initSocket = async () => {
       try {
-        console.log('Initializing socket connection');
         setConnectionStatus('connecting');
         await initializeSocket();
         setConnectionStatus('connected');
@@ -38,8 +33,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Subscribe to notifications
     const unsubscribe = addNotificationHandler((notification) => {
-      console.log('Notification received:', notification);
-      setNotifications(prev => [notification, ...prev].slice(0, 100)); // Keep max 100 notifications
+      // Make sure to actually add the notification to state
+      setNotifications((prev) => {
+        const newState = [notification, ...prev].slice(0, 100); // Keep max 100 notifications
+        return newState;
+      });
     });
 
     return () => {
@@ -47,20 +45,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === id ? { ...notification, read: true } : notification
-      )
+    setNotifications((prev) =>
+      prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
     );
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+    setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })));
   };
 
   const clearAll = () => {
@@ -68,7 +62,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
   };
 
   const contextValue: NotificationContextType = {
@@ -77,14 +71,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     markAsRead,
     markAllAsRead,
     clearAll,
-    deleteNotification
+    deleteNotification,
   };
 
-  return (
-    <NotificationContext.Provider value={contextValue}>
-      {children}
-    </NotificationContext.Provider>
-  );
+  return <NotificationContext.Provider value={contextValue}>{children}</NotificationContext.Provider>;
 };
 
 export const useNotifications = () => {

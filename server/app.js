@@ -34,26 +34,24 @@ const io = new Server(server, {
 notificationService.initializeNotificationService(io);
 
 io.on('connection', (socket) => {
-  console.log('New socket connection established:', socket.id);
-
   // Authenticate user if token provided
   socket.on('authenticate', async (token) => {
     try {
       const decodedToken = await admin.auth().verifyIdToken(token);
       socket.userId = decodedToken.uid;
-      socket.join(`user:${decodedToken.uid}`);
-      console.log(`User ${decodedToken.uid} authenticated successfully`);
 
-      // Add to appropriate rooms based on role
+      // Join user-specific room
+      socket.join(`user:${decodedToken.uid}`);
+      // Always join authenticated room regardless of role
+      socket.join('authenticated');
+      // Add to role-specific rooms
       if (decodedToken.role === 'admin') {
         socket.join('admins');
-        console.log(`User ${decodedToken.uid} joined 'admins' room`);
-      } else if (decodedToken.role === 'organizer') {
-        socket.join('organizers');
-        console.log(`User ${decodedToken.uid} joined 'organizers' room`);
       }
-      socket.join('authenticated');
-      console.log(`User ${decodedToken.uid} joined 'authenticated' room`);
+
+      if (decodedToken.role === 'organizer') {
+        socket.join('organizers');
+      }
     } catch (error) {
       console.error('Socket authentication error:', error);
     }
@@ -61,17 +59,13 @@ io.on('connection', (socket) => {
 
   socket.on('subscribe-to-event', (eventId) => {
     socket.join(`event:${eventId}`);
-    console.log(`Client ${socket.id} subscribed to event: ${eventId}`);
   });
 
   socket.on('unsubscribe-from-event', (eventId) => {
     socket.leave(`event:${eventId}`);
-    console.log(`Client ${socket.id} unsubscribed from event: ${eventId}`);
   });
 
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
+  socket.on('disconnect', () => {});
 });
 
 // Make io accessible to routes
@@ -173,8 +167,6 @@ app.get('/api/health', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} with Socket.IO support`);
-});
+server.listen(PORT, () => {});
 
 module.exports = { app, server, io };

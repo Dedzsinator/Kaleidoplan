@@ -6,6 +6,7 @@ import '../../styles/NotificationCenter.css';
 export const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+
   const navigate = useNavigate();
 
   const handleToggle = () => {
@@ -30,15 +31,9 @@ export const NotificationCenter: React.FC = () => {
 
   return (
     <div className="notification-center">
-      <button
-        className="notification-bell"
-        onClick={handleToggle}
-        aria-label="Notifications"
-      >
+      <button className="notification-bell" onClick={handleToggle} aria-label="Notifications">
         <i className="fas fa-bell"></i>
-        {unreadCount > 0 && (
-          <span className="notification-badge">{unreadCount}</span>
-        )}
+        {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
       </button>
 
       {isOpen && (
@@ -56,15 +51,13 @@ export const NotificationCenter: React.FC = () => {
             {notifications.length === 0 ? (
               <div className="no-notifications">No notifications</div>
             ) : (
-              notifications.map(notification => (
+              notifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`notification-item ${!notification.read ? 'unread' : ''}`}
                   onClick={() => handleNotificationClick(notification)}
                 >
-                  <div className="notification-icon">
-                    {notification.type.startsWith('event') ? '🗓️' : '📢'}
-                  </div>
+                  <div className="notification-icon">{notification.type.startsWith('event') ? '🗓️' : '📢'}</div>
                   <div className="notification-content">
                     <div className="notification-message">
                       {notification.type === 'event:created' && `New event: ${notification.payload.name}`}
@@ -78,9 +71,7 @@ export const NotificationCenter: React.FC = () => {
                         } ${notification.payload.name}`}
                       {notification.type === 'system' && notification.payload.message}
                     </div>
-                    <div className="notification-time">
-                      {formatTime(notification.timestamp)}
-                    </div>
+                    <div className="notification-time">{formatTime(notification.timestamp)}</div>
                   </div>
                   <button
                     className="notification-delete"

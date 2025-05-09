@@ -73,7 +73,7 @@ const GuestScreen = () => {
     // Scroll to top of events list
     window.scrollTo({
       top: 0,
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
   }, []);
 

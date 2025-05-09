@@ -192,10 +192,7 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
               {/* Admin links */}
               {isAdmin && (
                 <div className={`dropdown ${activeDropdown === 'admin' ? 'active' : ''}`}>
-                  <button
-                    className="dropdown-toggle navbar-link"
-                    onClick={() => toggleDropdown('admin')}
-                  >
+                  <button className="dropdown-toggle navbar-link" onClick={() => toggleDropdown('admin')}>
                     Admin
                   </button>
                   <div className="dropdown-menu">
@@ -221,10 +218,7 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
 
               {/* User menu */}
               <div className={`dropdown user-menu ${activeDropdown === 'user' ? 'active' : ''}`}>
-                <button
-                  className="dropdown-toggle navbar-link"
-                  onClick={() => toggleDropdown('user')}
-                >
+                <button className="dropdown-toggle navbar-link" onClick={() => toggleDropdown('user')}>
                   {currentUser?.displayName || currentUser?.email?.split('@')[0]}
                   {isSpotifyConnected && (
                     <span className="spotify-badge" title="Connected to Spotify">

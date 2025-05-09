@@ -9,13 +9,7 @@ interface PaginationProps {
   totalItems?: number;
 }
 
-const Pagination: React.FC<PaginationProps> = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  itemsPerPage,
-  totalItems,
-}) => {
+const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange, itemsPerPage, totalItems }) => {
   // Generate page numbers for display (show 5 pages max with current in middle when possible)
   const getPageNumbers = () => {
     const pages = [];
@@ -40,13 +34,7 @@ const Pagination: React.FC<PaginationProps> = ({
       }
       // If current page is in the middle
       else {
-        pages.push(
-          '...',
-          currentPage - 1,
-          currentPage,
-          currentPage + 1,
-          '...'
-        );
+        pages.push('...', currentPage - 1, currentPage, currentPage + 1, '...');
       }
 
       // Always include last page
@@ -66,7 +54,8 @@ const Pagination: React.FC<PaginationProps> = ({
       {/* Pagination info (optional) */}
       {itemsPerPage && totalItems && (
         <div className="pagination-info">
-          Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} - {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} events
+          Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} -{' '}
+          {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} events
         </div>
       )}
 
@@ -83,20 +72,22 @@ const Pagination: React.FC<PaginationProps> = ({
 
         {/* Page numbers */}
         <div className="pagination-pages">
-          {getPageNumbers().map((page, index) => (
+          {getPageNumbers().map((page, index) =>
             page === '...' ? (
-              <span key={`ellipsis-${index}`} className="pagination-ellipsis">...</span>
+              <span key={`ellipsis-${index}`} className="pagination-ellipsis">
+                ...
+              </span>
             ) : (
               <button
                 key={`page-${page}`}
                 className={`pagination-page ${currentPage === page ? 'active' : ''}`}
-                onClick={() => typeof page === 'number' ? onPageChange(page) : null}
-                aria-current={currentPage === page ? "page" : undefined}
+                onClick={() => (typeof page === 'number' ? onPageChange(page) : null)}
+                aria-current={currentPage === page ? 'page' : undefined}
               >
                 {page}
               </button>
-            )
-          ))}
+            ),
+          )}
         </div>
 
         {/* Next button */}

@@ -23,6 +23,9 @@ const sendNotification = (type, payload, target = 'all') => {
   if (target === 'all') {
     io.emit('notification', notification);
   } else if (target === 'authenticated') {
+    // Count number of clients in the room
+    const authenticatedRoom = io.sockets.adapter.rooms.get('authenticated');
+    const clientCount = authenticatedRoom ? authenticatedRoom.size : 0;
     io.to('authenticated').emit('notification', notification);
   } else if (target === 'admins') {
     io.to('admins').emit('notification', notification);
@@ -35,6 +38,7 @@ const sendNotification = (type, payload, target = 'all') => {
   return notification;
 };
 
+// Add this export statement at the end of the file
 module.exports = {
   initializeNotificationService,
   sendNotification,

@@ -48,12 +48,12 @@ const HomeScreen: React.FC = () => {
   // Create an adapter user for components that need the exact User type
   const adaptedUser: User | null = user
     ? {
-      id: user.uid,
-      email: user.email || '',
-      displayName: user.displayName || null,
-      photoURL: user.photoURL || null,
-      role: user.role || 'user',
-    }
+        id: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || null,
+        photoURL: user.photoURL || null,
+        role: user.role || 'user',
+      }
     : null;
 
   // Handle logout
@@ -117,7 +117,7 @@ const HomeScreen: React.FC = () => {
     // Scroll to top of events list
     window.scrollTo({
       top: 0,
-      behavior: 'smooth'
+      behavior: 'smooth',
     });
   }, []);
 
@@ -179,7 +179,7 @@ const HomeScreen: React.FC = () => {
     [navigate],
   );
 
-  const handleImageError = useCallback((eventId: string) => { }, []);
+  const handleImageError = useCallback((eventId: string) => {}, []);
 
   // Toggle between card view and detailed view
   const toggleViewMode = useCallback((mode: ViewMode) => {
@@ -237,13 +237,14 @@ const HomeScreen: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <main className="main-content"><Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-        itemsPerPage={itemsPerPage}
-        totalItems={events.length}
-      />
+      <main className="main-content">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          itemsPerPage={itemsPerPage}
+          totalItems={events.length}
+        />
         <div className="content-header">
           <h2 className="content-title">Your Events</h2>
           <p className="content-subtitle">Discover upcoming and ongoing experiences</p>
