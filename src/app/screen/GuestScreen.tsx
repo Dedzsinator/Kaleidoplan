@@ -125,7 +125,7 @@ const GuestScreen = () => {
 
     // Ensure we have a playlistId for Spotify integration
     if (!validatedEvent.playlistId) {
-      validatedEvent.playlistId = `pl-${validatedEvent.id || `temp-${index}`}`;
+      validatedEvent.playlistId = `pl${validatedEvent.id}`;
     }
 
     if (!validatedEvent.id) {
@@ -670,7 +670,7 @@ const GuestScreen = () => {
     }
   }, [events, navigate]);
 
-  const handleImageError = useCallback((eventId: string) => { }, []);
+  const handleImageError = useCallback((eventId: string) => {}, []);
 
   // Toggle between card view and detailed view
   const toggleViewMode = useCallback((mode: ViewMode) => {

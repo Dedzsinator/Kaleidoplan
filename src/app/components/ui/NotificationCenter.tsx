@@ -63,11 +63,12 @@ export const NotificationCenter: React.FC = () => {
                       {notification.type === 'event:created' && `New event: ${notification.payload.name}`}
                       {notification.type === 'event:updated' && `Event updated: ${notification.payload.name}`}
                       {notification.type === 'event:liked' &&
-                        `${notification.payload.userName} ${notification.payload.action === 'added'
-                          ? 'liked'
-                          : notification.payload.action === 'removed'
-                            ? 'removed interest in'
-                            : 'updated interest in'
+                        `${notification.payload.userName} ${
+                          notification.payload.action === 'added'
+                            ? 'liked'
+                            : notification.payload.action === 'removed'
+                              ? 'removed interest in'
+                              : 'updated interest in'
                         } ${notification.payload.name}`}
                       {notification.type === 'system' && notification.payload.message}
                     </div>

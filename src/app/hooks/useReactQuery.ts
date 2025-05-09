@@ -62,13 +62,11 @@ export const usePlaylist = (playlistId: string | undefined, options = {}) => {
     queryKey: ['playlist', playlistId],
     queryFn: async () => {
       if (!playlistId) throw new Error('Playlist ID is required');
-      
+
       // Ensure consistent format for playlist IDs
       // If playlistId doesn't start with 'pl', prefix it
-      const formattedId = playlistId.startsWith('pl') 
-        ? playlistId 
-        : `pl${playlistId}`;
-      
+      const formattedId = playlistId.startsWith('pl') ? playlistId : `pl${playlistId}`;
+
       // Call API with properly formatted ID
       return api.get(`/playlists/${formattedId}`);
     },

@@ -70,7 +70,7 @@ export const initializeSocket = async (): Promise<Socket> => {
           ...data,
           read: false,
         };
-        
+
         // Notify all registered handlers
         notificationHandlers.forEach((handler) => {
           try {

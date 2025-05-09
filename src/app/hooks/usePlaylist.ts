@@ -10,39 +10,28 @@ export function usePlaylist(playlistId?: string) {
   useEffect(() => {
     async function fetchPlaylist() {
       if (!playlistId) {
+        setPlaylist(null); // Ensure playlist is null if no ID
         setLoading(false);
         return;
       }
 
       setLoading(true);
       setError(null);
+      setPlaylist(null); // Reset playlist state before fetching
 
       try {
-        // Try to get from API
         const data = await getPlaylistById(playlistId);
-
-        // If API fails or returns no data, create a basic fallback playlist
+        setPlaylist(data); // This will be the playlist data or null if not found/error
         if (!data) {
-          // Create a generic playlist as fallback
-          const fallbackPlaylist: Playlist = {
-            _id: playlistId,
-            name: `Playlist ${playlistId}`,
-            description: 'Playlist information not available',
-            tracks: {}, // Empty object to match the expected type
-            eventId: '',
-            createdBy: '',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          setPlaylist(fallbackPlaylist);
-        } else {
-          setPlaylist(data);
+          // You could set a specific error message for not found if desired,
+          // but the 404 from the API should already be logged.
+          // setError(`Playlist with ID ${playlistId} not found.`);
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch playlist';
-        console.error('Error in usePlaylist:', errorMessage);
+        console.error('Error in usePlaylist hook:', errorMessage);
         setError(errorMessage);
+        setPlaylist(null); // Ensure playlist is null on error
       } finally {
         setLoading(false);
       }

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+// spotifyTrackSchema remains the same
 const spotifyTrackSchema = new mongoose.Schema({
   id: String,
   name: String,
@@ -13,9 +14,13 @@ const spotifyTrackSchema = new mongoose.Schema({
 
 const spotifyPlaylistSchema = new Schema(
   {
-    // Add a string playlistId field to support non-ObjectId IDs
+    // MongoDB will generate an ObjectId for _id by default
+
+    // Use playlistId as the primary lookup field for "pl1", "pl2" etc.
     playlistId: {
       type: String,
+      required: true,
+      unique: true,
       index: true,
     },
     userId: {
@@ -32,9 +37,8 @@ const spotifyPlaylistSchema = new Schema(
       type: String,
       default: '',
     },
-    // Allow tracks to be an array of track objects OR a simple array of track IDs
     tracks: {
-      type: Schema.Types.Mixed,
+      type: Schema.Types.Mixed, // Keeps flexibility
       default: [],
     },
     public: {
@@ -42,11 +46,21 @@ const spotifyPlaylistSchema = new Schema(
       default: true,
     },
     eventId: {
-      type: Schema.Types.Mixed, // Allow both ObjectId and string
+      type: String,
       ref: 'Event',
     },
+    spotifyId: {
+      type: String,
+      sparse: true,
+      unique: true,
+      default: null,
+    },
+    spotifyUri: String,
+    coverImageUrl: String,
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-module.exports = mongoose.model('SpotifyPlaylist', spotifyPlaylistSchema);
+module.exports = mongoose.model('playlists', spotifyPlaylistSchema);

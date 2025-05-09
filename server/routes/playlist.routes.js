@@ -3,36 +3,25 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const Playlist = require('../models/playlist.model');
-
-// All playlist routes require authentication
-router.use(authMiddleware.verifyToken);
+const mongoose = require('mongoose');
 
 /**
  * Get all playlists
  */
-router.get('/', async (req, res, next) => {
+router.get('/', authMiddleware.verifyToken, async (req, res, next) => {
   try {
     const { eventId, limit = 50, page = 1 } = req.query;
-
-    // Build query
     const query = {};
     if (eventId) {
-      query.eventId = eventId;
+      query.eventId = eventId; // Assuming eventId in playlist links to event._id
     }
-
-    // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get playlists
     const playlists = await Playlist.find(query)
-      .populate('eventId', 'name startDate endDate')
+      .populate('eventId', 'name startDate endDate') // Populate if eventId is a ref to Event's _id
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-
-    // Get total count
     const totalPlaylists = await Playlist.countDocuments(query);
-
     res.json({
       playlists,
       pagination: {
@@ -47,91 +36,99 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-/**
- * Get playlist by ID - no authentication required
- */
+// GET playlist by its ID (e.g., "pl1")
 router.get('/:id', async (req, res, next) => {
+  const { id } = req.params;
+  console.log(`[Playlist Route] GET /:id - Received ID for playlistId: "${id}" (Type: ${typeof id})`);
+
+  console.log(`[Playlist Route] Mongoose connection state: ${mongoose.connection.readyState} (1 means connected)`);
+  console.log(`[Playlist Route] Attempting to query with Model Name: ${Playlist.modelName}`);
+  console.log(`[Playlist Route] Target Collection Name (Mongoose default): ${Playlist.collection.name}`);
+
   try {
-    const { id } = req.params;
-
-    if (id.startsWith('pl-temp-') || id.startsWith('pl-demo-')) {
-      // VERIFIED working track IDs with previews
-      const trackSelection = [
-        '7ouMYWpwJ422jRcDASZB7P', // Drake - God's Plan
-        '0e7ipj03S05BNilyu5bRzt', // Taylor Swift - Cruel Summer
-        '1zi7xx7UVEFkmKfv06H8x0', // Drake & 21 Savage - Rich Flex
-        '0V3wPSX9ygBnCm8psDIegu', // Taylor Swift - Anti-Hero
-        '4Dvkj6JhhA12EX05fT7y2e', // Harry Styles - As It Was
-      ];
-
-      // Select 3 random tracks from the selection
-      const shuffledTracks = [...trackSelection].sort(() => 0.5 - Math.random());
-      const selectedTracks = shuffledTracks.slice(0, 3);
-
-      // Create the mock playlist with valid track IDs
-      const mockPlaylist = {
-        _id: id,
-        playlistId: id,
-        name: id.startsWith('pl-demo') ? `Demo Playlist ${id.split('-')[2]}` : `Playlist ${id.split('-')[2]}`,
-        description: 'Auto-generated playlist with popular tracks',
-        tracks: selectedTracks,
-        public: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      return res.json(mockPlaylist);
-    }
-
-    // For regular playlist IDs, try to find in database
-    let playlist;
-    try {
-      // First attempt to find by _id as ObjectId
-      playlist = await Playlist.findOne({
-        $or: [{ _id: id }, { playlistId: id }],
-      }).populate('eventId', 'name startDate endDate');
-    } catch (error) {
-      // If ObjectId cast fails, try string matching only on playlistId
-      playlist = await Playlist.findOne({ playlistId: id }).populate('eventId', 'name startDate endDate');
-    }
+    // Query using playlistId field instead of _id
+    console.log(`[Playlist Route] Executing: Playlist.findOne({ playlistId: "${id}" })`);
+    const playlist = await Playlist.findOne({ playlistId: id });
 
     if (!playlist) {
-      return res.status(404).json({ error: 'Playlist not found' });
+      console.log(`[Playlist Route] Playlist.findOne({ playlistId: "${id}" }) returned null. Document not found.`);
+      return res.status(404).json({ error: `Playlist not found with playlistId ${id}` });
     }
 
+    console.log(`[Playlist Route] Successfully found playlist with playlistId: "${id}"`);
+
+    // Try to populate, but handle errors gracefully
+    try {
+      if (playlist.eventId) {
+        console.log(
+          `[Playlist Route] Attempting to populate eventId: "${playlist.eventId}" (${typeof playlist.eventId})`,
+        );
+
+        // Only populate if eventId is an ObjectId or can be cast to one
+        const Event = mongoose.model('Event');
+        const event = await Event.findOne({
+          $or: [{ _id: playlist.eventId }, { id: playlist.eventId }],
+        });
+
+        if (event) {
+          console.log(`[Playlist Route] Found related event: "${event.name}"`);
+          // Manually add the populated event data
+          playlist._doc.eventId = {
+            _id: event._id,
+            name: event.name,
+            startDate: event.startDate,
+            endDate: event.endDate,
+          };
+        } else {
+          console.log(`[Playlist Route] Related event with ID "${playlist.eventId}" not found`);
+        }
+      }
+    } catch (populateError) {
+      console.error(`[Playlist Route] Error populating eventId: ${populateError.message}`);
+      // Continue without population - we'll return the unpopulated playlist
+    }
+
+    // Return playlist even if population failed
     res.json(playlist);
   } catch (error) {
-    console.error(`Error getting playlist: ${error.message}`);
+    console.error(
+      `[Playlist Route] Error in GET /playlists/${id} (querying by playlistId): ${error.message}`,
+      error.stack,
+    );
     next(error);
   }
 });
 
-/**
- * Create new playlist
- */
+// POST create new playlist - use playlistId instead of _id
 router.post('/', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
-    const { playlistId, name, description, spotifyId, spotifyUri, coverImageUrl, tracks, eventId, public } = req.body;
+    const {
+      playlistId, // Changed from _id to playlistId
+      name,
+      description,
+      spotifyId,
+      spotifyUri,
+      coverImageUrl,
+      tracks,
+      eventId,
+      public: isPublic,
+    } = req.body;
 
     if (!name || !playlistId) {
       return res.status(400).json({
         error: 'Missing required fields',
-        requiredFields: ['name', 'playlistId'],
+        requiredFields: ['playlistId', 'name'],
       });
     }
 
-    // Check if playlist already exists
-    const existingPlaylist = await Playlist.findOne({
-      $or: [{ playlistId }, { spotifyId: spotifyId || '' }],
-    });
-
+    // Check if playlist with this playlistId already exists
+    let existingPlaylist = await Playlist.findOne({ playlistId });
     if (existingPlaylist) {
-      return res.status(400).json({ error: 'Playlist with this ID already exists' });
+      return res.status(400).json({ error: `Playlist with playlistId '${playlistId}' already exists.` });
     }
 
-    // Create playlist
-    const playlist = new Playlist({
-      playlistId,
+    const newPlaylistDoc = new Playlist({
+      playlistId, // Use playlistId from req.body
       name,
       description,
       spotifyId,
@@ -139,74 +136,66 @@ router.post('/', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) 
       coverImageUrl,
       tracks: tracks || [],
       eventId,
-      public: public || false,
-      createdBy: req.user.uid,
+      public: typeof isPublic === 'boolean' ? isPublic : false,
+      userId: req.user.uid,
     });
 
-    await playlist.save();
-
-    res.status(201).json(playlist);
+    await newPlaylistDoc.save();
+    res.status(201).json(newPlaylistDoc);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Playlist with this ID already exists.' });
+    }
+    console.error(`Error creating playlist: ${error.message}`);
     next(error);
   }
 });
 
-/**
- * Update playlist
- */
+// PUT update playlist by playlistId
 router.put('/:id', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { name, description, spotifyId, spotifyUri, coverImageUrl, tracks, eventId, public } = req.body;
+    const { id } = req.params; // This is the playlistId
+    const { name, description, spotifyId, spotifyUri, coverImageUrl, tracks, eventId, public: isPublic } = req.body;
 
-    // Find playlist
-    const playlist = await Playlist.findOne({
-      $or: [{ _id: id }, { playlistId: id }],
-    });
+    const playlist = await Playlist.findOne({ playlistId: id });
 
     if (!playlist) {
-      return res.status(404).json({ error: 'Playlist not found' });
+      return res.status(404).json({ error: `Playlist not found with playlistId ${id}` });
     }
 
     // Update fields
     if (name) playlist.name = name;
     if (description !== undefined) playlist.description = description;
-    if (spotifyId) playlist.spotifyId = spotifyId;
-    if (spotifyUri) playlist.spotifyUri = spotifyUri;
-    if (coverImageUrl) playlist.coverImageUrl = coverImageUrl;
+    if (spotifyId !== undefined) playlist.spotifyId = spotifyId;
+    if (spotifyUri !== undefined) playlist.spotifyUri = spotifyUri;
+    if (coverImageUrl !== undefined) playlist.coverImageUrl = coverImageUrl;
     if (tracks) playlist.tracks = tracks;
     if (eventId) playlist.eventId = eventId;
-    if (public !== undefined) playlist.public = public;
-    playlist.updatedBy = req.user.uid;
+    if (typeof isPublic === 'boolean') playlist.public = isPublic;
 
     await playlist.save();
-
     res.json(playlist);
   } catch (error) {
+    console.error(`Error updating playlist playlistId '${req.params.id}': ${error.message}`);
     next(error);
   }
 });
 
-/**
- * Delete playlist
- */
+// DELETE playlist by playlistId
 router.delete('/:id', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // This is the playlistId
 
-    // Find and delete playlist
-    const playlist = await Playlist.findOneAndDelete({
-      $or: [{ _id: id }, { playlistId: id }],
-    });
+    const playlist = await Playlist.findOneAndDelete({ playlistId: id });
 
     if (!playlist) {
-      return res.status(404).json({ error: 'Playlist not found' });
+      return res.status(404).json({ error: `Playlist not found with playlistId ${id}` });
     }
 
-    res.json({ message: 'Playlist deleted successfully', id });
+    res.json({ message: 'Playlist deleted successfully', playlistId: id });
   } catch (error) {
+    console.error(`Error deleting playlist playlistId '${req.params.id}': ${error.message}`);
     next(error);
   }
 });
-
 module.exports = router;
