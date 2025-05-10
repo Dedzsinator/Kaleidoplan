@@ -1,109 +1,133 @@
 import { io, Socket } from 'socket.io-client';
-import { getAuthToken } from './api';
+import { Notification } from '../app/models/types';
 
-let socket: Socket | null = null;
+// Re-export the Notification type from models
+export type { Notification };
 
-// Define notification types
-export type NotificationType =
-  | 'event:created'
-  | 'event:updated'
-  | 'event:deleted'
-  | 'event:assigned'
-  | 'event:unassigned'
-  | 'event:liked'
-  | 'task:assigned'
-  | 'system';
-
-export interface Notification {
-  id: string;
-  type: NotificationType;
-  payload: any;
-  timestamp: string;
-  read: boolean;
-}
-
-export type NotificationHandler = (notification: Notification) => void;
+// Notification handler type
+type NotificationHandler = (notification: Notification) => void;
 const notificationHandlers: NotificationHandler[] = [];
 
-export const initializeSocket = async (): Promise<Socket> => {
-  if (!socket) {
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
-    const baseUrl = apiUrl.replace(/\/api$/, '');
-    socket = io(baseUrl, {
-      autoConnect: false,
-      reconnectionAttempts: 10, // Increase reconnection attempts
-      reconnection: true, // Explicitly enable reconnection
-      transports: ['websocket', 'polling'],
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000, // Increase timeout
-    });
+class SocketService {
+  private socket: Socket | null = null;
+  private connected: boolean = false;
+  private connectionPromise: Promise<Socket> | null = null;
 
-    socket.on('connect', async () => {
-      try {
-        const token = await getAuthToken();
-        if (token && socket) {
-          socket.emit('authenticate', token);
-        } else {
-          console.warn('No authentication token available');
+  // Initialize socket only when needed, not immediately
+  private initializeSocket(): boolean {
+    if (this.socket) return true;
+
+    try {
+      // Fix: Extract just the base URL without the /api path
+      const apiBaseUrl = process.env.REACT_APP_API_URL
+        ? process.env.REACT_APP_API_URL.replace('/api', '')
+        : 'http://localhost:3000';
+
+      this.socket = io(apiBaseUrl, {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        path: '/socket.io/', // Make the path explicit
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Socket connected successfully');
+        this.connected = true;
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log(`Socket disconnected: ${reason}`);
+        this.connected = false;
+      });
+
+      // Set up notification listener
+      this.socket.on('notification', (notification: any) => {
+        // Add an ID if it doesn't have one
+        if (!notification.id) {
+          notification.id = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
-      } catch (error) {
-        console.error('Socket authentication error:', error);
+
+        // Set read status if not set
+        if (notification.read === undefined) {
+          notification.read = false;
+        }
+
+        // Ensure payload exists
+        if (!notification.payload) {
+          notification.payload = {};
+        }
+
+        // Ensure timestamp exists
+        if (!notification.timestamp) {
+          notification.timestamp = new Date().toISOString();
+        }
+
+        // Call all registered handlers
+        notificationHandlers.forEach((handler) => handler(notification as Notification));
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error initializing socket:', error);
+      return false;
+    }
+  }
+
+  // Get socket instance
+  public async getSocket(): Promise<Socket> {
+    if (this.socket && this.connected) {
+      return this.socket;
+    }
+
+    if (!this.socket) {
+      if (!this.initializeSocket()) {
+        throw new Error('Failed to initialize socket connection');
       }
-    });
+    }
 
-    socket.on('connect_error', (error: unknown) => {
-      console.error('Socket connection error details:', error);
-    });
+    if (!this.connected && this.socket) {
+      return new Promise((resolve, reject) => {
+        if (!this.socket) {
+          return reject(new Error('Socket not initialized'));
+        }
 
-    socket.on('disconnect', (reason: unknown) => {
-      // Auto reconnect if not closed intentionally
-      if (reason === 'io server disconnect' || reason === 'transport close') {
-        socket?.connect();
-      }
-    });
+        const timeout = setTimeout(() => {
+          reject(new Error('Socket connection timed out'));
+        }, 5000);
 
-    socket.on('notification', (data) => {
-      try {
-        const notification: Notification = {
-          id: crypto.randomUUID(), // Generate unique ID
-          ...data,
-          read: false,
-        };
-
-        // Notify all registered handlers
-        notificationHandlers.forEach((handler) => {
-          try {
-            handler(notification);
-          } catch (handlerError) {
-            console.error('Error in notification handler:', handlerError);
-          }
+        this.socket.once('connect', () => {
+          clearTimeout(timeout);
+          this.connected = true;
+          resolve(this.socket!);
         });
-      } catch (error) {
-        console.error('Error processing notification:', error);
-      }
-    });
 
-    socket.connect();
+        this.socket.once('connect_error', (error) => {
+          clearTimeout(timeout);
+          reject(new Error(`Socket connection error: ${error.message}`));
+        });
+      });
+    }
+
+    return this.socket!;
   }
+}
 
-  return socket;
+const socketService = new SocketService();
+
+// Update initializeSocket to gracefully handle guest mode
+export const initializeSocket = async (): Promise<void> => {
+  try {
+    await socketService.getSocket();
+  } catch (error) {
+    // Log but don't throw - allow app to continue working without notifications
+    console.warn(
+      'Socket initialization skipped, continuing in limited mode:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
+  }
 };
 
-export const getSocket = (): Socket | null => socket;
-
-export const subscribeToEvent = (eventId: string): void => {
-  if (socket && socket.connected) {
-    socket.emit('subscribe-to-event', eventId);
-  }
-};
-
-export const unsubscribeFromEvent = (eventId: string): void => {
-  if (socket && socket.connected) {
-    socket.emit('unsubscribe-from-event', eventId);
-  }
-};
-
+// Export functions required by NotificationContext
 export const addNotificationHandler = (handler: NotificationHandler): (() => void) => {
   notificationHandlers.push(handler);
 
@@ -116,9 +140,5 @@ export const addNotificationHandler = (handler: NotificationHandler): (() => voi
   };
 };
 
-export const closeSocket = (): void => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
-};
+// Export the default instance
+export default socketService;

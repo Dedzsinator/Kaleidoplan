@@ -96,8 +96,18 @@ eventSchema.index({
 });
 
 // Index for date-based queries
+eventSchema.index({ id: 1 });
 eventSchema.index({ startDate: 1, endDate: 1 });
 eventSchema.index({ status: 1 });
+
+// Add pre-save hook to ensure 'id' field is set from _id if not explicitly provided
+eventSchema.pre('save', function (next) {
+  // If id is not set, use _id string representation
+  if (!this.id && this._id) {
+    this.id = this._id.toString();
+  }
+  next();
+});
 
 const Event = mongoose.model('Event', eventSchema);
 

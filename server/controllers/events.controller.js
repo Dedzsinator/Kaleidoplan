@@ -695,7 +695,7 @@ const toggleEventInterest = async (req, res, next) => {
         'authenticated',
       );
 
-      return res.json({ status: 'created', interestLevel });
+      return res.json({ status: 'updated', interestLevel });
     }
   } catch (error) {
     console.error('Error toggling event interest:', error);

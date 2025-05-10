@@ -13,6 +13,7 @@ import {
 // Import the Firebase app instance
 import { auth } from '../config/firebase'; // Import the pre-initialized auth
 import { fetchWithAuth } from '../../services/api';
+import TokenStorage from '../../services/tokenStorage';
 
 // Define user types
 export type UserRole = 'user' | 'organizer' | 'admin';
@@ -79,6 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Force token refresh to get updated custom claims
       const idTokenResult = await userCredential.user.getIdTokenResult(true);
 
+      const token = await userCredential.user.getIdToken();
+
+      TokenStorage.setToken(token);
+
       // Extract role from Firebase claims
       const role = idTokenResult.claims.role || 'user';
 
@@ -115,6 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Force token refresh to get updated custom claims
       const idTokenResult = await result.user.getIdTokenResult(true);
+
+      const token = await result.user.getIdToken();
+      TokenStorage.setToken(token);
 
       // Extract role from Firebase claims
       const role = idTokenResult.claims.role || 'user';
@@ -155,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async (): Promise<void> => {
     await signOut(auth);
+    TokenStorage.removeToken();
     setCurrentUser(null);
   };
 

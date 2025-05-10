@@ -112,149 +112,78 @@ const GuestScreen = () => {
       return null;
     }
 
+    // Make a copy of the event to avoid mutating the original
     const validatedEvent = { ...event } as Event;
 
     // Always use MongoDB _id if available
     if (!validatedEvent.id && validatedEvent._id) {
       validatedEvent.id = validatedEvent._id.toString();
-    } else if (!validatedEvent.id) {
-      // Generate a proper MongoDB-like ID (24 hex chars)
-      const randomId = Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      validatedEvent.id = randomId; // No temp- prefix
     }
 
-    // Ensure we have a playlistId for Spotify integration
-    if (!validatedEvent.playlistId) {
-      validatedEvent.playlistId = `pl${validatedEvent.id}`;
-    }
-
+    // Skip events without IDs - don't create fake/demo IDs
     if (!validatedEvent.id) {
-      // Generate a valid MongoDB-like ID (24 hex chars)
-      const randomId = Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      validatedEvent.id = `demo-${randomId}`;
+      console.warn('Skipping event with no ID from API');
+      return null;
     }
 
-    if (!validatedEvent.name) {
-      validatedEvent.name = 'Unnamed Event';
-    }
-
-    if (validatedEvent.coverImage && !validatedEvent.coverImageUrl) {
+    if (!validatedEvent.coverImageUrl && validatedEvent.coverImage) {
       validatedEvent.coverImageUrl = validatedEvent.coverImage;
     }
 
-    if (
-      !validatedEvent.coverImageUrl ||
-      typeof validatedEvent.coverImageUrl !== 'string' ||
-      validatedEvent.coverImageUrl.trim() === ''
-    ) {
-      validatedEvent.coverImageUrl = PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length];
+    // If still no cover image, use a placeholder
+    if (!validatedEvent.coverImageUrl) {
+      const placeholderIndex = Math.floor(Math.random() * PLACEHOLDER_IMAGES.length);
+      validatedEvent.coverImageUrl = PLACEHOLDER_IMAGES[placeholderIndex];
     }
+
+    if (!validatedEvent.slideshowImages) {
+      validatedEvent.slideshowImages = [];
+    }
+
+    // Check if slideshowImages is an array with a string that contains commas
+    if (
+      Array.isArray(validatedEvent.slideshowImages) &&
+      validatedEvent.slideshowImages.length === 1 &&
+      typeof validatedEvent.slideshowImages[0] === 'string' &&
+      validatedEvent.slideshowImages[0].includes(',')
+    ) {
+      // Split the single string entry into multiple URLs
+      validatedEvent.slideshowImages = validatedEvent.slideshowImages[0]
+        .split(',')
+        .map((url) => url.trim())
+        .filter((url) => url.length > 0);
+    }
+
+    // Convert string to array if needed (direct string case)
+    if (typeof validatedEvent.slideshowImages === 'string') {
+      // Type assertion to tell TypeScript we know what we're doing
+      const slideshowImagesStr = validatedEvent.slideshowImages as string;
+      validatedEvent.slideshowImages = slideshowImagesStr
+        .split(',')
+        .map((url) => url.trim())
+        .filter((url) => url.length > 0);
+    }
+
+    // Ensure it's an array
+    if (!Array.isArray(validatedEvent.slideshowImages)) {
+      validatedEvent.slideshowImages = [];
+    }
+
+    // If no slideshow images are available, use the cover image
+    if (validatedEvent.slideshowImages.length === 0 && validatedEvent.coverImageUrl) {
+      validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
+    }
+    // NEW CODE ENDS HERE
 
     // Ensure every event has a color
     if (!validatedEvent.color) {
-      // Generate a consistent color based on the event ID or index
+      // Generate a consistent color based on the event ID
       const colors = ['#3357FF', '#FF5733', '#33FF57', '#FF33A8', '#33A8FF', '#A833FF'];
-      validatedEvent.color = colors[index % colors.length];
-    }
-
-    // Handle slideshowImages with proper type assertions
-    if (validatedEvent.slideshowImages) {
-      // Handle case when slideshowImages is a string
-      if (typeof validatedEvent.slideshowImages === 'string') {
-        const imagesString = validatedEvent.slideshowImages as string;
-        validatedEvent.slideshowImages = imagesString
-          .split(',')
-          .map((url) => url.trim())
-          .filter((url) => url.length > 0);
-      }
-      // Handle case when slideshowImages is an array with a comma-separated string
-      else if (
-        Array.isArray(validatedEvent.slideshowImages) &&
-        validatedEvent.slideshowImages.length === 1 &&
-        typeof validatedEvent.slideshowImages[0] === 'string' &&
-        validatedEvent.slideshowImages[0].includes(',')
-      ) {
-        const imageString = validatedEvent.slideshowImages[0];
-        validatedEvent.slideshowImages = imageString
-          .split(',')
-          .map((url) => url.trim())
-          .filter((url) => url.length > 0);
-      }
-
-      // Clean up the array - removes non-string values and trims each URL
-      if (Array.isArray(validatedEvent.slideshowImages)) {
-        validatedEvent.slideshowImages = validatedEvent.slideshowImages
-          .filter((url): url is string => typeof url === 'string' && url.trim().length > 0)
-          .map((url) => url.trim());
-      }
-    }
-
-    // Add default slideshow images if needed
-    if (
-      !validatedEvent.slideshowImages ||
-      !Array.isArray(validatedEvent.slideshowImages) ||
-      validatedEvent.slideshowImages.length === 0
-    ) {
-      if (validatedEvent.coverImageUrl) {
-        validatedEvent.slideshowImages = [validatedEvent.coverImageUrl];
-      } else {
-        validatedEvent.slideshowImages = [PLACEHOLDER_IMAGES[index % PLACEHOLDER_IMAGES.length]];
-      }
+      const colorIndex = validatedEvent.id.charCodeAt(0) % colors.length;
+      validatedEvent.color = colors[colorIndex];
     }
 
     return validatedEvent;
-  }, []);
-
-  const createDemoEvents = useCallback(() => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    const nextWeek = new Date(now);
-    nextWeek.setDate(now.getDate() + 7);
-
-    const demoEvents = [
-      {
-        id: 'demo-1',
-        name: 'Music Festival',
-        description: 'A weekend of amazing music performances',
-        location: 'City Park',
-        startDate: tomorrow,
-        endDate: nextWeek,
-        coverImageUrl: PLACEHOLDER_IMAGES[0],
-        slideshowImages: [PLACEHOLDER_IMAGES[0]],
-        status: 'upcoming',
-        playlistId: 'pl-demo-1',
-        color: '#3357FF',
-      },
-      {
-        id: 'demo-2',
-        name: 'Tech Conference',
-        description: 'Learn about the latest technology trends',
-        location: 'Convention Center',
-        startDate: tomorrow,
-        endDate: nextWeek,
-        coverImageUrl: PLACEHOLDER_IMAGES[1],
-        slideshowImages: [PLACEHOLDER_IMAGES[1]],
-        status: 'upcoming',
-        playlistId: 'pl-demo-2',
-        color: '#FF5733',
-      },
-      {
-        id: 'demo-3',
-        name: 'Food Festival',
-        description: 'Taste cuisine from around the world',
-        location: 'Downtown Square',
-        startDate: tomorrow,
-        endDate: nextWeek,
-        coverImageUrl: PLACEHOLDER_IMAGES[2],
-        slideshowImages: [PLACEHOLDER_IMAGES[2]],
-        status: 'upcoming',
-        playlistId: 'pl-demo-3',
-        color: '#33FF57',
-      },
-    ] as Event[];
-
-    setEvents(demoEvents);
   }, []);
 
   const applyFilters = useCallback(() => {
@@ -305,30 +234,32 @@ const GuestScreen = () => {
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true);
-      // First try the standard API endpoint through eventService
-      const fetchedEvents = await getEvents({ forceRefresh: true });
+      const fetchedEvents = await getEvents({
+        page: 1,
+        limit: 100,
+      });
 
-      if (fetchedEvents.length > 0) {
+      if (fetchedEvents && fetchedEvents.length > 0) {
         // Validate and format each event
         const validatedEvents = fetchedEvents
-          .map((event, index) => validateEvent(event, index))
+          .map((event: Event, index: number) => validateEvent(event, index))
           .filter(Boolean) as Event[];
 
         // Store all events in session storage for detail view
         sessionStorage.setItem('all-events', JSON.stringify(validatedEvents));
         setEvents(validatedEvents);
       } else {
-        // If no events from the main API, use demo events as fallback
-        createDemoEvents();
+        setEvents([]);
+        setError('No events available. Please check back later.');
       }
     } catch (err) {
       console.error('Error fetching events:', err);
       setError('Failed to load events. Please try again later.');
-      createDemoEvents();
+      setEvents([]);
     } finally {
       setLoading(false);
     }
-  }, [validateEvent, createDemoEvents]);
+  }, [validateEvent]);
 
   const updateGradientColors = useCallback(() => {
     const visibleEvents = Object.values(visibleEventsRef.current).filter((e) => e.visible);

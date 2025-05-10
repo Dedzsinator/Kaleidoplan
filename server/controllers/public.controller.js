@@ -10,10 +10,8 @@ exports.getPublicEvents = async (req, res, next) => {
     // Just get all events without filtering
     const events = await Event.find({}).sort({ startDate: 1 }).limit(15);
 
-    // If no events found, create demo events
     if (events.length === 0) {
-      const demoEvents = createDemoEvents();
-      return res.json({ events: demoEvents });
+      return res.json({ events: [] });
     }
 
     // Process events to match our expected structure
@@ -72,66 +70,6 @@ exports.getPublicEvents = async (req, res, next) => {
     next(error);
   }
 };
-
-// Helper to create demo events when none exist
-function createDemoEvents() {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  const nextWeek = new Date(now);
-  nextWeek.setDate(now.getDate() + 7);
-
-  return [
-    {
-      _id: 'demo-1',
-      id: 'demo-1',
-      name: 'Music Festival 2025',
-      description: 'A weekend of amazing music performances',
-      location: 'City Park',
-      startDate: tomorrow,
-      endDate: nextWeek,
-      coverImageUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
-      slideshowImages: [
-        'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1080&auto=format&fit=crop',
-      ],
-      status: 'upcoming',
-      playlistId: 'pl-demo-1',
-      color: '#3357FF',
-    },
-    {
-      _id: 'demo-2',
-      id: 'demo-2',
-      name: 'Tech Conference 2025',
-      description: 'Learn about the latest technology trends',
-      location: 'Convention Center',
-      startDate: tomorrow,
-      endDate: nextWeek,
-      coverImageUrl: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1080&auto=format&fit=crop',
-      slideshowImages: [
-        'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1080&auto=format&fit=crop',
-      ],
-      status: 'upcoming',
-      playlistId: 'pl-demo-2',
-      color: '#FF5733',
-    },
-    {
-      _id: 'demo-3',
-      id: 'demo-3',
-      name: 'Food Festival',
-      description: 'Taste cuisine from around the world',
-      location: 'Downtown Square',
-      startDate: tomorrow,
-      endDate: nextWeek,
-      coverImageUrl: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=1080&auto=format&fit=crop',
-      slideshowImages: [
-        'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=1080&auto=format&fit=crop',
-      ],
-      status: 'upcoming',
-      playlistId: 'pl-demo-3',
-      color: '#33FF57',
-    },
-  ];
-}
 
 exports.getPublicEventById = async (req, res, next) => {
   try {

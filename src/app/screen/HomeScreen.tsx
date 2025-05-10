@@ -83,10 +83,13 @@ const HomeScreen: React.FC = () => {
     try {
       setLoading(true);
 
-      const fetchedEvents = await getEvents({ forceRefresh: true });
+      const fetchedEvents = await getEvents({
+        page: 1,
+        limit: 100,
+      });
 
       const validatedEvents = fetchedEvents
-        .map((event, index) => validateEvent(event, index))
+        .map((event: Event, index: number) => validateEvent(event, index))
         .filter(Boolean) as Event[];
 
       setEvents(validatedEvents);

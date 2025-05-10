@@ -46,7 +46,7 @@ const spotifyPlaylistSchema = new Schema(
       default: true,
     },
     eventId: {
-      type: String,
+      type: mongoose.Schema.Types.Mixed, // Allow for both String and ObjectId
       ref: 'Event',
     },
     spotifyId: {
@@ -62,5 +62,20 @@ const spotifyPlaylistSchema = new Schema(
     timestamps: true,
   },
 );
+
+spotifyPlaylistSchema.pre('save', function (next) {
+  // If no playlistId, create one based on the _id
+  if (!this.playlistId && this._id) {
+    this.playlistId = `pl${this._id.toString()}`;
+  }
+
+  // If eventId exists but is a numeric string like "1", try to find the actual event
+  if (this.isNew && this.eventId && typeof this.eventId === 'string' && /^\d+$/.test(this.eventId)) {
+    // This will be handled during the actual lookup
+    console.warn(`Note: playlist has numeric eventId: ${this.eventId} - will be resolved during lookup`);
+  }
+
+  next();
+});
 
 module.exports = mongoose.model('playlists', spotifyPlaylistSchema);

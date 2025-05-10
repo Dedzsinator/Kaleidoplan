@@ -118,7 +118,7 @@ export interface Event {
   color: string;
   location?: string;
   coverImageUrl?: string;
-  slideshowImages?: string[];
+  slideshowImages?: string[] | string;
   playlistId?: string;
   createdBy?: string;
   createdAt?: string | Date;
@@ -263,10 +263,24 @@ export interface MultipleImageUploadApiResponse {
 
 export interface Notification {
   id: string;
-  type: string;
-  message: string;
+  type: 'event:created' | 'event:updated' | 'event:liked' | 'system' | string;
   timestamp: string;
   read: boolean;
-  eventId?: string;
-  userId?: string;
+  payload: {
+    name?: string;
+    eventId?: string;
+    userName?: string;
+    action?: 'added' | 'removed' | 'updated' | string;
+    message?: string;
+  };
+}
+
+export interface RequestInit {
+  method: HttpMethod;
+  headers?: HeadersInit;
+  body?: string | FormData;
+  params?: Record<string, string | number | boolean | null | undefined>;
+  timeout?: number;
+  withCredentials?: boolean;
+  signal?: AbortSignal;
 }

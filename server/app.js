@@ -29,6 +29,7 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  path: '/socket.io/', // Make sure this matches the client's path
 });
 
 notificationService.initializeNotificationService(io);

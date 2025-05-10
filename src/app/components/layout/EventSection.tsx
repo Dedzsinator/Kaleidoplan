@@ -257,11 +257,51 @@ const EventSection = memo(
               </div>
             </div>
 
-            {/* Add slideshow if images are available */}
-            {event.slideshowImages && event.slideshowImages.length > 0 && (
+            {event.slideshowImages && (
               <div className="slideshow-container">
                 <h3 className="section-title">Gallery</h3>
-                <ImageSlideshow images={event.slideshowImages} height={300} showGradient={true} />
+                <ImageSlideshow
+                  images={(() => {
+                    // Process the slideshowImages to ensure proper format
+                    if (!event.slideshowImages) return [];
+
+                    // If it's already an array with multiple elements, use it directly
+                    if (Array.isArray(event.slideshowImages) && event.slideshowImages.length > 1) {
+                      return event.slideshowImages;
+                    }
+
+                    // Handle the case where it's an array with one comma-separated string
+                    if (
+                      Array.isArray(event.slideshowImages) &&
+                      event.slideshowImages.length === 1 &&
+                      typeof event.slideshowImages[0] === 'string' &&
+                      event.slideshowImages[0].includes(',')
+                    ) {
+                      return event.slideshowImages[0]
+                        .split(',')
+                        .map((url) => url.trim())
+                        .filter((url) => url.length > 0);
+                    }
+
+                    // Handle direct string case
+                    if (typeof event.slideshowImages === 'string') {
+                      if (event.slideshowImages.includes(',')) {
+                        return event.slideshowImages
+                          .split(',')
+                          .map((url) => url.trim())
+                          .filter((url) => url.length > 0);
+                      }
+                      return [event.slideshowImages];
+                    }
+
+                    // Fallback to cover image if available
+                    if (event.coverImageUrl) return [event.coverImageUrl];
+
+                    return [];
+                  })()}
+                  height={240}
+                  showGradient={true}
+                />
               </div>
             )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Event, Playlist, Track } from '../../models/types';
-import { usePlaylist } from '../../hooks/usePlaylist';
-import spotifyService from '../../../services/spotify-web-api';
+import { Event, Track } from '../../models/types';
+import { usePlaylist } from '../../hooks/usePlaylists';
+import { useSpotifyTrack, useSpotifyTracks, useSpotifyAuthStatus, usePlaySpotifyTrack } from '../../hooks/useSpotify';
 import '../../styles/SpotifyRadioOverlay.css';
 
 // Add SVG icons as components for better appearance
@@ -48,9 +48,9 @@ const ErrorIcon = () => (
 );
 
 interface SpotifyRadioOverlayProps {
-  currentEvent: Event;
+  currentEvent: Event | null;
   isPlaying: boolean;
-  onTogglePlay: () => void;
+  onTogglePlay: (isPlaying: boolean) => void;
   onExpand: () => void;
   expanded: boolean;
 }
@@ -69,11 +69,68 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   const [trackData, setTrackData] = useState<Track[]>([]);
   const [usingSdkPlayback, setUsingSdkPlayback] = useState(false);
   const [isPremiumUser, setIsPremiumUser] = useState<boolean | null>(null);
+  const [errorState, setErrorState] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Fetch playlist data using the hook
   const { playlist, loading: playlistLoading, error } = usePlaylist(currentEvent?.playlistId);
+
+  // Check Spotify authentication status
+  const { data: isAuthenticated, isLoading: authLoading } = useSpotifyAuthStatus();
+
+  // Extract track IDs from playlist
+  const trackIds = React.useMemo(() => {
+    if (!playlist?.tracks) return [];
+
+    if (Array.isArray(playlist.tracks)) {
+      return playlist.tracks.filter(Boolean) as string[];
+    }
+
+    if (typeof playlist.tracks === 'object' && !Array.isArray(playlist.tracks)) {
+      return Object.values(playlist.tracks as Record<string, unknown>)
+        .map((track) => (track as Track).spotifyId)
+        .filter(Boolean) as string[];
+    }
+
+    if (typeof playlist.tracks === 'string') {
+      try {
+        const parsed = JSON.parse(playlist.tracks as string);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  }, [playlist]);
+
+  // Fetch all tracks data using React Query
+  const { data: spotifyTracks, isLoading: tracksLoading } = useSpotifyTracks(trackIds);
+
+  // Process spotify tracks to create track data
+  useEffect(() => {
+    if (spotifyTracks && Array.isArray(spotifyTracks)) {
+      const processedTracks = spotifyTracks
+        .filter((track) => track) // Filter out null/undefined tracks
+        .map((track) => ({
+          name: track.name || 'Unknown Track',
+          artist: track.artists?.[0]?.name || 'Unknown Artist',
+          spotifyId: track.id,
+          previewUrl: track.preview_url || undefined,
+          albumArt: track.album?.images?.[0]?.url,
+        }));
+
+      if (processedTracks.length > 0) {
+        setTrackData(processedTracks);
+        setErrorState(null);
+      } else if (!tracksLoading && trackIds.length > 0) {
+        setErrorState('No tracks available');
+      }
+    }
+  }, [spotifyTracks, tracksLoading, trackIds]);
+
+  // Use mutation for playing tracks
+  const playTrackMutation = usePlaySpotifyTrack();
 
   const nextTrack = useCallback(() => {
     if (trackData.length === 0) return;
@@ -87,145 +144,92 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
       } else if (audioRef.current) {
         audioRef.current.pause();
       }
-      // Play will be triggered by the effect
+      // Play will be triggered by the effect calling handlePlayback
     }
   }, [trackData.length, isPlaying, usingSdkPlayback]);
 
-  // Initialize Audio or Spotify Player
-  useEffect(() => {
-    const initPlayback = async () => {
-      try {
-        // First check if user is authenticated with Spotify
-        const isAuthenticated = await spotifyService.isUserAuthenticated();
+  const handlePlayback = useCallback(async () => {
+    if (!trackData.length || currentTrackIndex >= trackData.length) {
+      setErrorState('No track available to play');
+      return;
+    }
 
-        if (isAuthenticated) {
-          // Try to initialize the Spotify Web Playback SDK
+    const track = trackData[currentTrackIndex];
+    if (!track.spotifyId) {
+      setErrorState('Track ID missing');
+      nextTrack(); // Move to next track automatically
+      return;
+    }
 
-          const sdkInitialized = await spotifyService.initializePlayer();
+    setIsLoading(true);
+    setErrorState(null);
+    setPlaybackError(null);
 
-          if (sdkInitialized) {
-            setUsingSdkPlayback(true);
-            setIsPremiumUser(true);
-            setAudioInitialized(true);
-            return;
-          } else {
-            setIsPremiumUser(false);
-          }
-        }
+    try {
+      const playResult = await playTrackMutation.mutateAsync(track.spotifyId);
 
-        // Fall back to audio element for non-authenticated or non-Premium users
-        if (!audioRef.current) {
-          audioRef.current = new Audio();
-          audioRef.current.onended = () => {
-            nextTrack();
-          };
-        }
+      if (playResult === 'NEXT_TRACK') {
+        // Special signal to move to the next track
+        setPlaybackError('Track unavailable, trying next one...');
+        setTimeout(() => {
+          nextTrack();
+        }, 500);
+        return;
+      }
+
+      if (playResult === 'spotify:sdk:playing' || playResult === true) {
+        // Track is playing via Spotify SDK (handles both string and boolean true responses)
+        onTogglePlay(true);
+        setUsingSdkPlayback(true);
+      } else if (playResult) {
+        // We have a preview URL (any truthy string that isn't 'spotify:sdk:playing')
+        onTogglePlay(true);
         setUsingSdkPlayback(false);
-        setAudioInitialized(true);
-      } catch (error) {
-        console.error('Error initializing playback:', error);
-        setPlaybackError('Could not initialize audio system');
-        setAudioInitialized(true); // Still set to true so we can show error state
+      } else {
+        // Track exists but isn't playable - try next track
+        console.log('Track not playable, trying next track');
+        setPlaybackError('Track unavailable in your region, trying next one...');
+        setTimeout(() => {
+          nextTrack();
+        }, 1000);
       }
-    };
+    } catch (error) {
+      // Special handling for CloudPlaybackClientError
+      if (
+        error instanceof Error &&
+        (error.message.includes('CloudPlaybackClientError') || error.message.includes('PlayLoad event failed'))
+      ) {
+        console.warn('Received expected CloudPlaybackClientError - continuing playback');
+        // These errors can be ignored, they don't affect actual playback
+        onTogglePlay(true);
+        setUsingSdkPlayback(true);
 
-    initPlayback();
-
-    // Cleanup
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+        // Force UI to show correct play state after a short delay
+        setTimeout(() => {
+          if (isPlaying) {
+            // Reaffirm that we're playing
+            onTogglePlay(true);
+          }
+        }, 500);
+        return;
       }
-    };
-  }, [nextTrack]);
 
-  // Process raw track IDs from playlist data
+      console.error(`Error playing track ${track.spotifyId}:`, error);
+      setPlaybackError('Playback failed. Trying next track...');
+      setTimeout(() => {
+        nextTrack();
+      }, 1000);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [trackData, currentTrackIndex, playTrackMutation, onTogglePlay, nextTrack, isPlaying]);
+
+  // Trigger playback when track changes or play state changes
   useEffect(() => {
-    const processPlaylistTracks = async () => {
-      if (!playlist) return;
-
-      try {
-        if (playlist.tracks) {
-          const tracks: Track[] = [];
-
-          // If tracks is already a Record<string, Track>, convert to array
-          if (
-            typeof playlist.tracks === 'object' &&
-            !Array.isArray(playlist.tracks) &&
-            !('length' in playlist.tracks)
-          ) {
-            Object.values(playlist.tracks).forEach((track) => {
-              tracks.push(track as Track);
-            });
-          }
-          // Handle array of strings (track IDs)
-          else if (Array.isArray(playlist.tracks)) {
-            const trackIds = playlist.tracks as string[];
-
-            // Fetch track data for each ID
-            for (const trackId of trackIds) {
-              try {
-                const spotifyTrack = await spotifyService.getTrack(trackId);
-                if (spotifyTrack) {
-                  const track: Track = {
-                    name: spotifyTrack.name || 'Unknown Track',
-                    artist: spotifyTrack.artists?.[0]?.name || 'Unknown Artist',
-                    spotifyId: trackId,
-                    previewUrl: spotifyTrack.preview_url || undefined,
-                    albumArt: spotifyTrack.album?.images?.[0]?.url,
-                  };
-                  tracks.push(track);
-                }
-              } catch (error) {
-                console.error(`Error fetching track ${trackId}:`, error);
-              }
-            }
-          }
-          // Handle string (could be a JSON string of track IDs)
-          else if (typeof playlist.tracks === 'string') {
-            let trackIds: string[] = [];
-            const tracksStr = playlist.tracks as string;
-
-            if (tracksStr.startsWith('[')) {
-              try {
-                trackIds = JSON.parse(tracksStr.replace(/\\/g, ''));
-              } catch (e) {
-                console.error('Error parsing track IDs:', e);
-                trackIds = [];
-              }
-            }
-
-            // Fetch track data for each ID
-            for (const trackId of trackIds) {
-              try {
-                const spotifyTrack = await spotifyService.getTrack(trackId);
-                if (spotifyTrack) {
-                  const track: Track = {
-                    name: spotifyTrack.name || 'Unknown Track',
-                    artist: spotifyTrack.artists?.[0]?.name || 'Unknown Artist',
-                    spotifyId: trackId,
-                    previewUrl: spotifyTrack.preview_url || undefined,
-                    albumArt: spotifyTrack.album?.images?.[0]?.url,
-                  };
-                  tracks.push(track);
-                }
-              } catch (error) {
-                console.error(`Error fetching track ${trackId}:`, error);
-              }
-            }
-          }
-
-          setTrackData(tracks);
-        }
-      } catch (error) {
-        console.error('Error processing playlist tracks:', error);
-        setPlaybackError('Failed to process playlist tracks');
-      }
-    };
-
-    processPlaylistTracks();
-  }, [playlist]);
+    if (isPlaying && trackData.length > 0 && !isLoading) {
+      handlePlayback();
+    }
+  }, [currentTrackIndex, isPlaying, trackData.length, handlePlayback, isLoading]);
 
   // Get current track
   const getCurrentTrack = useCallback((): Track | null => {
@@ -250,101 +254,20 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     }
   }, [trackData.length, isPlaying, usingSdkPlayback]);
 
-  // Handle playback state changes
-  useEffect(() => {
-    const handlePlayback = async () => {
-      const track = getCurrentTrack();
-      if (!track) return;
-
-      if (isPlaying) {
-        setIsLoading(true);
-        setPlaybackError(null);
-
-        try {
-          if (usingSdkPlayback) {
-            // Use Spotify Web Playback SDK (for Premium users)
-
-            try {
-              const success = await spotifyService.playTrackWithSpotify(track.spotifyId || '');
-
-              if (success) {
-                setIsLoading(false);
-                return;
-              } else {
-                console.warn('SDK playback failed, falling back to preview URL');
-              }
-            } catch (sdkError) {
-              console.warn('SDK error occurred, falling back to preview URL', sdkError);
-              // Don't change usingSdkPlayback here - we'll still try SDK for other tracks
-            }
-          }
-
-          // Fall back to audio element for preview URLs
-          if (!audioRef.current) {
-            audioRef.current = new Audio();
-            audioRef.current.onended = nextTrack;
-          }
-
-          // Get preview URL for playback
-          const previewUrl = await spotifyService.playTrack(track.spotifyId);
-
-          if (!previewUrl) {
-            throw new Error('No audio available for this track');
-          }
-
-          // Set up error handler
-          audioRef.current.onerror = (e) => {
-            console.error('Audio error:', e);
-            const errorDetails = audioRef.current?.error
-              ? `${audioRef.current.error.code}: ${audioRef.current.error.message}`
-              : 'Unknown error';
-            setPlaybackError(`Audio error: ${errorDetails}`);
-            setIsLoading(false);
-
-            // Skip to next track after error
-            setTimeout(() => nextTrack(), 1000);
-          };
-
-          // Set the audio source
-          audioRef.current.src = previewUrl;
-          audioRef.current.crossOrigin = 'anonymous';
-          audioRef.current.load();
-
-          // Play the audio
-          try {
-            await audioRef.current.play();
-            setIsLoading(false);
-          } catch (playError) {
-            console.error('Error playing track:', playError);
-            setPlaybackError(
-              `Couldn't play track: ${playError instanceof Error ? playError.message : 'unknown error'}`,
-            );
-            setIsLoading(false);
-            setTimeout(() => nextTrack(), 1000);
-          }
-        } catch (error) {
-          console.error('Error playing track:', error);
-          setPlaybackError(`${error instanceof Error ? error.message : 'Error playing track'}`);
-          setIsLoading(false);
-          setTimeout(() => nextTrack(), 1000);
-        }
-      } else {
-        // Pause playback
-        if (usingSdkPlayback) {
-          await spotifyService.pausePlayback();
-        } else if (audioRef.current) {
-          audioRef.current.pause();
-        }
-      }
-    };
-
-    if (audioInitialized) {
-      handlePlayback();
-    }
-  }, [isPlaying, audioInitialized, getCurrentTrack, nextTrack, usingSdkPlayback]);
-
   // Get the current track
   const currentTrack = getCurrentTrack();
+
+  const handlePlayPauseToggle = () => {
+    if (isPlaying) {
+      onTogglePlay(false);
+    } else {
+      if (currentTrack?.spotifyId) {
+        handlePlayback();
+      } else {
+        onTogglePlay(true);
+      }
+    }
+  };
 
   // If there's no playlist or no tracks, show a simplified version
   if (playlistLoading) {
@@ -389,11 +312,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     );
   }
 
-  // Handle play/pause toggle
-  const handlePlayPauseToggle = () => {
-    onTogglePlay();
-  };
-
   // Render the full player when we have track data
   return expanded ? (
     <div className={`spotify-overlay expanded-container`}>
@@ -403,7 +321,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
 
       <div className="expanded-player">
         <img
-          src={currentTrack.albumArt || currentEvent.coverImageUrl || 'https://via.placeholder.com/200'}
+          src={currentTrack.albumArt || currentEvent?.coverImageUrl || 'https://via.placeholder.com/200'}
           className="album-art"
           alt={`Album art for ${currentTrack.name}`}
         />
@@ -412,7 +330,7 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
         <span className="track-title">{currentTrack.name}</span>
         <span className="artist-name">{currentTrack.artist}</span>
 
-        {playbackError && <span className="error-text">{playbackError}</span>}
+        {(playbackError || errorState) && <span className="error-text">{playbackError || errorState}</span>}
 
         {isPremiumUser === false && (
           <span className="premium-notice">Connect with Spotify Premium for full tracks</span>
@@ -432,17 +350,18 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
           </button>
         </div>
 
-        <span className="event-name">From: {currentEvent.name}</span>
+        <span className="event-name">From: {currentEvent?.name || 'Unknown Event'}</span>
       </div>
     </div>
   ) : (
     <div className="spotify-overlay mini-player">
       <div className="mini-image-container" onClick={onExpand}>
         <img
-          src={currentTrack.albumArt || currentEvent.coverImageUrl || 'https://via.placeholder.com/50'}
+          src={currentTrack.albumArt || currentEvent?.coverImageUrl || 'https://via.placeholder.com/50'}
           className="mini-image"
           alt="Album cover"
         />
+        {(playbackError || errorState) && <div className="error-indicator">!</div>}
       </div>
 
       <div className="mini-info">

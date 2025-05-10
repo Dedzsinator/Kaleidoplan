@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { addNotificationHandler, Notification, initializeSocket } from '../../services/socketService';
+import { addNotificationHandler, initializeSocket, Notification } from '../../services/socketService';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -8,6 +8,7 @@ interface NotificationContextType {
   markAllAsRead: () => void;
   clearAll: () => void;
   deleteNotification: (id: string) => void;
+  connectionStatus: 'connecting' | 'connected' | 'failed';
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -26,14 +27,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } catch (err) {
         console.error('Failed to initialize socket:', err);
         setConnectionStatus('failed');
+        // Continue execution - the app should work without notifications
       }
     };
 
     initSocket();
 
-    // Subscribe to notifications
-    const unsubscribe = addNotificationHandler((notification) => {
-      // Make sure to actually add the notification to state
+    // Subscribe to notifications only if initialization succeeded
+    const unsubscribe = addNotificationHandler((notification: Notification) => {
       setNotifications((prev) => {
         const newState = [notification, ...prev].slice(0, 100); // Keep max 100 notifications
         return newState;
@@ -72,6 +73,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     markAllAsRead,
     clearAll,
     deleteNotification,
+    connectionStatus,
   };
 
   return <NotificationContext.Provider value={contextValue}>{children}</NotificationContext.Provider>;

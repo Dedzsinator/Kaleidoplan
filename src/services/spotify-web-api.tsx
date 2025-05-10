@@ -76,6 +76,7 @@ const REDIRECT_URI = process.env.REACT_APP_SPOTIFY_REDIRECT_URI || 'http://local
 
 const loadScript = (src: string): Promise<void> => {
   return new Promise((resolve, reject) => {
+    // Check if script already exists
     if (document.querySelector(`script[src="${src}"]`)) {
       resolve();
       return;
@@ -174,6 +175,28 @@ class SpotifyService {
     }
   }
 
+  checkPremiumStatus = async (): Promise<boolean> => {
+    if (this.userAuthenticated === undefined) {
+      return false;
+    }
+
+    try {
+      const token = await this.authenticate?.();
+      if (!token) {
+        return false;
+      }
+
+      const response = await axios.get('https://api.spotify.com/v1/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      return response.data.product === 'premium';
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+      return false;
+    }
+  };
+
   loadTokens = async (): Promise<void> => {
     try {
       const token = await TokenStorage.getItem('spotify_access_token');
@@ -253,41 +276,6 @@ class SpotifyService {
       this.accessToken = 'mock-token-for-fallback';
       this.expiresAt = Date.now() + 3600 * 1000;
       return this.accessToken;
-    }
-  };
-
-  getTrack = async (trackId: string): Promise<Partial<SpotifyTrack>> => {
-    try {
-      if (mockTracks[trackId]) {
-        return mockTracks[trackId];
-      }
-
-      if (this.useMockCredentials) {
-        throw new Error('Using mock data only');
-      }
-
-      const token = await this.authenticate();
-      if (!token) {
-        throw new Error('No Spotify access token available');
-      }
-
-      const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.data && response.data.preview_url) {
-        response.data.preview_url = convertToProxyUrl(response.data.preview_url);
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching track ${trackId}:`, error);
-
-      const fallbackIds = Object.keys(mockTracks);
-      const randomId = fallbackIds[Math.floor(Math.random() * fallbackIds.length)];
-      return mockTracks[randomId];
     }
   };
 
@@ -440,10 +428,9 @@ class SpotifyService {
       return true;
     }
 
-    try {
-      await loadScript('https://sdk.scdn.co/spotify-player.js');
-
-      return new Promise((resolve) => {
+    return new Promise((resolve) => {
+      try {
+        // Define the global callback BEFORE loading the script
         window.onSpotifyWebPlaybackSDKReady = () => {
           this.player = new window.Spotify.Player({
             name: 'Kaleidoplan Web Player',
@@ -472,20 +459,25 @@ class SpotifyService {
             console.error('Spotify player playback error:', message);
           });
 
-          this.player.addListener('player_state_changed', (state: SpotifyPlaybackState | null) => {});
+          this.player.addListener('player_state_changed', (state: SpotifyPlaybackState | null) => {
+            // Handle player state changes if needed
+          });
 
           this.player.addListener('ready', ({ device_id }: { device_id: string }) => {
             this.deviceId = device_id;
             this.isPlayerReady = true;
             this.isPlayerConnected = true;
+            console.log('Spotify player ready with device ID:', device_id);
             resolve(true);
           });
 
           this.player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+            console.warn('Spotify player not ready:', device_id);
             this.isPlayerReady = false;
             this.isPlayerConnected = false;
           });
 
+          // Connect to Spotify
           this.player.connect().then((success: boolean) => {
             if (!success) {
               console.error('Failed to connect to Spotify player');
@@ -493,11 +485,31 @@ class SpotifyService {
             }
           });
         };
-      });
-    } catch (error) {
-      console.error('Error initializing Spotify player:', error);
-      return false;
-    }
+
+        // Load the Spotify SDK script
+        const script = document.createElement('script');
+        script.src = 'https://sdk.scdn.co/spotify-player.js';
+        script.async = true;
+
+        script.onerror = () => {
+          console.error('Failed to load Spotify Web Playback SDK');
+          resolve(false);
+        };
+
+        document.body.appendChild(script);
+
+        // Set a timeout in case something goes wrong
+        setTimeout(() => {
+          if (!this.isPlayerReady) {
+            console.error('Spotify player initialization timed out');
+            resolve(false);
+          }
+        }, 15000); // 15 seconds timeout
+      } catch (error) {
+        console.error('Error in Spotify player initialization:', error);
+        resolve(false);
+      }
+    });
   };
 
   playTrackWithSpotify = async (trackId: string): Promise<boolean> => {
@@ -523,55 +535,85 @@ class SpotifyService {
 
       await this.authenticate();
 
+      // Log track info for debugging
+      console.log(`Attempting to play track ID: ${trackId}`);
+
       try {
-        await axios.put(
-          `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
-          {
-            uris: [`spotify:track:${trackId}`],
+        // First check if the track exists and is playable
+        const trackInfo = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${this.accessToken}`,
-              'Content-Type': 'application/json',
+        });
+
+        try {
+          await axios.put(
+            `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
+            {
+              uris: [`spotify:track:${trackId}`],
             },
-          },
-        );
+            {
+              headers: {
+                Authorization: `Bearer ${this.accessToken}`,
+                'Content-Type': 'application/json',
+              },
+            },
+          );
 
-        return true;
+          console.log(`Successfully started playback for track ${trackId}`);
+          return true;
+        } catch (playError) {
+          if (playError instanceof Error && playError.message.includes('CloudPlaybackClientError')) {
+            console.warn('CloudPlaybackClientError detected but playback may still work');
+            return true; // Try to continue despite the error
+          }
+          // If direct playback fails, log and check for alternatives
+          console.warn(
+            `Failed to play track ${trackId}: ${playError instanceof Error ? playError.message : String(playError)}`,
+          );
+
+          // Check if preview URL is available
+          if (trackInfo.data.preview_url) {
+            console.log(`Track ${trackId} has preview URL, falling back to preview playback`);
+            return false; // Signal caller to use preview URL instead
+          }
+
+          console.warn(`Track ${trackId} exists but is not playable and has no preview. Try next track.`);
+          return false;
+        }
       } catch (axiosError) {
-        if (axios.isAxiosError(axiosError) && axiosError.response?.status === 404) {
-          console.warn(`Track ${trackId} not available for playback (404 error)`);
+        // Handle known error cases
+        if (axios.isAxiosError(axiosError)) {
+          // Handle CloudPlaybackClientError separately - this often happens but playback still works
+          if (
+            axiosError.message?.includes('CloudPlaybackClientError') ||
+            (axiosError.response?.status === 404 && axiosError.config?.url?.includes('cpapi.spotify.com'))
+          ) {
+            // This is the error you're seeing - it's not critical and playback often still works
+            console.warn('CloudPlaybackClientError detected but playback may still work');
+            return true; // Try to continue despite the error
+          }
 
-          const fallbackIds = Object.keys(mockTracks);
-          const randomId = fallbackIds[Math.floor(Math.random() * fallbackIds.length)];
-
-          try {
-            await axios.put(
-              `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
-              {
-                uris: [`spotify:track:${randomId}`],
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${this.accessToken}`,
-                  'Content-Type': 'application/json',
-                },
-              },
-            );
-            return true;
-          } catch (fallbackError) {
-            console.error('Failed to play fallback track:', fallbackError);
+          if (axiosError.response?.status === 403 && axiosError.response?.data?.error?.reason === 'PREMIUM_REQUIRED') {
+            console.warn('Premium subscription is required');
             return false;
           }
-        }
 
-        if (axios.isAxiosError(axiosError) && axiosError.response?.status === 403) {
-          console.warn('Spotify Premium required for playback control');
+          if (axiosError.response?.status === 404) {
+            console.warn(`Track ${trackId} not available (404 error). Moving to next track.`);
+            return false;
+          }
         }
 
         throw axiosError;
       }
     } catch (error) {
+      // Catch-all for other errors
+      if (error instanceof Error && error.message?.includes('CloudPlaybackClientError')) {
+        console.warn('CloudPlaybackClientError caught but continuing playback attempt');
+        return true; // Try to continue despite the error
+      }
+
       console.error('Error playing with Spotify:', error);
       return false;
     }
@@ -605,10 +647,46 @@ class SpotifyService {
     }
   };
 
+  getTrack = async (trackId: string): Promise<Partial<SpotifyTrack>> => {
+    try {
+      // First check if we have this track in our mock data
+      if (mockTracks[trackId]) {
+        return mockTracks[trackId];
+      }
+
+      if (this.useMockCredentials) {
+        // Return default track instead of throwing an error
+        return mockTracks['default'];
+      }
+
+      const token = await this.authenticate();
+      if (!token) {
+        return mockTracks['default'];
+      }
+
+      const response = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.preview_url) {
+        response.data.preview_url = convertToProxyUrl(response.data.preview_url);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching track ${trackId}:`, error);
+
+      // Return default track to avoid playback errors
+      return mockTracks['default'];
+    }
+  };
+
   playTrack = async (trackId: string | undefined): Promise<string | null> => {
     if (!trackId) {
-      console.error('Invalid track ID provided to playTrack');
-      return null;
+      console.warn('Invalid track ID provided to playTrack, using default');
+      return mockTracks['default']?.preview_url || null;
     }
 
     if (this.userAuthenticated) {
@@ -617,22 +695,27 @@ class SpotifyService {
         if (success) {
           return 'spotify:sdk:playing';
         }
+        // If Spotify SDK playback fails, we'll fall through to preview URL
+        console.warn(`Spotify SDK playback failed for ${trackId}, trying preview URL`);
       } catch (error) {
         console.warn('Failed to play via Spotify SDK, falling back to preview URL:', error);
       }
     }
 
     try {
+      // Get track details including preview URL
       const track = await this.getTrack(trackId);
 
       if (!track || !track.preview_url) {
-        return 'https://p.scdn.co/mp3-preview/4841842825a5e78082b1c03886c9034cd82a0d7b';
+        console.warn(`No preview URL for track ${trackId}, will try next track`);
+        // Return a special value that indicates "move to next track"
+        return 'NEXT_TRACK';
       }
 
       return track.preview_url;
     } catch (error) {
       console.error(`Error playing track ${trackId}:`, error);
-      return 'https://p.scdn.co/mp3-preview/4841842825a5e78082b1c03886c9034cd82a0d7b';
+      return 'NEXT_TRACK';
     }
   };
 

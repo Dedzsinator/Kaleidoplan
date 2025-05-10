@@ -1,8 +1,8 @@
-// Playlist management routes
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const Playlist = require('../models/playlist.model');
+const Event = require('../models/event.model');
 const mongoose = require('mongoose');
 
 /**
@@ -36,66 +36,63 @@ router.get('/', authMiddleware.verifyToken, async (req, res, next) => {
   }
 });
 
-// GET playlist by its ID (e.g., "pl1")
-router.get('/:id', async (req, res, next) => {
-  const { id } = req.params;
-  console.log(`[Playlist Route] GET /:id - Received ID for playlistId: "${id}" (Type: ${typeof id})`);
-
-  console.log(`[Playlist Route] Mongoose connection state: ${mongoose.connection.readyState} (1 means connected)`);
-  console.log(`[Playlist Route] Attempting to query with Model Name: ${Playlist.modelName}`);
-  console.log(`[Playlist Route] Target Collection Name (Mongoose default): ${Playlist.collection.name}`);
-
+router.get('/:id', async (req, res) => {
   try {
-    // Query using playlistId field instead of _id
-    console.log(`[Playlist Route] Executing: Playlist.findOne({ playlistId: "${id}" })`);
-    const playlist = await Playlist.findOne({ playlistId: id });
+    const { id } = req.params;
+
+    // Build a query that doesn't try to cast non-ObjectId strings to ObjectId
+    const query = { playlistId: id };
+
+    // Only add _id to the query if it's a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query.$or = [{ _id: id }, { playlistId: id }];
+    }
+
+    const playlist = await Playlist.findOne(query);
 
     if (!playlist) {
-      console.log(`[Playlist Route] Playlist.findOne({ playlistId: "${id}" }) returned null. Document not found.`);
-      return res.status(404).json({ error: `Playlist not found with playlistId ${id}` });
+      return res.status(404).json({ error: 'Playlist not found' });
     }
 
-    console.log(`[Playlist Route] Successfully found playlist with playlistId: "${id}"`);
-
-    // Try to populate, but handle errors gracefully
-    try {
-      if (playlist.eventId) {
-        console.log(
-          `[Playlist Route] Attempting to populate eventId: "${playlist.eventId}" (${typeof playlist.eventId})`,
-        );
-
-        // Only populate if eventId is an ObjectId or can be cast to one
-        const Event = mongoose.model('Event');
-        const event = await Event.findOne({
-          $or: [{ _id: playlist.eventId }, { id: playlist.eventId }],
-        });
-
-        if (event) {
-          console.log(`[Playlist Route] Found related event: "${event.name}"`);
-          // Manually add the populated event data
-          playlist._doc.eventId = {
-            _id: event._id,
-            name: event.name,
-            startDate: event.startDate,
-            endDate: event.endDate,
-          };
-        } else {
-          console.log(`[Playlist Route] Related event with ID "${playlist.eventId}" not found`);
+    let event = null;
+    if (playlist.eventId) {
+      try {
+        // For numeric IDs (like 1, 2, 3), look up by the regular 'id' field
+        if (typeof playlist.eventId === 'number' || !isNaN(Number(playlist.eventId))) {
+          // Convert to number for consistent lookup
+          const numericId = Number(playlist.eventId);
+          event = await Event.findOne({ id: numericId });
         }
+
+        // Try string ID if numeric lookup fails
+        if (!event && typeof playlist.eventId === 'string') {
+          event = await Event.findOne({ id: playlist.eventId });
+        }
+
+        // Last resort - try ObjectId lookup but only if it's a valid ObjectId format
+        if (!event && mongoose.Types.ObjectId.isValid(playlist.eventId)) {
+          event = await Event.findOne({ _id: playlist.eventId });
+        }
+      } catch (eventError) {
+        console.warn(`Error finding event: ${eventError.message}`);
       }
-    } catch (populateError) {
-      console.error(`[Playlist Route] Error populating eventId: ${populateError.message}`);
-      // Continue without population - we'll return the unpopulated playlist
     }
 
-    // Return playlist even if population failed
-    res.json(playlist);
+    // Include event data in response if found
+    const response = playlist.toObject();
+    if (event) {
+      response.event = event;
+      response.eventId = {
+        _id: event._id,
+        id: event.id || event._id.toString(),
+      };
+    } else {
+    }
+
+    return res.json(response);
   } catch (error) {
-    console.error(
-      `[Playlist Route] Error in GET /playlists/${id} (querying by playlistId): ${error.message}`,
-      error.stack,
-    );
-    next(error);
+    console.error('Error fetching playlist:', error);
+    res.status(500).json({ error: 'Failed to fetch playlist' });
   }
 });
 

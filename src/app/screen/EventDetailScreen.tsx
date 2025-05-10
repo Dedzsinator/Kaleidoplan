@@ -205,8 +205,77 @@ const EventDetailScreen: React.FC = () => {
   const eventName = String(event.name || 'Untitled Event');
   const eventStartDate = safeParseDate(event.startDate);
   const eventEndDate = safeParseDate(event.endDate);
-  const coverImage = (event.coverImageUrl as string) || DEFAULT_IMAGE;
-  const slideshowImages = Array.isArray(event.slideshowImages) ? event.slideshowImages : coverImage ? [coverImage] : [];
+
+  const processSlideshowImages = () => {
+    // If no slideshowImages at all, use cover image
+    if (!event.slideshowImages) {
+      return coverImage ? [coverImage] : [];
+    }
+
+    // If it's an array with one comma-separated string
+    if (
+      Array.isArray(event.slideshowImages) &&
+      event.slideshowImages.length === 1 &&
+      typeof event.slideshowImages[0] === 'string' &&
+      event.slideshowImages[0].includes(',')
+    ) {
+      return event.slideshowImages[0]
+        .split(',')
+        .map((url) => url.trim())
+        .filter((url) => url.length > 0);
+    }
+
+    // If it's already a proper array
+    if (Array.isArray(event.slideshowImages) && event.slideshowImages.length > 0) {
+      return event.slideshowImages;
+    }
+
+    // If it's a direct string
+    if (typeof event.slideshowImages === 'string') {
+      if (event.slideshowImages.includes(',')) {
+        return event.slideshowImages
+          .split(',')
+          .map((url) => url.trim())
+          .filter((url) => url.length > 0);
+      }
+      return [event.slideshowImages];
+    }
+
+    // Fallback to cover image
+    return coverImage ? [coverImage] : [];
+  };
+
+  const slideshowImages = processSlideshowImages();
+
+  // Get the cover image with proper fallbacks
+  const getCoverImage = () => {
+    // Try coverImageUrl first
+    if (event.coverImageUrl && typeof event.coverImageUrl === 'string' && event.coverImageUrl.trim() !== '') {
+      return event.coverImageUrl;
+    }
+
+    // Try coverImage next (legacy field name)
+    if (event.coverImage && typeof event.coverImage === 'string' && event.coverImage.trim() !== '') {
+      return event.coverImage;
+    }
+
+    // Try first slideshow image if available
+    if (Array.isArray(event.slideshowImages) && event.slideshowImages.length > 0) {
+      const firstImage = event.slideshowImages[0];
+      if (typeof firstImage === 'string' && !firstImage.includes(',')) {
+        return firstImage;
+      }
+      if (typeof firstImage === 'string' && firstImage.includes(',')) {
+        const split = firstImage.split(',')[0].trim();
+        if (split) return split;
+      }
+    }
+
+    // Last resort - use default
+    return DEFAULT_IMAGE;
+  };
+
+  const coverImage = getCoverImage();
 
   return (
     <div className="event-detail-screen" style={colorStyles}>

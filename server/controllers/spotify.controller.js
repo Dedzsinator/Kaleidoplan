@@ -14,7 +14,6 @@ const spotifyApi = axios.create({
 // Get access token for Spotify API
 const getSpotifyAccessToken = async () => {
   try {
-    // For demo purposes - in production, use proper OAuth flow with refresh tokens
     const response = await axios.post(
       'https://accounts.spotify.com/api/token',
       new URLSearchParams({

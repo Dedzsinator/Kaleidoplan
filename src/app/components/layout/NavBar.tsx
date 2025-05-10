@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import spotifyService from '../../../services/spotify-web-api';
 import { NotificationCenter } from '../ui/NotificationCenter';
+import debounce from 'lodash.debounce';
+import { useTrieSearch } from '../../hooks/useTrie';
 import '../../styles/NavBar.css';
 
 interface NavBarProps {
@@ -19,8 +21,40 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Array<any>>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const navigate = useNavigate();
   const navRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Use our custom trie search hook
+  const { getSuggestions, isInitialized } = useTrieSearch();
+
+  const debouncedSearch = useCallback(
+    debounce((term) => {
+      if (isInitialized && term.length >= 2) {
+        const results = getSuggestions(term);
+        setSuggestions(results);
+        setShowSuggestions(isSearchFocused && results.length > 0);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+      setSelectedSuggestionIndex(-1);
+    }, 300),
+    [isInitialized, isSearchFocused, getSuggestions],
+  );
+
+  useEffect(() => {
+    debouncedSearch(searchTerm);
+    // Return a cleanup function to cancel pending debounced calls
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [searchTerm, debouncedSearch]);
 
   // Check Spotify connection status on component mount
   useEffect(() => {
@@ -38,12 +72,53 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
         setMobileMenuOpen(false);
         setActiveDropdown(null);
+        setShowSuggestions(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isAuthenticated]);
+
+  // Update suggestions when search term changes
+  useEffect(() => {
+    if (isInitialized && searchTerm.length >= 2) {
+      const results = getSuggestions(searchTerm);
+      setSuggestions(results);
+      setShowSuggestions(isSearchFocused && results.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+    setSelectedSuggestionIndex(-1);
+  }, [searchTerm, isInitialized, isSearchFocused, getSuggestions]);
+
+  // Handle keyboard navigation for suggestions
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        if (selectedSuggestionIndex >= 0) {
+          e.preventDefault();
+          handleSuggestionClick(suggestions[selectedSuggestionIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        break;
+      default:
+        break;
+    }
+  };
 
   // Handle Spotify login
   const handleSpotifyLogin = async () => {
@@ -67,6 +142,25 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
     }
   };
 
+  const handleSuggestionClick = (suggestion: any) => {
+    console.log('Suggestion clicked:', suggestion);
+    if (suggestion.value && suggestion.value.id) {
+      // Use correct event ID field
+      const eventId = suggestion.value.id || suggestion.value._id;
+      console.log(`Navigating to event: ${eventId}`);
+
+      // Close the suggestions
+      setSearchTerm('');
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
+
+      // Navigate with a slight delay to ensure state updates complete
+      setTimeout(() => {
+        navigate(`/events/${eventId}`);
+      }, 10);
+    }
+  };
+
   // Handle event search
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +173,7 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
         navigate(`/events?search=${encodeURIComponent(searchTerm.trim())}`);
       }
       setMobileMenuOpen(false); // Close mobile menu after search
+      setShowSuggestions(false);
     }
   };
 
@@ -112,6 +207,22 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
     setActiveDropdown(activeDropdown === name ? null : name);
   };
 
+  // Highlight matching parts of the suggestion
+  const highlightMatch = (text: string, query: string) => {
+    if (!query) return text;
+
+    const index = text.toLowerCase().indexOf(query.toLowerCase());
+    if (index === -1) return text;
+
+    return (
+      <>
+        {text.substring(0, index)}
+        <strong className="highlight">{text.substring(index, index + query.length)}</strong>
+        {text.substring(index + query.length)}
+      </>
+    );
+  };
+
   return (
     <nav className="navbar" style={{ opacity }} ref={navRef}>
       <div className="navbar-container">
@@ -124,26 +235,59 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
           <i className={`fa ${mobileMenuOpen ? 'fa-times' : 'fa-bars'}`}></i>
         </button>
 
-        {/* Search Bar */}
-        <form className={`navbar-search ${isSearchFocused ? 'focused' : ''}`} onSubmit={handleSearch}>
-          <input
-            type="text"
-            placeholder="Search events..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-          />
-          <button type="submit" className="search-button">
-            <i className="fa fa-search"></i>
-          </button>
-        </form>
+        {/* Search Bar with Trie Suggestions */}
+        <div className="search-container">
+          <form className={`navbar-search ${isSearchFocused ? 'focused' : ''}`} onSubmit={handleSearch}>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search events..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => {
+                // Delay hiding suggestions to allow clicks to register
+                setTimeout(() => setIsSearchFocused(false), 200);
+              }}
+              onKeyDown={handleKeyDown}
+            />
+            <button type="submit" className="search-button">
+              <i className="fa fa-search"></i>
+            </button>
+          </form>
+
+          {/* Suggestions dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="search-suggestions" ref={suggestionsRef}>
+              {suggestions.map((suggestion, index) => (
+                <div
+                  key={`${suggestion.word}-${index}`}
+                  className={`suggestion-item ${selectedSuggestionIndex === index ? 'selected' : ''}`}
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                >
+                  <i className="fa fa-search suggestion-icon"></i>
+                  <div className="suggestion-content">
+                    <div className="suggestion-title">{highlightMatch(suggestion.value.name, searchTerm)}</div>
+                    {suggestion.value.location && (
+                      <div className="suggestion-location">
+                        <i className="fa fa-map-marker-alt location-icon"></i>
+                        {suggestion.value.location}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className={`navbar-links ${mobileMenuOpen ? 'active' : ''}`}>
           <Link to="/events" className="navbar-link" onClick={() => setMobileMenuOpen(false)}>
             Events
           </Link>
 
+          {/* Rest of the existing code */}
           {isAuthenticated && (
             <button
               className={`navbar-link around-me-button ${isLocationLoading ? 'loading' : ''}`}
@@ -175,6 +319,7 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
             </>
           )}
 
+          {/* Rest of the navbar links... */}
           {/* Authenticated user links */}
           {isAuthenticated && (
             <>
