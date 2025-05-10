@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "**/README.md"
-      - "**/LICENSE"
-      - ".vscode/**"
-      - ".github/**"
-      - "!.github/workflows/deploy.yml" # Ensure this workflow itself is not ignored
+      - '**/README.md'
+      - '**/LICENSE'
+      - '.vscode/**'
+      - '.github/**'
+      - '!.github/workflows/deploy.yml' # Ensure this workflow itself is not ignored
 
 env:
   REGISTRY: ghcr.io
