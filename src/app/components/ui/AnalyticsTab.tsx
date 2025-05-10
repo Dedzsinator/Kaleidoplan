@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchWithAuth } from '../../../services/api';
+import { fetchWithAuth } from '@services/api';
 import Chart from 'chart.js/auto';
 
 interface StatsData {

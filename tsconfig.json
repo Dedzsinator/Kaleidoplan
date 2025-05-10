@@ -15,11 +15,18 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": "src",
+    "baseUrl": ".",
     "paths": {
-      "@app/*": ["app/*"],
-      "@assets/*": ["assets/*"],
-      "@services/*": ["services/*"]
+      "@/*": ["src/*"],
+      "@app/*": ["src/app/*"],
+      "@components/*": ["src/app/components/*"],
+      "@screens/*": ["src/app/screen/*"],
+      "@services/*": ["src/app/services/*"],
+      "@hooks/*": ["src/app/hooks/*"],
+      "@models/*": ["src/app/models/*"],
+      "@styles/*": ["src/app/styles/*"],
+      "@contexts/*": ["src/app/contexts/*"],
+      "@utils/*": ["src/utils/*"]
     }
   },
   "include": ["src/**/*", "src/types/custom.d.ts", "src/app/config/firebase.tsx"]

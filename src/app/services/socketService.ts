@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-import { Notification } from '../app/models/types';
-import { auth } from '../app/config/firebase'; // Import Firebase auth
+import { Notification } from '@models/types';
+import { auth } from '@app/config/firebase'; // Import Firebase auth
 
 // Re-export the Notification type from models
 export type { Notification };

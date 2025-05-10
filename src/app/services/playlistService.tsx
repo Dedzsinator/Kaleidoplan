@@ -1,4 +1,4 @@
-import { Playlist } from '../app/models/types';
+import { Playlist } from '@models/types';
 import api from './api';
 
 export const getPlaylistById = async (playlistId: string): Promise<Playlist | null> => {

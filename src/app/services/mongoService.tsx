@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Event } from '../app/models/types';
+import { Event } from '@models/types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 

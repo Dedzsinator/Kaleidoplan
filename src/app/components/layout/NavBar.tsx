@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import spotifyService from '../../../services/spotify-web-api';
+import spotifyService from '@services/spotify-web-api';
 import { NotificationCenter } from '../ui/NotificationCenter';
 import debounce from 'lodash.debounce';
 import { useTrieSearch } from '../../hooks/useTrie';

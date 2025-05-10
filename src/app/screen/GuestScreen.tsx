@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getEvents } from '../../services/eventService';
-import { filterEventsByProximity, getCurrentLocation, Coordinates } from '../../services/filterService';
+import { getEvents } from '@services/eventService';
+import { filterEventsByProximity, getCurrentLocation, Coordinates } from '@services/filterService';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
-import spotifyService from '../../services/spotify-web-api';
+import spotifyService from '@services/spotify-web-api';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import Pagination from '../components/layout/Pagination';
 import '../styles/Guest.css';

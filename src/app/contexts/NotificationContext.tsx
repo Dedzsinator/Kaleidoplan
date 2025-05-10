@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { addNotificationHandler, initializeSocket, Notification } from '../../services/socketService';
+import { addNotificationHandler, initializeSocket, Notification } from '@services/socketService';
 
 interface NotificationContextType {
   notifications: Notification[];

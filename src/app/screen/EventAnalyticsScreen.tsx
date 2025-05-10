@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchWithAuth } from '../../services/api';
+import { fetchWithAuth } from '@services/api';
 import Chart from 'chart.js/auto';
 import '../styles/AnalyticsScreen.css';
 

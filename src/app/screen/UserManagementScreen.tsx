@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchWithAuth } from '../../services/api';
+import { fetchWithAuth } from '@services/api';
 import '../styles/AdminPanel.css';
 
 interface UserData {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Event, Track } from '../../models/types';
+import { Event, Track } from '@models/types';
 import { usePlaylist } from '../../hooks/usePlaylists';
-import { useSpotifyTrack, useSpotifyTracks, useSpotifyAuthStatus, usePlaySpotifyTrack } from '../../hooks/useSpotify';
+import { useSpotifyTracks, useSpotifyAuthStatus, usePlaySpotifyTrack } from '../../hooks/useSpotify';
+import spotifyService from '@services/spotify-web-api';
 import '../../styles/SpotifyRadioOverlay.css';
 
 // Add SVG icons as components for better appearance
@@ -230,6 +231,50 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
     }
   }, [currentTrackIndex, isPlaying, trackData.length, handlePlayback, isLoading]);
 
+  useEffect(() => {
+    if (usingSdkPlayback && isPlaying) {
+      // Function to check if track has ended and play next track
+      const checkTrackEnded = async () => {
+        try {
+          const state = await spotifyService.player?.getCurrentState();
+
+          // If track has finished (position near the end of duration)
+          if (state && state.duration - state.position < 1000) {
+            nextTrack();
+          }
+        } catch (error) {
+          console.warn('Error checking playback state:', error);
+        }
+      };
+
+      // Set interval to check track position periodically
+      const interval = setInterval(checkTrackEnded, 3000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [usingSdkPlayback, isPlaying, nextTrack]);
+
+  const handleAudioEnded = useCallback(() => {
+    if (!usingSdkPlayback) {
+      nextTrack();
+    }
+  }, [nextTrack, usingSdkPlayback]);
+
+  // Setup audio element and ended event listener
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.addEventListener('ended', handleAudioEnded);
+
+      return () => {
+        if (audioRef.current) {
+          audioRef.current.removeEventListener('ended', handleAudioEnded);
+        }
+      };
+    }
+  }, [handleAudioEnded]);
+
   // Get current track
   const getCurrentTrack = useCallback((): Track | null => {
     if (trackData.length === 0) return null;
@@ -312,80 +357,91 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
   }
 
   // Render the full player when we have track data
-  return expanded ? (
-    <div className={`spotify-overlay expanded-container`}>
-      <button className="close-button" onClick={onExpand}>
-        <CloseIcon />
-      </button>
-
-      <div className="expanded-player">
-        <img
-          src={currentTrack.albumArt || currentEvent?.coverImageUrl || 'https://via.placeholder.com/200'}
-          className="album-art"
-          alt={`Album art for ${currentTrack.name}`}
-        />
-
-        <span className="playlist-name">{playlist?.name || 'Event Playlist'}</span>
-        <span className="track-title">{currentTrack.name}</span>
-        <span className="artist-name">{currentTrack.artist}</span>
-
-        {(playbackError || errorState) && <span className="error-text">{playbackError || errorState}</span>}
-
-        {isPremiumUser === false && (
-          <span className="premium-notice">Connect with Spotify Premium for full tracks</span>
-        )}
-
-        <div className="controls">
-          <button className="control-button" onClick={prevTrack}>
-            <PrevIcon />
+  return (
+    <>
+      <audio
+        ref={audioRef}
+        style={{ display: 'none' }}
+        src={!usingSdkPlayback && currentTrack?.previewUrl ? currentTrack.previewUrl : undefined}
+        onEnded={handleAudioEnded}
+        autoPlay={!usingSdkPlayback && isPlaying}
+      />
+      {expanded ? (
+        <div className={`spotify-overlay expanded-container`}>
+          <button className="close-button" onClick={onExpand}>
+            <CloseIcon />
           </button>
 
-          <button className="play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
-            {isLoading ? <LoadingIcon /> : isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
+          <div className="expanded-player">
+            <img
+              src={currentTrack.albumArt || currentEvent?.coverImageUrl || 'https://via.placeholder.com/200'}
+              className="album-art"
+              alt={`Album art for ${currentTrack.name}`}
+            />
 
-          <button className="control-button" onClick={nextTrack}>
-            <NextIcon />
-          </button>
+            <span className="playlist-name">{playlist?.name || 'Event Playlist'}</span>
+            <span className="track-title">{currentTrack.name}</span>
+            <span className="artist-name">{currentTrack.artist}</span>
+
+            {(playbackError || errorState) && <span className="error-text">{playbackError || errorState}</span>}
+
+            {isPremiumUser === false && (
+              <span className="premium-notice">Connect with Spotify Premium for full tracks</span>
+            )}
+
+            <div className="controls">
+              <button className="control-button" onClick={prevTrack}>
+                <PrevIcon />
+              </button>
+
+              <button className="play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
+                {isLoading ? <LoadingIcon /> : isPlaying ? <PauseIcon /> : <PlayIcon />}
+              </button>
+
+              <button className="control-button" onClick={nextTrack}>
+                <NextIcon />
+              </button>
+            </div>
+
+            <span className="event-name">From: {currentEvent?.name || 'Unknown Event'}</span>
+          </div>
         </div>
+      ) : (
+        <div className="spotify-overlay mini-player">
+          <div className="mini-image-container" onClick={onExpand}>
+            <img
+              src={currentTrack.albumArt || currentEvent?.coverImageUrl || 'https://via.placeholder.com/50'}
+              className="mini-image"
+              alt="Album cover"
+            />
+            {(playbackError || errorState) && <div className="error-indicator">!</div>}
+          </div>
 
-        <span className="event-name">From: {currentEvent?.name || 'Unknown Event'}</span>
-      </div>
-    </div>
-  ) : (
-    <div className="spotify-overlay mini-player">
-      <div className="mini-image-container" onClick={onExpand}>
-        <img
-          src={currentTrack.albumArt || currentEvent?.coverImageUrl || 'https://via.placeholder.com/50'}
-          className="mini-image"
-          alt="Album cover"
-        />
-        {(playbackError || errorState) && <div className="error-indicator">!</div>}
-      </div>
+          <div className="mini-info">
+            <span className="mini-title" title={currentTrack.name}>
+              {currentTrack.name}
+            </span>
+            <span className="mini-artist" title={currentTrack.artist}>
+              {currentTrack.artist}
+            </span>
+          </div>
 
-      <div className="mini-info">
-        <span className="mini-title" title={currentTrack.name}>
-          {currentTrack.name}
-        </span>
-        <span className="mini-artist" title={currentTrack.artist}>
-          {currentTrack.artist}
-        </span>
-      </div>
+          <div className="mini-controls">
+            <button className="mini-control-button" onClick={prevTrack}>
+              <PrevIcon />
+            </button>
 
-      <div className="mini-controls">
-        <button className="mini-control-button" onClick={prevTrack}>
-          <PrevIcon />
-        </button>
+            <button className="mini-play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
+              {isLoading ? <LoadingIcon /> : isPlaying ? <PauseIcon /> : <PlayIcon />}
+            </button>
 
-        <button className="mini-play-button" onClick={handlePlayPauseToggle} disabled={isLoading}>
-          {isLoading ? <LoadingIcon /> : isPlaying ? <PauseIcon /> : <PlayIcon />}
-        </button>
-
-        <button className="mini-control-button" onClick={nextTrack}>
-          <NextIcon />
-        </button>
-      </div>
-    </div>
+            <button className="mini-control-button" onClick={nextTrack}>
+              <NextIcon />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

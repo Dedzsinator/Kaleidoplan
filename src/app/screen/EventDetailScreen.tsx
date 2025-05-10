@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getEventById } from '../../services/eventService';
-import { getSponsors } from '../../services/sponsorService';
+import { getEventById } from '@services/eventService';
+import { getSponsors } from '@services/sponsorService';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import Map from '../components/Map';

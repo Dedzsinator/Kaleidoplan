@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import spotifyService from '../../../services/spotify-web-api';
+import spotifyService from '@services/spotify-web-api';
 import '../../styles/SpotifyCallback.css';
 
 const SpotifyCallback: React.FC = () => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { User } from '../../models/types';
+import { User } from '@models/types';
 
 interface QuickActionsProps {
   user: User;

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Event, CacheItem } from '../app/models/types';
+import { Event, CacheItem } from '@models/types';
 
 class ApiCache {
   private cache: Record<string, CacheItem<unknown>> = {};

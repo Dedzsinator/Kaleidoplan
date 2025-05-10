@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchWithAuth } from '../../../services/api';
+import { fetchWithAuth } from '@services/api';
 import {
   DragDropContext,
   Droppable,

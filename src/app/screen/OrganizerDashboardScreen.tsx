@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ManagedEvent, Task, TaskStatus } from '../models/types';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../../services/api';
+import api from '@services/api';
 import EventImageUploader from '../components/ui/EventImageUploader';
 import EventImageGallery from '../components/ui/EventImageGallery';
-import { uploadEventImage, uploadEventSlideshowImages } from '../../services/imageUpload';
+import { uploadEventImage, uploadEventSlideshowImages } from '@services/imageUpload';
 import { Event, ImageUploadResponse, EventImageGallery as EventImageGalleryType } from '../models/types';
 import '../styles/DashboardScreen.css';
 

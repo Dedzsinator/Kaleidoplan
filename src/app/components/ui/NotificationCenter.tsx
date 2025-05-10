@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../contexts/NotificationContext';
 import '../../styles/NotificationCenter.css';
-import { Notification } from '../../models/types';
+import { Notification } from '@models/types';
 
 export const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);

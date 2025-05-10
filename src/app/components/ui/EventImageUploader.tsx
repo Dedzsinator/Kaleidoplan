@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { uploadEventImage, uploadEventSlideshowImages } from '../../../services/imageUpload';
+import { uploadEventImage, uploadEventSlideshowImages } from '@services/imageUpload';
 import '../../styles/EventImageUploader.css';
 
 interface EventImageUploaderProps {

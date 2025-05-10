@@ -5,7 +5,7 @@ import EventSecondaryContent from '../ui/EventSecondaryContent';
 import Map from '../Map';
 import ImageSlideshow from '../ui/SlideShow';
 import '../../styles/EventSection.css';
-import { Event } from '../../models/types';
+import { Event } from '@models/types';
 import '../../styles/animations.css';
 
 // Helper to ensure we always have a string ID

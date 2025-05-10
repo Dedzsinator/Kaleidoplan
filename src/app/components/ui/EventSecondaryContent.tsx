@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { subscribeToEvent, unsubscribeFromEvent } from '../../../services/socketService';
+import { subscribeToEvent, unsubscribeFromEvent } from '@services/socketService';
 import '../../styles/EventSecondaryContent.css';
 
 interface EventSecondaryContentProps {

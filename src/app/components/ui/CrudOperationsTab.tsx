@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchWithAuth } from '../../../services/api';
-import { Event as AppEvent } from '../../models/types';
+import { fetchWithAuth } from '@services/api';
+import { Event as AppEvent } from '@models/types';
 
 // Define more precise interfaces for the API data
 interface UserData {

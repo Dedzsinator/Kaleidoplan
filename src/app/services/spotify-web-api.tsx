@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Track } from '../app/models/types';
+import { Track } from '@models/types';
 
 function base64Encode(str: string): string {
   return btoa(unescape(encodeURIComponent(str)));

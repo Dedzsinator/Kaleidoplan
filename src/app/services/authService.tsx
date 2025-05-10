@@ -7,7 +7,7 @@ import {
   User,
   updateProfile as firebaseUpdateProfile,
 } from 'firebase/auth';
-import { auth } from '../app/config/firebase'; // Import the initialized auth
+import { auth } from '@app/config/firebase'; // Import the initialized auth
 import axios from 'axios';
 
 // Set up API client

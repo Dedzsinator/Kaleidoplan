@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from '../layout/All';
-import { User } from '../../models/types';
+import { User } from '@models/types';
 import '../../styles/QuickActions.css';
 
 export interface QuickActionsProps {

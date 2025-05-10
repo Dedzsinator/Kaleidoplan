@@ -1,4 +1,4 @@
-import { Event } from '../app/models/types';
+import { Event } from '@models/types';
 import api from './api';
 
 // Get an event by ID

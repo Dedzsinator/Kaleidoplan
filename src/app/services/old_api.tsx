@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Task, TaskLog } from '../app/models/types';
+import { Task, TaskLog } from '@models/types';
 import { getAuth } from 'firebase/auth';
 
 // Create API client

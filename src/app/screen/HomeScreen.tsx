@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getEvents } from '../../services/eventService';
+import { getEvents } from '@services/eventService';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';

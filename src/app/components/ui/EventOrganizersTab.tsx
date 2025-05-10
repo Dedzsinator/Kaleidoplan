@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import api from '../../../services/api';
-import { getAllUsers, updateUserRole } from '../../../services/userService';
-import { assignOrganizerToEvent, getEventsWithOrganizers } from '../../../services/adminService';
+import api from '@services/api';
+import { getAllUsers, updateUserRole } from '@services/userService';
+import { assignOrganizerToEvent, getEventsWithOrganizers } from '@services/adminService';
 import '../../styles/EventOrganizersTab.css';
 // Use the main Event and User types directly
-import { Event, User } from '../../models/types';
+import { Event, User } from '@models/types';
 
 const getUserId = (user: User): string => {
   return user.id;

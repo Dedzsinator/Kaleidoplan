@@ -1,5 +1,5 @@
 import { getAuth } from 'firebase/auth';
-import { ApiResponse, ApiError, HttpMethod, RequestOptions, RequestConfig } from '../app/models/types';
+import { ApiResponse, ApiError, HttpMethod, RequestOptions, RequestConfig } from '@models/types';
 
 interface EventResponse {
   id: string;

@@ -1,4 +1,4 @@
-import { Event } from '../app/models/types';
+import { Event } from '@models/types';
 
 export interface Coordinates {
   latitude: number;
