@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { Notification } from '../app/models/types';
+import { auth } from '../app/config/firebase'; // Import Firebase auth
 
 // Re-export the Notification type from models
 export type { Notification };
@@ -28,17 +29,26 @@ class SocketService {
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         path: '/socket.io/', // Make the path explicit
+        transports: ['websocket', 'polling'], // Try WebSocket first, fall back to polling
       });
 
       this.socket.on('connect', () => {
-        console.log('Socket connected successfully');
         this.connected = true;
+
+        // Authenticate socket connection when user is logged in
+        this.authenticateSocket();
       });
 
       this.socket.on('disconnect', (reason) => {
-        console.log(`Socket disconnected: ${reason}`);
         this.connected = false;
       });
+
+      this.socket.on('connect_error', (error) => {});
+
+      this.socket.on('error', (error) => {});
+
+      // Listen for authentication confirmation
+      this.socket.on('authenticated', (data) => {});
 
       // Set up notification listener
       this.socket.on('notification', (notification: any) => {
@@ -68,8 +78,26 @@ class SocketService {
 
       return true;
     } catch (error) {
-      console.error('Error initializing socket:', error);
+      console.error('❌ Error initializing socket:', error);
       return false;
+    }
+  }
+
+  // Add authentication method to send token to server
+  private async authenticateSocket() {
+    if (!this.socket || !this.connected) {
+      return;
+    }
+
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const token = await currentUser.getIdToken();
+        this.socket.emit('authenticate', token);
+      } else {
+      }
+    } catch (error) {
+      console.error('❌ Socket authentication error:', error);
     }
   }
 
@@ -110,6 +138,33 @@ class SocketService {
 
     return this.socket!;
   }
+
+  // Method to manually subscribe to event updates
+  public subscribeToEvent(eventId: string) {
+    if (this.socket && this.connected) {
+      this.socket.emit('subscribe-to-event', eventId);
+      return true;
+    }
+    return false;
+  }
+
+  // Method to unsubscribe from event updates
+  public unsubscribeFromEvent(eventId: string) {
+    if (this.socket && this.connected) {
+      this.socket.emit('unsubscribe-from-event', eventId);
+      return true;
+    }
+    return false;
+  }
+
+  // Manually try to reconnect
+  public reconnect() {
+    if (this.socket) {
+      this.socket.connect();
+    } else {
+      this.initializeSocket();
+    }
+  }
 }
 
 const socketService = new SocketService();
@@ -121,7 +176,7 @@ export const initializeSocket = async (): Promise<void> => {
   } catch (error) {
     // Log but don't throw - allow app to continue working without notifications
     console.warn(
-      'Socket initialization skipped, continuing in limited mode:',
+      '⚠️ Socket initialization skipped, continuing in limited mode:',
       error instanceof Error ? error.message : 'Unknown error',
     );
   }
@@ -138,6 +193,20 @@ export const addNotificationHandler = (handler: NotificationHandler): (() => voi
       notificationHandlers.splice(index, 1);
     }
   };
+};
+
+// Export event subscription functions
+export const subscribeToEvent = (eventId: string): boolean => {
+  return socketService.subscribeToEvent(eventId);
+};
+
+export const unsubscribeFromEvent = (eventId: string): boolean => {
+  return socketService.unsubscribeFromEvent(eventId);
+};
+
+// Export manual reconnect function
+export const reconnectSocket = (): void => {
+  socketService.reconnect();
 };
 
 // Export the default instance

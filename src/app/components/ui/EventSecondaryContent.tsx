@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { subscribeToEvent, unsubscribeFromEvent } from '../../../services/socketService';
 import '../../styles/EventSecondaryContent.css';
 
 interface EventSecondaryContentProps {
@@ -63,6 +64,18 @@ const EventSecondaryContent = ({ event }: EventSecondaryContentProps) => {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (event?.id) {
+      // Subscribe to this event's notifications
+      subscribeToEvent(event.id);
+
+      // Cleanup: unsubscribe when component unmounts
+      return () => {
+        unsubscribeFromEvent(event.id);
+      };
+    }
+  }, [event?.id]);
 
   return (
     <div className="event-secondary-container">

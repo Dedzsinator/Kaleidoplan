@@ -633,15 +633,14 @@ const toggleEventInterest = async (req, res, next) => {
       if (existingInterest.interestLevel === interestLevel) {
         await EventInterest.findByIdAndDelete(existingInterest._id);
 
-        // Add notification for unlike/unattend action
         notificationService.sendNotification(
           'event:liked',
           {
-            eventId: event._id,
+            eventId: event._id.toString(),
             name: event.name,
-            userName: userName,
-            interestLevel: interestLevel,
+            userName,
             action: 'removed',
+            interestLevel: interestLevel || null,
           },
           'authenticated',
         );

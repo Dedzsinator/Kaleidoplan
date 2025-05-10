@@ -34,7 +34,16 @@ const io = new Server(server, {
 
 notificationService.initializeNotificationService(io);
 
+// In your socket.io connection handler section
+
+// Add debug logging for all socket connections
 io.on('connection', (socket) => {
+  // Debug log all events emitted by this socket
+  const originalEmit = socket.emit;
+  socket.emit = function (...args) {
+    return originalEmit.apply(this, args);
+  };
+
   // Authenticate user if token provided
   socket.on('authenticate', async (token) => {
     try {
@@ -45,6 +54,7 @@ io.on('connection', (socket) => {
       socket.join(`user:${decodedToken.uid}`);
       // Always join authenticated room regardless of role
       socket.join('authenticated');
+
       // Add to role-specific rooms
       if (decodedToken.role === 'admin') {
         socket.join('admins');
@@ -53,13 +63,22 @@ io.on('connection', (socket) => {
       if (decodedToken.role === 'organizer') {
         socket.join('organizers');
       }
+
+      // Send confirmation back to client
+      socket.emit('authenticated', {
+        success: true,
+        userId: decodedToken.uid,
+        role: decodedToken.role || 'user',
+      });
     } catch (error) {
-      console.error('Socket authentication error:', error);
+      console.error(`❌ Socket authentication error:`, error);
+      socket.emit('authenticated', { success: false, error: 'Authentication failed' });
     }
   });
 
   socket.on('subscribe-to-event', (eventId) => {
     socket.join(`event:${eventId}`);
+    socket.emit('subscribed', { eventId, status: 'success' });
   });
 
   socket.on('unsubscribe-from-event', (eventId) => {

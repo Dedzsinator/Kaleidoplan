@@ -23,7 +23,6 @@ export const getPlaylistById = async (playlistId: string): Promise<Playlist | nu
         // Extract eventId from playlist name or other properties if possible
         const playlistNumber = playlistId.replace(/^pl/, '');
         if (/^\d+$/.test(playlistNumber)) {
-          console.log(`Setting inferred eventId ${playlistNumber} for playlist ${playlistId}`);
           response.eventId = playlistNumber;
         }
       }

@@ -187,7 +187,6 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
         setUsingSdkPlayback(false);
       } else {
         // Track exists but isn't playable - try next track
-        console.log('Track not playable, trying next track');
         setPlaybackError('Track unavailable in your region, trying next one...');
         setTimeout(() => {
           nextTrack();

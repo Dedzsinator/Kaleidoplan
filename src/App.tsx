@@ -18,6 +18,7 @@ import EventManagement from './app/screen/EventManagementScreen';
 import EventDetailScreen from './app/screen/EventDetailScreen';
 import ConfirmationPage from './app/components/user/ConfirmationPage';
 import SpotifyCallback from './app/components/actions/SpotifyCallback';
+import { EventSubscriptionProvider } from './app/components/actions/EventSubscription';
 
 // Import Firebase configuration to ensure it's initialized
 import './app/config/firebase';
@@ -27,78 +28,80 @@ function App() {
     <QueryProvider>
       <AuthProvider>
         <NotificationProvider>
-          <Router>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<GuestScreen />} />
-              <Route path="/home" element={<Home />} />
-              <Route path="/events" element={<GuestScreen />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/events/:eventId" element={<EventDetailScreen />} />
-              <Route path="/confirm-subscription/:token" element={<ConfirmationPage />} />
-              <Route path="/spotify-callback" element={<SpotifyCallback />} />
+          <EventSubscriptionProvider>
+            <Router>
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<GuestScreen />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/events" element={<GuestScreen />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/events/:eventId" element={<EventDetailScreen />} />
+                <Route path="/confirm-subscription/:token" element={<ConfirmationPage />} />
+                <Route path="/spotify-callback" element={<SpotifyCallback />} />
 
-              {/* Protected routes - any authenticated user */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Protected routes - any authenticated user */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Organizer routes */}
-              <Route
-                path="/organizer"
-                element={
-                  <ProtectedRoute requiredRole="organizer">
-                    <OrganizerDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Organizer routes */}
+                <Route
+                  path="/organizer"
+                  element={
+                    <ProtectedRoute requiredRole="organizer">
+                      <OrganizerDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route path="/tasks" element={<OrganizerTaskScreen />} />
+                <Route path="/tasks" element={<OrganizerTaskScreen />} />
 
-              <Route
-                path="/analytics/:eventId"
-                element={
-                  <ProtectedRoute requiredRole="organizer">
-                    <EventAnalytics />
-                  </ProtectedRoute>
-                }
-              />
+                <Route
+                  path="/analytics/:eventId"
+                  element={
+                    <ProtectedRoute requiredRole="organizer">
+                      <EventAnalytics />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route
-                path="/events/manage"
-                element={
-                  <ProtectedRoute requiredRole="organizer">
-                    <EventManagement />
-                  </ProtectedRoute>
-                }
-              />
+                <Route
+                  path="/events/manage"
+                  element={
+                    <ProtectedRoute requiredRole="organizer">
+                      <EventManagement />
+                    </ProtectedRoute>
+                  }
+                />
 
-              {/* Admin routes */}
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <AdminPanel />
-                  </ProtectedRoute>
-                }
-              />
+                {/* Admin routes */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route
-                path="/admin/user"
-                element={
-                  <ProtectedRoute requiredRole="admin">
-                    <UserManagement />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Router>
+                <Route
+                  path="/admin/user"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <UserManagement />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </Router>
+          </EventSubscriptionProvider>
         </NotificationProvider>
       </AuthProvider>
     </QueryProvider>

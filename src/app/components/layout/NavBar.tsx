@@ -143,11 +143,9 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
   };
 
   const handleSuggestionClick = (suggestion: any) => {
-    console.log('Suggestion clicked:', suggestion);
     if (suggestion.value && suggestion.value.id) {
       // Use correct event ID field
       const eventId = suggestion.value.id || suggestion.value._id;
-      console.log(`Navigating to event: ${eventId}`);
 
       // Close the suggestions
       setSearchTerm('');

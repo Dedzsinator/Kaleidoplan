@@ -9,7 +9,7 @@ const initializeNotificationService = (socketIo) => {
 
 const sendNotification = (type, payload, target = 'all') => {
   if (!io) {
-    console.error('Socket IO not initialized in notification service');
+    console.error('❌ Socket IO not initialized in notification service');
     return;
   }
 
@@ -18,6 +18,12 @@ const sendNotification = (type, payload, target = 'all') => {
     payload,
     timestamp: new Date(),
   };
+
+  // For event-specific notifications, also send to the event's room
+  if (payload && payload.eventId) {
+    const eventRoom = `event:${payload.eventId}`;
+    io.to(eventRoom).emit('notification', notification);
+  }
 
   // Target specific users or rooms
   if (target === 'all') {

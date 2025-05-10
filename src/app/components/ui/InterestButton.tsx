@@ -23,6 +23,8 @@ const InterestButton: React.FC<InterestButtonProps> = ({ eventId, size = 'medium
 
   useEffect(() => {
     const checkInterestLevel = async () => {
+      if (!isAuthenticated) return;
+
       try {
         const response = await api.get(`/events/${eventId}/interest`);
 
@@ -32,7 +34,7 @@ const InterestButton: React.FC<InterestButtonProps> = ({ eventId, size = 'medium
           setInterestLevel(null);
         }
       } catch (error) {
-        console.error('Error checking interest level:', error);
+        console.error('❌ Error checking interest level:', error);
       }
     };
 
@@ -48,22 +50,33 @@ const InterestButton: React.FC<InterestButtonProps> = ({ eventId, size = 'medium
     }
 
     setIsLoading(true);
+
     try {
+      const currentLevel = interestLevel; // Save for later comparison
+
       const response = await api.post<InterestResponse>(`/events/${eventId}/interest`, {
         interestLevel: level,
       });
 
-      if (response && typeof response === 'object') {
-        if ('status' in response) {
-          if (response.status === 'removed') {
-            setInterestLevel(null);
-          } else {
-            setInterestLevel('interestLevel' in response ? response.interestLevel || null : null);
-          }
+      // Better response handling
+      if (response && typeof response === 'object' && 'status' in response) {
+        if (response.status === 'removed') {
+          setInterestLevel(null);
+        } else if (response.status === 'updated') {
+          // Get the new level from the response, or use what we tried to set
+          const newLevel = response.interestLevel || level;
+          setInterestLevel(newLevel);
         }
+
+        // Refresh event data if interest level changed
+        if (currentLevel !== interestLevel) {
+          // This would be a good place to invalidate any queries that depend on this event
+        }
+      } else {
+        console.warn('⚠️ Unexpected response format:', response);
       }
     } catch (error) {
-      console.error('Error toggling interest:', error);
+      console.error('❌ Interest toggle error:', error);
     } finally {
       setIsLoading(false);
     }

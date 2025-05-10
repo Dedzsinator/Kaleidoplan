@@ -467,7 +467,6 @@ class SpotifyService {
             this.deviceId = device_id;
             this.isPlayerReady = true;
             this.isPlayerConnected = true;
-            console.log('Spotify player ready with device ID:', device_id);
             resolve(true);
           });
 
@@ -536,8 +535,6 @@ class SpotifyService {
       await this.authenticate();
 
       // Log track info for debugging
-      console.log(`Attempting to play track ID: ${trackId}`);
-
       try {
         // First check if the track exists and is playable
         const trackInfo = await axios.get(`https://api.spotify.com/v1/tracks/${trackId}`, {
@@ -560,7 +557,6 @@ class SpotifyService {
             },
           );
 
-          console.log(`Successfully started playback for track ${trackId}`);
           return true;
         } catch (playError) {
           if (playError instanceof Error && playError.message.includes('CloudPlaybackClientError')) {
@@ -574,7 +570,6 @@ class SpotifyService {
 
           // Check if preview URL is available
           if (trackInfo.data.preview_url) {
-            console.log(`Track ${trackId} has preview URL, falling back to preview playback`);
             return false; // Signal caller to use preview URL instead
           }
 

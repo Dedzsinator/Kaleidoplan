@@ -9,6 +9,7 @@ import spotifyService from '../../services/spotify-web-api';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import Pagination from '../components/layout/Pagination';
 import '../styles/Guest.css';
+import '../styles/animations.css';
 
 // Event type import
 import { Event } from '../models/types';

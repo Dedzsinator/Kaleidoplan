@@ -6,6 +6,7 @@ import Map from '../Map';
 import ImageSlideshow from '../ui/SlideShow';
 import '../../styles/EventSection.css';
 import { Event } from '../../models/types';
+import '../../styles/animations.css';
 
 // Helper to ensure we always have a string ID
 const ensureEventId = (event: Event): string => {
@@ -55,8 +56,10 @@ const hexToRgba = (hex: string, alpha: number = 1): string => {
 
 const EventSection = memo(
   ({ event, navigation, onImageError, index, scrollY, sectionY = 0, onVisibilityChange }: EventSectionProps) => {
-    const delay = index * 150;
     const containerRef = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const [hasAnimated, setHasAnimated] = useState(false);
+    const delay = index * 150;
     const isVisibleRef = useRef(false);
     const [sectionHeight, setSectionHeight] = useState(0);
     const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
@@ -204,10 +207,50 @@ const EventSection = memo(
     // Log the color for debugging
     useEffect(() => {}, [event.id, eventColor]);
 
+    const delayClass = `delay-${Math.min(index % 5, 4)}`;
+
+    useEffect(() => {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            const isNowVisible = entry.isIntersecting;
+            setIsVisible(isNowVisible);
+
+            // Only animate once when it becomes visible
+            if (isNowVisible && !hasAnimated) {
+              setHasAnimated(true);
+            }
+
+            // Call the original visibility handler
+            if (onVisibilityChange) {
+              onVisibilityChange(isNowVisible, definiteEventId, containerRef.current);
+            }
+          });
+        },
+        {
+          threshold: 0.1, // Trigger when at least 10% is visible
+          rootMargin: '0px 0px -10% 0px', // Start animation slightly before element enters viewport
+        },
+      );
+
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
+
+      return () => {
+        if (containerRef.current) {
+          observer.unobserve(containerRef.current);
+        }
+      };
+    }, [event.id, hasAnimated, onVisibilityChange]);
+
+    // Calculate animation classes
+    const animationClasses = hasAnimated ? `fade-in-up ${delayClass}` : 'initially-hidden';
+
     return (
       <div
         ref={containerRef}
-        className="event-section-container"
+        className={`event-section-container ${animationClasses}`}
         style={colorStyles}
         data-event-id={event.id}
         data-event-color={eventColor}
