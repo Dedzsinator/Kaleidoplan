@@ -115,6 +115,9 @@ const EventSection = memo(
 
       calculateVisibility();
 
+      // Store reference to the current container element
+      const currentContainerRef = containerRef.current;
+
       // Also recalculate on scroll
       window.addEventListener('scroll', calculateVisibility);
       return () => window.removeEventListener('scroll', calculateVisibility);
@@ -233,16 +236,19 @@ const EventSection = memo(
         },
       );
 
-      if (containerRef.current) {
-        observer.observe(containerRef.current);
+      // Capture the current ref value
+      const currentRef = containerRef.current;
+
+      if (currentRef) {
+        observer.observe(currentRef);
       }
 
       return () => {
-        if (containerRef.current) {
-          observer.unobserve(containerRef.current);
+        if (currentRef) {
+          observer.unobserve(currentRef);
         }
       };
-    }, [event.id, hasAnimated, onVisibilityChange]);
+    }, [event.id, hasAnimated, onVisibilityChange, definiteEventId]);
 
     // Calculate animation classes
     const animationClasses = hasAnimated ? `fade-in-up ${delayClass}` : 'initially-hidden';

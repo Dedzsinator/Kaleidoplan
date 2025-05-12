@@ -24,12 +24,14 @@ export const EventSubscriptionProvider: React.FC<EventSubscriptionProviderProps>
       }
     });
 
+    // Capture the current subscribed events for cleanup
+    const currentSubscribedEvents = new Set(subscribedEventsRef.current);
+
     // Cleanup function
     return () => {
-      subscribedEventsRef.current.forEach((eventId) => {
+      currentSubscribedEvents.forEach((eventId) => {
         socketService.unsubscribeFromEvent(eventId);
       });
-      subscribedEventsRef.current.clear();
     };
   }, [events]);
 

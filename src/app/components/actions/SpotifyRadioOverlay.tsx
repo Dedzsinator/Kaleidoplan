@@ -264,12 +264,14 @@ const SpotifyRadioOverlay: React.FC<SpotifyRadioOverlayProps> = ({
 
   // Setup audio element and ended event listener
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.addEventListener('ended', handleAudioEnded);
+    const currentAudioRef = audioRef.current;
+
+    if (currentAudioRef) {
+      currentAudioRef.addEventListener('ended', handleAudioEnded);
 
       return () => {
-        if (audioRef.current) {
-          audioRef.current.removeEventListener('ended', handleAudioEnded);
+        if (currentAudioRef) {
+          currentAudioRef.removeEventListener('ended', handleAudioEnded);
         }
       };
     }

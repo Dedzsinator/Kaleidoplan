@@ -46,28 +46,30 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
 
   // Create a memoized debounced search function
   const debouncedSearch = useCallback(
-    debounce((searchTerm: string) => {
-      if (isInitialized && searchTerm.length >= 2) {
-        const results = getSuggestions(searchTerm);
+    (searchTerm: string) => {
+      debounce((searchTerm: string) => {
+        if (isInitialized && searchTerm.length >= 2) {
+          const results = getSuggestions(searchTerm);
 
-        // Convert SearchResult[] to Suggestion[] by ensuring id is always a string
-        const convertedResults: Suggestion[] = results.map((result) => ({
-          word: result.word,
-          value: {
-            ...result.value,
-            id: String(result.value.id), // Convert id to string
-            location: result.value.location || undefined,
-          },
-        }));
+          // Convert SearchResult[] to Suggestion[] by ensuring id is always a string
+          const convertedResults: Suggestion[] = results.map((result) => ({
+            word: result.word,
+            value: {
+              ...result.value,
+              id: String(result.value.id), // Convert id to string
+              location: result.value.location || undefined,
+            },
+          }));
 
-        setSuggestions(convertedResults);
-        setShowSuggestions(isSearchFocused && convertedResults.length > 0);
-      } else {
-        setSuggestions([]);
-        setShowSuggestions(false);
-      }
-      setSelectedSuggestionIndex(-1);
-    }, 300),
+          setSuggestions(convertedResults);
+          setShowSuggestions(isSearchFocused && convertedResults.length > 0);
+        } else {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+        setSelectedSuggestionIndex(-1);
+      }, 300)(searchTerm);
+    },
     [isInitialized, isSearchFocused, getSuggestions],
   );
 
