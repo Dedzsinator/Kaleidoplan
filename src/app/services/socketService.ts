@@ -51,7 +51,7 @@ class SocketService {
       this.socket.on('authenticated', (data) => {});
 
       // Set up notification listener
-      this.socket.on('notification', (notification: any) => {
+      this.socket.on('notification', (notification: Notification) => {
         // Add an ID if it doesn't have one
         if (!notification.id) {
           notification.id = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

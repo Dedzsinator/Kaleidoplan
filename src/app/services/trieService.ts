@@ -1,7 +1,19 @@
+// Define interfaces for the values stored in the trie
+export interface TrieValue {
+  id: string | number;
+  name: string;
+  location: string;
+}
+
+export interface SearchResult {
+  word: string;
+  value: TrieValue;
+}
+
 class TrieNode {
   children: Map<string, TrieNode>;
   isEndOfWord: boolean;
-  values: Array<any>;
+  values: TrieValue[];
 
   constructor() {
     this.children = new Map();
@@ -24,7 +36,7 @@ export class Trie {
    * @param word The text to be searched
    * @param value The associated data (like an event object)
    */
-  insert(word: string, value: any): void {
+  insert(word: string, value: { id: string | number; name: string; location: string; [key: string]: unknown }): void {
     if (!word || !value || !value.id) return;
 
     // For very long words, truncate to avoid excessive memory use
@@ -45,7 +57,7 @@ export class Trie {
     // Add the value if it doesn't already exist and we haven't reached the limit
     if (!current.values.some((v) => v.id === value.id) && current.values.length < this.maxValuesPerNode) {
       // Store minimal information needed for display and navigation
-      const lightValue = {
+      const lightValue: TrieValue = {
         id: value.id,
         name: value.name,
         location: value.location,
@@ -57,8 +69,8 @@ export class Trie {
   /**
    * Find all items that start with the given prefix
    */
-  findWordsWithPrefix(prefix: string, limit = 10): Array<any> {
-    const result: Array<any> = [];
+  findWordsWithPrefix(prefix: string, limit = 10): SearchResult[] {
+    const result: SearchResult[] = [];
     if (!prefix) return result;
 
     this.maxResults = limit;
@@ -84,7 +96,7 @@ export class Trie {
   /**
    * Helper function to collect words with BFS traversal (more balanced results)
    */
-  private _collectWords(node: TrieNode, prefix: string, result: Array<any>, limit: number): void {
+  private _collectWords(node: TrieNode, prefix: string, result: SearchResult[], limit: number): void {
     if (result.length >= limit) return;
 
     // Use breadth-first search instead of depth-first for more balanced results

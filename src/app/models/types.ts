@@ -284,3 +284,8 @@ export interface RequestInit {
   withCredentials?: boolean;
   signal?: AbortSignal;
 }
+
+export interface Organizer {
+  eventId: string;
+  userId: string;
+}

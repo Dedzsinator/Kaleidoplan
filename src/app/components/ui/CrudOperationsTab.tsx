@@ -63,6 +63,7 @@ function isEventData(item: unknown): item is CrudEvent {
 }
 
 export const CrudOperationsTab: React.FC = () => {
+  const navigate = useNavigate();
   const [activeEntity, setActiveEntity] = useState('users');
   const [users, setUsers] = useState<UserData[]>([]);
   const [events, setEvents] = useState<CrudEvent[]>([]);
@@ -278,16 +279,16 @@ export const CrudOperationsTab: React.FC = () => {
         throw new Error(errorMessage);
       }
 
-      // Reset form and refresh data
-      setIsEditing(false);
-      setIsCreating(false);
-      setSelectedItem(null);
-      setFormData({});
-
       // Show success message
       alert(`${activeEntity.slice(0, -1)} ${isEditing ? 'updated' : 'created'} successfully!`);
 
-      // Refresh data
+      // Navigate to home page after event creation
+      if (activeEntity === 'events' && isCreating) {
+        navigate('/');
+        return; // Exit early since we're navigating away
+      }
+
+      // Refresh data for other cases
       fetchData();
     } catch (err: unknown) {
       console.error(`Error ${isEditing ? 'updating' : 'creating'} ${activeEntity}:`, err);

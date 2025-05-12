@@ -14,6 +14,17 @@ interface NavBarProps {
   isLocationLoading?: boolean;
 }
 
+interface Suggestion {
+  word: string;
+  value: {
+    id: string;
+    _id?: string;
+    name: string;
+    location?: string;
+    [key: string]: unknown;
+  };
+}
+
 const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLocationLoading = false }) => {
   const { currentUser, isAuthenticated, isAdmin, isOrganizer, logout } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,7 +32,7 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Array<any>>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -33,12 +44,24 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
   // Use our custom trie search hook
   const { getSuggestions, isInitialized } = useTrieSearch();
 
+  // Create a memoized debounced search function
   const debouncedSearch = useCallback(
-    debounce((term) => {
-      if (isInitialized && term.length >= 2) {
-        const results = getSuggestions(term);
-        setSuggestions(results);
-        setShowSuggestions(isSearchFocused && results.length > 0);
+    debounce((searchTerm: string) => {
+      if (isInitialized && searchTerm.length >= 2) {
+        const results = getSuggestions(searchTerm);
+
+        // Convert SearchResult[] to Suggestion[] by ensuring id is always a string
+        const convertedResults: Suggestion[] = results.map((result) => ({
+          word: result.word,
+          value: {
+            ...result.value,
+            id: String(result.value.id), // Convert id to string
+            location: result.value.location || undefined,
+          },
+        }));
+
+        setSuggestions(convertedResults);
+        setShowSuggestions(isSearchFocused && convertedResults.length > 0);
       } else {
         setSuggestions([]);
         setShowSuggestions(false);
@@ -48,8 +71,10 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
     [isInitialized, isSearchFocused, getSuggestions],
   );
 
+  // Apply search term changes through the debounced function
   useEffect(() => {
     debouncedSearch(searchTerm);
+
     // Return a cleanup function to cancel pending debounced calls
     return () => {
       debouncedSearch.cancel();
@@ -79,19 +104,6 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isAuthenticated]);
-
-  // Update suggestions when search term changes
-  useEffect(() => {
-    if (isInitialized && searchTerm.length >= 2) {
-      const results = getSuggestions(searchTerm);
-      setSuggestions(results);
-      setShowSuggestions(isSearchFocused && results.length > 0);
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
-    setSelectedSuggestionIndex(-1);
-  }, [searchTerm, isInitialized, isSearchFocused, getSuggestions]);
 
   // Handle keyboard navigation for suggestions
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -142,7 +154,7 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
     }
   };
 
-  const handleSuggestionClick = (suggestion: any) => {
+  const handleSuggestionClick = (suggestion: Suggestion) => {
     if (suggestion.value && suggestion.value.id) {
       // Use correct event ID field
       const eventId = suggestion.value.id || suggestion.value._id;

@@ -2,15 +2,28 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getEventById } from '@services/eventService';
 import { getSponsors } from '@services/sponsorService';
+import { getUserById } from '@services/userService'; // Import for user lookup
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import Map from '../components/Map';
 import ImageSlideshow from '../components/ui/SlideShow';
+import EventImageUploader from '../components/ui/EventImageUploader';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
+import { useAuth } from '../contexts/AuthContext';
+import api from '@services/api';
 import '../styles/EventDetailScreen.css';
 
 // Types
-import { Event, Sponsor, Performer } from '../models/types';
+import { Event, Sponsor, Organizer as OrganizerAssignment } from '../models/types';
+
+interface OrganizerData {
+  userId?: string;
+  id?: string;
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
+  eventId?: string;
+}
 
 // Helper functions to safely parse dates
 const safeParseDate = (dateValue: unknown): Date => {
@@ -40,6 +53,14 @@ interface ApiError {
   [key: string]: unknown;
 }
 
+// Local Organizer interface for UI display
+interface Organizer {
+  id: string;
+  displayName?: string;
+  email?: string;
+  photoURL?: string;
+}
+
 const DEFAULT_COLOR = '#3357FF';
 const DEFAULT_IMAGE =
   'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
@@ -47,14 +68,25 @@ const DEFAULT_IMAGE =
 const EventDetailScreen: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Check if user is admin or organizer
+  const isAdminOrOrganizer = user && (user.role === 'admin' || user.role === 'organizer');
 
   const [event, setEvent] = useState<Event | null>(null);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+  const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mapRegion, setMapRegion] = useState<MapRegion | null>(null);
   const [spotifyExpanded, setSpotifyExpanded] = useState(false);
   const [isSpotifyPlaying, setIsSpotifyPlaying] = useState(false);
+
+  // Image upload states
+  const [pendingUploads, setPendingUploads] = useState<string[]>([]);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [uploadSuccess, setUploadSuccess] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string>('');
 
   // Calculate contrast color (black or white) based on event color
   const getContrastColor = (hexColor: string): string => {
@@ -87,82 +119,190 @@ const EventDetailScreen: React.FC = () => {
   const fetchEventData = useCallback(async () => {
     if (!eventId) return;
 
+    setLoading(true);
+    let eventData: Event | null = null;
+
     try {
-      setLoading(true);
-      let eventData: Event | null = null;
+      // Check if this is a temp ID with random numbers (which MongoDB can't handle)
+      const isTempRandomId = eventId.startsWith('temp-') && !isNaN(parseFloat(eventId.split('temp-')[1]));
 
-      try {
-        // Check if this is a temp ID with random numbers (which MongoDB can't handle)
-        const isTempRandomId = eventId.startsWith('temp-') && !isNaN(parseFloat(eventId.split('temp-')[1]));
-
-        if (!isTempRandomId) {
-          // For real MongoDB IDs, fetch from API
+      if (!isTempRandomId) {
+        // For real MongoDB IDs, fetch from API
+        try {
           eventData = await getEventById(eventId);
-        } else {
-          throw new Error('Temp ID - using session storage');
+
+          if (eventData) {
+            // Set the event data first so we have access to it
+            setEvent(eventData);
+
+            // Try to fetch organizer assignments for this event
+            try {
+              // This endpoint should return an array of OrganizerAssignment objects (userId, eventId)
+              // or already enhanced objects with user details
+              const organizersResponse = await api.get(`/events/${eventId}/organizers`);
+
+              if (organizersResponse && organizersResponse.organizers && Array.isArray(organizersResponse.organizers)) {
+                const organizerData = await Promise.all(
+                  organizersResponse.organizers.map(
+                    async (organizer: { userId?: string; id?: string; eventId?: string }) => {
+                      // Extract just the userId - that's all we need
+                      const userId = organizer.userId || organizer.id || '';
+
+                      try {
+                        // Now fetch the full user details with this ID
+                        const userData = await getUserById(userId);
+
+                        return {
+                          id: userId,
+                          displayName: userData?.displayName || `User ${userId.substring(0, 6)}`,
+                          email: userData?.email || '',
+                          photoURL: userData?.photoURL || '',
+                        };
+                      } catch (userError) {
+                        console.error(`Error fetching user details for organizer ${userId}:`, userError);
+                        return {
+                          id: userId,
+                          displayName: `User ${userId.substring(0, 6)}`,
+                          email: '',
+                          photoURL: '',
+                        };
+                      }
+                    },
+                  ),
+                );
+
+                setOrganizers(organizerData);
+              } else {
+                console.warn('No organizers data found in expected format');
+                setOrganizers([]);
+              }
+            } catch (organizerError) {
+              console.error('Error fetching organizers:', organizerError);
+
+              // Fallback logic: check if event has direct organizers field
+              if (eventData.organizers && Array.isArray(eventData.organizers)) {
+                try {
+                  // Use existing organizers data if available
+                  // Replace the organizer mapping code in both places with this:
+
+                  const organizerData = await Promise.all(
+                    eventData.organizers.map(async (organizer: string | { userId?: string; id?: string }) => {
+                      // Handle both string IDs and object formats
+                      const userId = typeof organizer === 'string' ? organizer : organizer.userId || organizer.id || '';
+
+                      try {
+                        const userData = await getUserById(userId);
+                        return {
+                          id: userId,
+                          displayName: userData?.displayName || `User ${userId.substring(0, 6)}`,
+                          email: userData?.email || '',
+                          photoURL: userData?.photoURL || '',
+                        };
+                      } catch (userError) {
+                        console.error(`Error fetching user details for organizer ${userId}:`, userError);
+                        return {
+                          id: userId,
+                          displayName: `User ${userId.substring(0, 6)}`,
+                          email: '',
+                          photoURL: '',
+                        };
+                      }
+                    }),
+                  );
+
+                  setOrganizers(organizerData);
+                } catch (err) {
+                  console.error('Error processing fallback organizers:', err);
+                  setOrganizers([]);
+                }
+              } else {
+                setOrganizers([]);
+              }
+            }
+
+            // Set map region if location exists
+            if (eventData.latitude && eventData.longitude) {
+              setMapRegion({
+                latitude: Number(eventData.latitude),
+                longitude: Number(eventData.longitude),
+                latitudeDelta: Number(eventData.latitudeDelta) || 0.01,
+                longitudeDelta: Number(eventData.longitudeDelta) || 0.01,
+              });
+            }
+
+            // Fetch sponsors if sponsorIds exist
+            if (eventData.sponsorIds && Array.isArray(eventData.sponsorIds) && eventData.sponsorIds.length > 0) {
+              try {
+                const sponsorData = await getSponsors(eventData.sponsorIds);
+                setSponsors(sponsorData || []);
+              } catch (sponsorError) {
+                console.error(
+                  'Error fetching sponsors:',
+                  sponsorError instanceof Error ? sponsorError.message : 'Unknown error',
+                );
+                setSponsors([]);
+              }
+            } else {
+              setSponsors([]);
+            }
+          }
+        } catch (apiError) {
+          const errorMessage = apiError instanceof Error ? apiError.message : 'Unknown API error';
+          console.error('API fetch error:', errorMessage);
+
+          // Try session storage as fallback
+          const cachedEventsStr = sessionStorage.getItem('all-events');
+          if (cachedEventsStr) {
+            try {
+              const cachedEvents = JSON.parse(cachedEventsStr);
+              const cachedEvent = cachedEvents.find((e: Record<string, unknown>) => e.id === eventId);
+              if (cachedEvent) {
+                // Ensure the cached event has all required properties
+                if (!cachedEvent.color) cachedEvent.color = DEFAULT_COLOR;
+                if (!cachedEvent.status) cachedEvent.status = 'upcoming';
+                if (!cachedEvent.startDate) cachedEvent.startDate = new Date();
+                if (!cachedEvent.endDate) cachedEvent.endDate = new Date();
+                eventData = cachedEvent as Event;
+                setEvent(eventData);
+              }
+            } catch (e) {
+              console.error('Error parsing cached events:', e);
+            }
+          }
+
+          if (!eventData) {
+            throw new Error('Event not found');
+          }
         }
-      } catch (apiError: unknown) {
-        const errorMessage = apiError instanceof Error ? apiError.message : 'Unknown API error';
-
-        console.error('API fetch error:', errorMessage);
-
-        // Try session storage as fallback
+      } else {
+        // Handle temp ID - try session storage
         const cachedEventsStr = sessionStorage.getItem('all-events');
         if (cachedEventsStr) {
           try {
             const cachedEvents = JSON.parse(cachedEventsStr);
             const cachedEvent = cachedEvents.find((e: Record<string, unknown>) => e.id === eventId);
             if (cachedEvent) {
-              // Ensure the cached event has all required properties
               if (!cachedEvent.color) cachedEvent.color = DEFAULT_COLOR;
               if (!cachedEvent.status) cachedEvent.status = 'upcoming';
               if (!cachedEvent.startDate) cachedEvent.startDate = new Date();
               if (!cachedEvent.endDate) cachedEvent.endDate = new Date();
               eventData = cachedEvent as Event;
+              setEvent(eventData);
             }
           } catch (e) {
             console.error('Error parsing cached events:', e);
+            throw new Error('Failed to load temporary event');
           }
         }
       }
 
-      if (eventData) {
-        // Set the event data
-        setEvent(eventData);
-
-        // Set map region if location exists
-        if (eventData.latitude && eventData.longitude) {
-          setMapRegion({
-            latitude: Number(eventData.latitude),
-            longitude: Number(eventData.longitude),
-            latitudeDelta: Number(eventData.latitudeDelta) || 0.01,
-            longitudeDelta: Number(eventData.longitudeDelta) || 0.01,
-          });
-        }
-
-        // Fetch sponsors if sponsorIds exist
-        if (eventData.sponsorIds && Array.isArray(eventData.sponsorIds) && eventData.sponsorIds.length > 0) {
-          try {
-            const sponsorData = await getSponsors(eventData.sponsorIds);
-            setSponsors(sponsorData || []);
-          } catch (sponsorError: unknown) {
-            console.error(
-              'Error fetching sponsors:',
-              sponsorError instanceof Error ? sponsorError.message : 'Unknown error',
-            );
-            setSponsors([]);
-          }
-        } else {
-          setSponsors([]);
-        }
-
-        setLoading(false);
-        return;
+      // If we still don't have event data, it wasn't found
+      if (!eventData) {
+        throw new Error('Event not found');
       }
 
-      // If we reach here, we couldn't find the event
-      throw new Error('Event not found');
-    } catch (err: unknown) {
+      setLoading(false);
+    } catch (err) {
       console.error('Error fetching event data:', err instanceof Error ? err.message : 'Unknown error');
       setError('Failed to load event details');
       setLoading(false);
@@ -180,6 +320,92 @@ const EventDetailScreen: React.FC = () => {
 
   const handleExpandSpotify = () => {
     setSpotifyExpanded(!spotifyExpanded);
+  };
+
+  // Handle image upload functionality
+  const collectImageAfterUpload = (imageUrl: string, imageType: 'cover' | 'slideshow') => {
+    if (imageType === 'slideshow') {
+      setPendingUploads((prev) => [...prev, imageUrl]);
+    } else if (imageType === 'cover') {
+      setPendingUploads((prev) => [...prev, `cover:${imageUrl}`]);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setPendingUploads((prev) => {
+      const newUploads = [...prev];
+      newUploads.splice(index, 1);
+      return newUploads;
+    });
+  };
+
+  const saveGalleryImages = async () => {
+    if (!eventId || pendingUploads.length === 0) {
+      return;
+    }
+
+    setUploading(true);
+    setUploadError('');
+
+    try {
+      const updatePayload: Partial<Event> = {};
+
+      // Process slideshow images
+      const slideshowImages = pendingUploads.filter((url) => !url.startsWith('cover:'));
+      if (slideshowImages.length > 0) {
+        // If event already has slideshow images, append new ones
+        const existingImages = event?.slideshowImages || [];
+        let combinedImages;
+
+        if (Array.isArray(existingImages)) {
+          combinedImages = [...existingImages, ...slideshowImages];
+        } else if (typeof existingImages === 'string') {
+          // Handle case where slideshowImages might be a comma-separated string
+          const existingArray = existingImages
+            .split(',')
+            .map((url) => url.trim())
+            .filter((url) => url);
+          combinedImages = [...existingArray, ...slideshowImages];
+        } else {
+          combinedImages = slideshowImages;
+        }
+
+        updatePayload.slideshowImages = combinedImages;
+      }
+
+      // Process cover image (use the last one if multiple were uploaded)
+      const coverImages = pendingUploads
+        .filter((url) => url.startsWith('cover:'))
+        .map((url) => url.replace('cover:', ''));
+
+      if (coverImages.length > 0) {
+        updatePayload.coverImageUrl = coverImages[coverImages.length - 1];
+      }
+
+      // Send update to server
+      await api.put(`/events/${eventId}`, updatePayload);
+
+      // Clear pending uploads
+      setPendingUploads([]);
+
+      // Set success state
+      setUploadSuccess(true);
+
+      // Wait a moment, then redirect to home with success message
+      setTimeout(() => {
+        navigate('/', {
+          state: {
+            message: 'Images saved successfully!',
+            severity: 'success',
+          },
+        });
+      }, 2000);
+    } catch (err) {
+      console.error('Error saving images:', err);
+      setUploadError(err instanceof Error ? err.message : 'Failed to save images');
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading) {
@@ -245,8 +471,6 @@ const EventDetailScreen: React.FC = () => {
     return coverImage ? [coverImage] : [];
   };
 
-  const slideshowImages = processSlideshowImages();
-
   // Get the cover image with proper fallbacks
   const getCoverImage = () => {
     // Try coverImageUrl first
@@ -275,6 +499,7 @@ const EventDetailScreen: React.FC = () => {
     return DEFAULT_IMAGE;
   };
 
+  const slideshowImages = processSlideshowImages();
   const coverImage = getCoverImage();
 
   return (
@@ -304,6 +529,10 @@ const EventDetailScreen: React.FC = () => {
       </div>
 
       <div className="event-content-container">
+        {uploadSuccess && (
+          <div className="success-message">Images uploaded successfully! Redirecting to home page...</div>
+        )}
+
         {/* Main Info Section */}
         <section className="event-main-info">
           <div className="event-card">
@@ -383,68 +612,121 @@ const EventDetailScreen: React.FC = () => {
           )}
         </section>
 
-        {/* Performers Section - Enhanced Version */}
-        {event.performers && Array.isArray(event.performers) && event.performers.length > 0 ? (
-          <section className="event-performers">
-            <div className="event-card">
-              <h2>Performers</h2>
-              <div className="performers-grid">
-                {event.performers.map((performer, index) => {
-                  // First check if this is a string ID rather than an object
-                  if (typeof performer === 'string') {
-                    return null;
-                  }
-
-                  // Cast performer to the correct type and add proper type checking
-                  const typedPerformer = performer as Performer;
-
-                  // Extract ID with proper fallbacks - using both id and _id for MongoDB compatibility
-                  const performerId = typedPerformer._id || `performer-${index}`;
-
-                  // Get name with fallback
-                  const performerName = typedPerformer.name || 'Performer';
-
-                  // Get bio with fallback
-                  const performerBio = typedPerformer.bio || '';
-
-                  // Get image with fallback - use ONLY the defined image property from the type
-                  const performerImage = typedPerformer.image || null;
-
-                  return (
-                    <div
-                      className="performer-card"
-                      key={performerId}
-                      style={{
-                        borderColor: `${event.color || DEFAULT_COLOR}66`,
-                      }}
-                    >
-                      <div className="performer-image-container" style={{ borderColor: event.color }}>
-                        <img
-                          src={
-                            performerImage ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(performerName)}&background=${event.color?.substring(1) || '3357FF'}&color=fff`
-                          }
-                          alt={performerName}
-                          className="performer-image"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(performerName)}&background=${event.color?.substring(1) || '3357FF'}&color=fff`;
-                          }}
-                        />
+        {/* Organizers Section - Always visible but with different content depending on role */}
+        <section className="event-organizers">
+          <div className="event-card">
+            <h2>Event Organizers</h2>
+            <div className="organizer-list">
+              {organizers.length > 0 ? (
+                organizers.map((organizer) => (
+                  <div key={organizer.id} className="organizer-item">
+                    {organizer.photoURL ? (
+                      <img
+                        src={organizer.photoURL}
+                        alt={organizer.displayName || 'Organizer'}
+                        className="organizer-avatar"
+                      />
+                    ) : (
+                      <div className="organizer-avatar-placeholder">
+                        {(organizer.displayName || 'O')[0].toUpperCase()}
                       </div>
-                      <h3 className="performer-name">{performerName}</h3>
-
-                      {performerBio && (
-                        <div className="performer-bio-container">
-                          <p className="performer-bio">{performerBio}</p>
-                        </div>
+                    )}
+                    <div className="organizer-info">
+                      <div className="organizer-name">{organizer.displayName || 'Unnamed Organizer'}</div>
+                      {isAdminOrOrganizer && organizer.email && (
+                        <div className="organizer-email">{organizer.email}</div>
                       )}
                     </div>
-                  );
-                })}
+                  </div>
+                ))
+              ) : (
+                <p className="no-organizers">No organizers assigned to this event.</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Image Upload Section - Only visible to Admin/Organizer */}
+        {isAdminOrOrganizer && (
+          <section className="event-image-management">
+            <div className="event-card">
+              <h2>Manage Event Images</h2>
+
+              <div className="event-image-section">
+                <h3>Cover Image</h3>
+                <div className="current-cover-image">
+                  <img src={coverImage} alt={`${eventName} cover`} className="cover-image-preview" />
+                </div>
+                <EventImageUploader
+                  eventId={eventId || ''}
+                  imageType="cover"
+                  buttonLabel="Change Cover Image"
+                  onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'cover')}
+                />
               </div>
+
+              <div className="event-image-section mt-4">
+                <h3>Gallery Images</h3>
+                {slideshowImages.length > 0 && (
+                  <div className="current-gallery">
+                    <h4>Current Gallery Images</h4>
+                    <div className="gallery-preview">
+                      {slideshowImages.slice(0, 4).map((img, idx) => (
+                        <img key={idx} src={img} alt={`Gallery image ${idx + 1}`} className="gallery-image-preview" />
+                      ))}
+                      {slideshowImages.length > 4 && (
+                        <div className="more-images-indicator">+{slideshowImages.length - 4} more</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <EventImageUploader
+                  eventId={eventId || ''}
+                  imageType="slideshow"
+                  buttonLabel="Add Gallery Images"
+                  allowMultiple={true}
+                  onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'slideshow')}
+                  onMultipleImagesUploaded={(imageUrls) => {
+                    imageUrls.forEach((url) => collectImageAfterUpload(url, 'slideshow'));
+                  }}
+                />
+              </div>
+
+              {pendingUploads.length > 0 && (
+                <div className="pending-uploads mt-4">
+                  <h3>New Images to Upload</h3>
+                  <div className="pending-images-preview">
+                    {pendingUploads.map((url, idx) => (
+                      <div key={idx} className="pending-image-container">
+                        <img
+                          src={url.startsWith('cover:') ? url.substring(6) : url}
+                          alt={`Pending upload ${idx + 1}`}
+                          className="pending-image-preview"
+                        />
+                        <button
+                          className="remove-image-btn"
+                          onClick={() => handleRemoveImage(idx)}
+                          title="Remove image"
+                        >
+                          ×
+                        </button>
+                        {url.startsWith('cover:') && <div className="image-type-badge">Cover</div>}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="save-actions">
+                    <button className="save-gallery-button" onClick={saveGalleryImages} disabled={uploading}>
+                      {uploading ? 'Saving...' : 'Save Images & Update Event'}
+                    </button>
+                    {uploadError && <div className="upload-error">{uploadError}</div>}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
-        ) : null}
+        )}
 
         {/* Sponsors Section */}
         {sponsors.length > 0 && (
@@ -492,6 +774,16 @@ const EventDetailScreen: React.FC = () => {
           </section>
         )}
 
+        {/* Gallery Section - Show slideshow of images */}
+        {slideshowImages.length > 0 && (
+          <section className="event-gallery">
+            <div className="event-card">
+              <h2>Gallery</h2>
+              <ImageSlideshow images={slideshowImages} height={400} interval={5000} showGradient={true} />
+            </div>
+          </section>
+        )}
+
         {/* Spotify Section */}
         {event.spotifyPlaylistId && (
           <section className="event-spotify">
@@ -507,16 +799,6 @@ const EventDetailScreen: React.FC = () => {
                   {spotifyExpanded ? 'Collapse' : 'Expand'} Player
                 </button>
               </div>
-            </div>
-          </section>
-        )}
-
-        {/* Gallery Section */}
-        {slideshowImages.length > 0 && (
-          <section className="event-gallery">
-            <div className="event-card">
-              <h2>Gallery</h2>
-              <ImageSlideshow images={slideshowImages} height={400} interval={5000} showGradient={true} />
             </div>
           </section>
         )}

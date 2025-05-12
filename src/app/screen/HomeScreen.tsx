@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { getEvents } from '@services/eventService';
 import NavBar from '../components/layout/NavBar';
@@ -35,6 +35,23 @@ const HomeScreen: React.FC = () => {
 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const location = useLocation();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      // Clear message from state after displaying so it doesn't reappear on refresh
+      window.history.replaceState({}, document.title);
+
+      // Optionally, auto-hide the message after a few seconds
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.state]);
 
   // Use ref for currentVisibleEvent to avoid triggering renders
   const currentVisibleEventRef = useRef<{ id: string; name: string }>({ id: '', name: '' });
@@ -219,6 +236,23 @@ const HomeScreen: React.FC = () => {
 
   return (
     <div className="home-screen">
+      {successMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'green',
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '5px',
+            zIndex: 1000,
+          }}
+        >
+          {successMessage}
+        </div>
+      )}
       {/* Fixed NavBar - will automatically display user profile since user is authenticated */}
       <NavBar opacity={headerOpacity} />
 
