@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getEventById } from '@services/eventService';
 import { getSponsors } from '@services/sponsorService';
-import { getUserById } from '@services/userService'; // Import for user lookup
+import { getUserById } from '@services/userService';
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import Map from '../components/Map';
@@ -14,16 +14,7 @@ import api from '@services/api';
 import '../styles/EventDetailScreen.css';
 
 // Types
-import { Event, Sponsor, Organizer as OrganizerAssignment } from '../models/types';
-
-interface OrganizerData {
-  userId?: string;
-  id?: string;
-  displayName?: string;
-  email?: string;
-  photoURL?: string;
-  eventId?: string;
-}
+import { Event, Sponsor, User } from '../models/types';
 
 // Helper functions to safely parse dates
 const safeParseDate = (dateValue: unknown): Date => {
@@ -105,6 +96,86 @@ const EventDetailScreen: React.FC = () => {
     return luminance > 0.5 ? '#000000' : '#ffffff';
   };
 
+  const getEventOrganizers = useCallback(
+    async (eventData: Event, currentUser: { role?: string } | null) => {
+      // Move the handleEventOrganizersArray function inside the useCallback
+      function handleEventOrganizersArray(eventData: Event) {
+        if (eventData?.organizers && Array.isArray(eventData.organizers)) {
+          // Create organizer objects directly without making API calls
+          const organizerData = (eventData.organizers as Array<string | { userId?: string; id?: string }>).map(
+            (organizer: string | { userId?: string; id?: string }) => {
+              // Handle both string IDs and object formats
+              const userId = typeof organizer === 'string' ? organizer : organizer.userId || organizer.id || '';
+              const shortId = userId.substring(0, 6);
+
+              return {
+                id: userId,
+                displayName: `${shortId}`,
+                email: '',
+                photoURL: '',
+              };
+            },
+          );
+
+          setOrganizers(organizerData);
+        } else {
+          setOrganizers([]);
+        }
+      }
+
+      try {
+        // Only try to access the admin endpoint if user is admin/organizer
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'organizer')) {
+          try {
+            const organizerAssignmentsResponse = await api.get('/admin/organizer-assignments');
+
+            if (organizerAssignmentsResponse?.assignments) {
+              // Get assignments for this specific event
+              const eventAssignments = organizerAssignmentsResponse.assignments[eventId || ''] || [];
+
+              if (eventAssignments.length > 0) {
+                // Fetch user data directly from Firebase using admin endpoint
+                const organizerPromises = eventAssignments.map(async (userId: string) => {
+                  try {
+                    // Use the Firebase admin endpoint to get user data directly
+                    const userData = await api.get(`/admin/firebase/users/${userId}`);
+                    // If that doesn't work, try the alternative endpoint format
+                    return {
+                      id: userId,
+                      displayName: userData?.displayName || userData?.email || `User ${userId.substring(0, 6)}`,
+                      email: userData?.email || '',
+                      photoURL: userData?.photoURL || '',
+                    };
+                  } catch (userError) {
+                    console.warn(`Could not fetch user data for ${userId}, using placeholder`);
+                    // Fallback to placeholder if user fetch fails
+                    return {
+                      id: userId,
+                      displayName: `Organizer ${userId.substring(0, 6)}`,
+                      email: '',
+                      photoURL: '',
+                    };
+                  }
+                });
+
+                const organizerData = await Promise.all(organizerPromises);
+                setOrganizers(organizerData);
+                return;
+              }
+            }
+          } catch (adminError) {}
+        }
+
+        // For non-admin users or if admin endpoint fails
+        handleEventOrganizersArray(eventData);
+      } catch (error) {
+        console.error('Error getting organizers:', error);
+        setOrganizers([]);
+      }
+    },
+    [eventId], // handleEventOrganizersArray is now inside the callback, so we remove it from dependencies
+  );
+
   // CSS variables based on event color
   const colorStyles = event?.color
     ? ({
@@ -135,90 +206,8 @@ const EventDetailScreen: React.FC = () => {
             // Set the event data first so we have access to it
             setEvent(eventData);
 
-            // Try to fetch organizer assignments for this event
-            try {
-              // This endpoint should return an array of OrganizerAssignment objects (userId, eventId)
-              // or already enhanced objects with user details
-              const organizersResponse = await api.get(`/events/${eventId}/organizers`);
-
-              if (organizersResponse && organizersResponse.organizers && Array.isArray(organizersResponse.organizers)) {
-                const organizerData = await Promise.all(
-                  organizersResponse.organizers.map(
-                    async (organizer: { userId?: string; id?: string; eventId?: string }) => {
-                      // Extract just the userId - that's all we need
-                      const userId = organizer.userId || organizer.id || '';
-
-                      try {
-                        // Now fetch the full user details with this ID
-                        const userData = await getUserById(userId);
-
-                        return {
-                          id: userId,
-                          displayName: userData?.displayName || `User ${userId.substring(0, 6)}`,
-                          email: userData?.email || '',
-                          photoURL: userData?.photoURL || '',
-                        };
-                      } catch (userError) {
-                        console.error(`Error fetching user details for organizer ${userId}:`, userError);
-                        return {
-                          id: userId,
-                          displayName: `User ${userId.substring(0, 6)}`,
-                          email: '',
-                          photoURL: '',
-                        };
-                      }
-                    },
-                  ),
-                );
-
-                setOrganizers(organizerData);
-              } else {
-                console.warn('No organizers data found in expected format');
-                setOrganizers([]);
-              }
-            } catch (organizerError) {
-              console.error('Error fetching organizers:', organizerError);
-
-              // Fallback logic: check if event has direct organizers field
-              if (eventData.organizers && Array.isArray(eventData.organizers)) {
-                try {
-                  // Use existing organizers data if available
-                  // Replace the organizer mapping code in both places with this:
-
-                  const organizerData = await Promise.all(
-                    eventData.organizers.map(async (organizer: string | { userId?: string; id?: string }) => {
-                      // Handle both string IDs and object formats
-                      const userId = typeof organizer === 'string' ? organizer : organizer.userId || organizer.id || '';
-
-                      try {
-                        const userData = await getUserById(userId);
-                        return {
-                          id: userId,
-                          displayName: userData?.displayName || `User ${userId.substring(0, 6)}`,
-                          email: userData?.email || '',
-                          photoURL: userData?.photoURL || '',
-                        };
-                      } catch (userError) {
-                        console.error(`Error fetching user details for organizer ${userId}:`, userError);
-                        return {
-                          id: userId,
-                          displayName: `User ${userId.substring(0, 6)}`,
-                          email: '',
-                          photoURL: '',
-                        };
-                      }
-                    }),
-                  );
-
-                  setOrganizers(organizerData);
-                } catch (err) {
-                  console.error('Error processing fallback organizers:', err);
-                  setOrganizers([]);
-                }
-              } else {
-                setOrganizers([]);
-              }
-            }
+            // Get organizers using our new method
+            await getEventOrganizers(eventData, user);
 
             // Set map region if location exists
             if (eventData.latitude && eventData.longitude) {
@@ -307,7 +296,7 @@ const EventDetailScreen: React.FC = () => {
       setError('Failed to load event details');
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, user, getEventOrganizers]);
 
   useEffect(() => {
     fetchEventData();
@@ -653,44 +642,31 @@ const EventDetailScreen: React.FC = () => {
               <h2>Manage Event Images</h2>
 
               <div className="event-image-section">
-                <h3>Cover Image</h3>
-                <div className="current-cover-image">
-                  <img src={coverImage} alt={`${eventName} cover`} className="cover-image-preview" />
+                {/* Make sure the uploader is rendered unconditionally */}
+                <div className="image-uploader-container" style={{ marginTop: '15px' }}>
+                  <EventImageUploader
+                    eventId={eventId || ''}
+                    imageType="cover"
+                    buttonLabel="Change Cover Image"
+                    onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'cover')}
+                  />
                 </div>
-                <EventImageUploader
-                  eventId={eventId || ''}
-                  imageType="cover"
-                  buttonLabel="Change Cover Image"
-                  onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'cover')}
-                />
               </div>
 
               <div className="event-image-section mt-4">
-                <h3>Gallery Images</h3>
-                {slideshowImages.length > 0 && (
-                  <div className="current-gallery">
-                    <h4>Current Gallery Images</h4>
-                    <div className="gallery-preview">
-                      {slideshowImages.slice(0, 4).map((img, idx) => (
-                        <img key={idx} src={img} alt={`Gallery image ${idx + 1}`} className="gallery-image-preview" />
-                      ))}
-                      {slideshowImages.length > 4 && (
-                        <div className="more-images-indicator">+{slideshowImages.length - 4} more</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <EventImageUploader
-                  eventId={eventId || ''}
-                  imageType="slideshow"
-                  buttonLabel="Add Gallery Images"
-                  allowMultiple={true}
-                  onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'slideshow')}
-                  onMultipleImagesUploaded={(imageUrls) => {
-                    imageUrls.forEach((url) => collectImageAfterUpload(url, 'slideshow'));
-                  }}
-                />
+                {/* Ensure this uploader is visible */}
+                <div className="image-uploader-container" style={{ marginTop: '15px' }}>
+                  <EventImageUploader
+                    eventId={eventId || ''}
+                    imageType="slideshow"
+                    buttonLabel="Add Gallery Images"
+                    allowMultiple={true}
+                    onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'slideshow')}
+                    onMultipleImagesUploaded={(imageUrls) => {
+                      imageUrls.forEach((url) => collectImageAfterUpload(url, 'slideshow'));
+                    }}
+                  />
+                </div>
               </div>
 
               {pendingUploads.length > 0 && (

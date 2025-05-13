@@ -81,7 +81,7 @@
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md,css,html}\"",
     "validate:js": "eslint --config eslint.config.mjs --fix \"**/*.{js,jsx,ts,tsx}\"",
     "validate:html": "html-validate \"**/*.html\"",
-    "validate": "npm run lint && npm run validate:html",
+    "validate": "npm run lint && npm run validate:html && npm run typecheck",
     "typecheck": "tsc --noEmit"
   },
   "browserslist": {

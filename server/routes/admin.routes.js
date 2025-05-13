@@ -20,4 +20,14 @@ router.get(
   adminController.getOrganizerAssignments,
 );
 
+router.get(
+  '/firebase/users/:userId',
+  authMiddleware.verifyToken,
+  authMiddleware.attachUserData, // Ensures req.user is populated for requireAdmin
+  authMiddleware.requireAdmin,
+  adminController.getFirebaseUserById,
+);
+
+module.exports = router;
+
 module.exports = router;

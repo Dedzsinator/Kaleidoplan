@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import spotifyService from '@services/spotify-web-api';
@@ -44,34 +44,30 @@ const NavBar: React.FC<NavBarProps> = ({ opacity = 1, onSearch, onAroundMe, isLo
   // Use our custom trie search hook
   const { getSuggestions, isInitialized } = useTrieSearch();
 
-  // Create a memoized debounced search function
-  const debouncedSearch = useCallback(
-    (searchTerm: string) => {
-      debounce((searchTerm: string) => {
-        if (isInitialized && searchTerm.length >= 2) {
-          const results = getSuggestions(searchTerm);
+  const debouncedSearch = useMemo(() => {
+    return debounce((searchTerm: string) => {
+      if (isInitialized && searchTerm.length >= 2) {
+        const results = getSuggestions(searchTerm);
 
-          // Convert SearchResult[] to Suggestion[] by ensuring id is always a string
-          const convertedResults: Suggestion[] = results.map((result) => ({
-            word: result.word,
-            value: {
-              ...result.value,
-              id: String(result.value.id), // Convert id to string
-              location: result.value.location || undefined,
-            },
-          }));
+        // Convert SearchResult[] to Suggestion[] by ensuring id is always a string
+        const convertedResults: Suggestion[] = results.map((result) => ({
+          word: result.word,
+          value: {
+            ...result.value,
+            id: String(result.value.id), // Convert id to string
+            location: result.value.location || undefined,
+          },
+        }));
 
-          setSuggestions(convertedResults);
-          setShowSuggestions(isSearchFocused && convertedResults.length > 0);
-        } else {
-          setSuggestions([]);
-          setShowSuggestions(false);
-        }
-        setSelectedSuggestionIndex(-1);
-      }, 300)(searchTerm);
-    },
-    [isInitialized, isSearchFocused, getSuggestions],
-  );
+        setSuggestions(convertedResults);
+        setShowSuggestions(isSearchFocused && convertedResults.length > 0);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+      setSelectedSuggestionIndex(-1);
+    }, 300);
+  }, [isInitialized, isSearchFocused, getSuggestions]);
 
   // Apply search term changes through the debounced function
   useEffect(() => {

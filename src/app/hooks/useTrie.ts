@@ -32,23 +32,33 @@ export function useTrieSearch() {
           sessionStorage.setItem('all-events', JSON.stringify(events));
         }
 
-        // Populate the trie with event data
+        // Inside useTrieSearch function where events are processed:
         events.forEach((event: Event) => {
-          // Insert event name as primary search term
-          trieService.insert(event.name, event);
+          // Only insert if event has required properties
+          if (event.id && event.name) {
+            // Create a properly typed object with required fields
+            const insertableEvent = {
+              id: event.id, // Ensures id is not undefined
+              location: event.location || '', // Provide default for location
+              ...event, // Include all other properties
+            };
 
-          // Add location as searchable term if available
-          if (event.location) {
-            trieService.insert(event.location, event);
-          }
+            // Insert event name as primary search term
+            trieService.insert(event.name, insertableEvent);
 
-          // Add description words as searchable terms
-          if (event.description) {
-            const words = event.description.split(/\s+/).filter((word: string) => word.length > 3);
+            // Add location as searchable term if available
+            if (event.location) {
+              trieService.insert(event.location, insertableEvent);
+            }
 
-            words.forEach((word: string) => {
-              trieService.insert(word, event);
-            });
+            // Add description words as searchable terms
+            if (event.description) {
+              const words = event.description.split(/\s+/).filter((word: string) => word.length > 3);
+
+              words.forEach((word: string) => {
+                trieService.insert(word, insertableEvent);
+              });
+            }
           }
         });
 

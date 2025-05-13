@@ -148,3 +148,35 @@ exports.getOrganizerAssignments = async (req, res) => {
     res.status(500).json({ error: 'Failed to get organizer assignments' });
   }
 };
+
+exports.getFirebaseUserById = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    const userRecord = await admin.auth().getUser(userId);
+
+    res.status(200).json({
+      uid: userRecord.uid,
+      email: userRecord.email,
+      displayName: userRecord.displayName,
+      photoURL: userRecord.photoURL,
+      role: userRecord.customClaims?.role || 'user',
+      disabled: userRecord.disabled,
+      emailVerified: userRecord.emailVerified,
+      metadata: {
+        creationTime: userRecord.metadata.creationTime,
+        lastSignInTime: userRecord.metadata.lastSignInTime,
+      },
+    });
+  } catch (error) {
+    console.error(`Error fetching Firebase user ${req.params.userId}:`, error);
+    if (error.code === 'auth/user-not-found') {
+      return res.status(404).json({ error: 'Firebase user not found' });
+    }
+    res.status(500).json({ error: 'Failed to fetch Firebase user', details: error.message });
+  }
+};
