@@ -11,10 +11,14 @@ import EventImageUploader from '../components/ui/EventImageUploader';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import { useAuth } from '../contexts/AuthContext';
 import api from '@services/api';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import WeatherForecast from '../components/ui/WeatherForecast';
 import '../styles/EventDetailScreen.css';
 
 // Types
 import { Event, Sponsor, User } from '../models/types';
+
+const queryClient = new QueryClient();
 
 // Helper functions to safely parse dates
 const safeParseDate = (dateValue: unknown): Date => {
@@ -600,6 +604,25 @@ const EventDetailScreen: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* Weather Forecast */}
+        {mapRegion && (
+          <section className="event-weather">
+            <div className="event-card">
+              <h2>Weather Forecast</h2>
+              <p className="section-subtitle">Expected weather during the event period</p>
+              <QueryClientProvider client={queryClient}>
+                <WeatherForecast
+                  latitude={mapRegion.latitude}
+                  longitude={mapRegion.longitude}
+                  startDate={eventStartDate}
+                  endDate={eventEndDate}
+                  eventColor={event.color || DEFAULT_COLOR}
+                />
+              </QueryClientProvider>
+            </div>
+          </section>
+        )}
 
         {/* Organizers Section - Always visible but with different content depending on role */}
         <section className="event-organizers">
