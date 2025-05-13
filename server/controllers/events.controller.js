@@ -5,6 +5,7 @@ const OrganizerEvent = require('../models/organizer-event.model');
 const mongoose = require('mongoose');
 const { admin } = require('../config/firebase');
 const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 const path = require('path');
 const fs = require('fs');
 const notificationService = require('../services/notification.service');
@@ -187,6 +188,255 @@ const deleteUploadedFiles = (filePaths) => {
       else console.warn(`Successfully deleted file: ${filePath}`);
     });
   });
+};
+
+const storeImageReference = async (req, res) => {
+  try {
+    const { eventId, imageType, imageUrl, cloudinaryPublicId } = req.body;
+
+    // Log received data for debugging
+
+    // Validate input
+    if (!eventId || !imageType || !imageUrl || !cloudinaryPublicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+      });
+    }
+
+    // Get the event - handle both string IDs and ObjectIds
+    const eventQuery = {
+      $or: [
+        { _id: mongoose.Types.ObjectId.isValid(eventId) ? mongoose.Types.ObjectId(eventId) : null },
+        { id: eventId },
+      ],
+    };
+
+    const event = await Event.findOne(eventQuery);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+
+    // Handle different image types
+    if (imageType === 'cover') {
+      // For cover images, just update the fields directly
+      await Event.updateOne(
+        { _id: event._id },
+        {
+          $set: {
+            coverImageUrl: imageUrl,
+            coverImagePublicId: cloudinaryPublicId,
+          },
+        },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Cover image reference stored successfully',
+      });
+    } else if (imageType === 'slideshow') {
+      // UPDATING APPROACH: Don't try to read and update, just use MongoDB atomic operations
+      // First initialize the field as an array if it doesn't exist, then push the new image
+
+      // Step 1: Initialize slideshowImages as an empty array if it doesn't exist
+      await Event.updateOne({ _id: event._id, slideshowImages: { $exists: false } }, { $set: { slideshowImages: [] } });
+
+      // Step 2: Initialize slideshowImagePublicIds as an empty array if it doesn't exist
+      await Event.updateOne(
+        { _id: event._id, slideshowImagePublicIds: { $exists: false } },
+        { $set: { slideshowImagePublicIds: [] } },
+      );
+
+      // Step 3: Convert string to array if needed
+      await Event.updateOne(
+        { _id: event._id, $expr: { $eq: [{ $type: '$slideshowImages' }, 'string'] } },
+        {
+          $set: {
+            slideshowImages: [],
+            slideshowImagePublicIds: [],
+          },
+        },
+      );
+
+      // Step 4: Now push the new image
+      await Event.updateOne(
+        { _id: event._id },
+        {
+          $push: {
+            slideshowImages: imageUrl,
+            slideshowImagePublicIds: cloudinaryPublicId,
+          },
+        },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Slideshow image reference stored successfully',
+      });
+    }
+
+    // If we get here, the imageType was not recognized
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid image type',
+    });
+  } catch (error) {
+    console.error('Error storing image reference:', error);
+    // Add more detailed error logging
+    if (error.name === 'ValidationError') {
+      console.error('Validation error details:', error.errors);
+    }
+    if (error.code) {
+      console.error('Error code:', error.code);
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Server error storing image reference',
+      error: error.message,
+    });
+  }
+};
+
+const storeMultipleImageReferences = async (req, res) => {
+  try {
+    const { eventId, imageType, imageUrls, cloudinaryPublicIds } = req.body;
+
+    // Validate input
+    if (
+      !eventId ||
+      !imageType ||
+      !imageUrls ||
+      !imageUrls.length ||
+      !cloudinaryPublicIds ||
+      !cloudinaryPublicIds.length
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+      });
+    }
+
+    // Get the event
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+
+    // For slideshow images
+    if (imageType === 'slideshow') {
+      // Check if slideshowImages is a string or doesn't exist
+      if (!event.slideshowImages || typeof event.slideshowImages === 'string') {
+        // Initialize as empty array or convert string to array if it has content
+        let initialArray = [];
+        if (typeof event.slideshowImages === 'string' && event.slideshowImages.trim()) {
+          initialArray = event.slideshowImages.split(',').map((url) => url.trim());
+        }
+
+        // Add the new URLs
+        initialArray.push(...imageUrls);
+
+        // Set the entire arrays
+        await Event.updateOne(
+          { _id: event._id },
+          {
+            $set: {
+              slideshowImages: initialArray,
+              slideshowImagePublicIds: cloudinaryPublicIds,
+            },
+          },
+        );
+      } else {
+        // It's already an array, so we can use $push with $each
+        await Event.updateOne(
+          { _id: event._id },
+          {
+            $push: {
+              slideshowImages: { $each: imageUrls },
+              slideshowImagePublicIds: { $each: cloudinaryPublicIds },
+            },
+          },
+        );
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Image references stored successfully',
+    });
+  } catch (error) {
+    console.error('Error storing image references:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error storing image references',
+      error: error.message,
+    });
+  }
+};
+
+// Delete an image from Cloudinary
+const deleteEventImage = async (req, res) => {
+  try {
+    const { publicId } = req.params;
+
+    // Set up Cloudinary configuration
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    // Delete the image from Cloudinary
+    const result = await cloudinary.uploader.destroy(publicId);
+
+    // If successful, update the event (remove the reference)
+    if (result.result === 'ok') {
+      // Find event with this public ID either as cover or in slideshow
+      await Event.updateOne(
+        { coverImagePublicId: publicId },
+        { $unset: { coverImageUrl: '', coverImagePublicId: '' } },
+      );
+
+      await Event.updateOne(
+        { slideshowImagePublicIds: publicId },
+        {
+          $pull: {
+            slideshowImages: { $elemMatch: { $eq: publicId } },
+            slideshowImagePublicIds: publicId,
+          },
+        },
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Image deleted successfully',
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to delete image from Cloudinary',
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error deleting image',
+    });
+  }
+};
+
+module.exports = {
+  // ...other exports
+  storeImageReference,
+  storeMultipleImageReferences,
+  deleteEventImage,
 };
 
 const getAllEvents = async (req, res, next) => {
@@ -753,4 +1003,7 @@ module.exports = {
   checkEventInterest,
   uploadEventImage,
   uploadMultipleEventImages,
+  storeImageReference,
+  storeMultipleImageReferences,
+  deleteEventImage,
 };

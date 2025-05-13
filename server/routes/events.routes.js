@@ -45,4 +45,8 @@ router.get(
   eventsController.checkEventInterest,
 );
 
+router.post('/image-reference', authMiddleware.verifyToken, eventsController.storeImageReference);
+router.post('/image-references', authMiddleware.verifyToken, eventsController.storeMultipleImageReferences);
+router.delete('/images/:publicId', authMiddleware.verifyToken, eventsController.deleteEventImage);
+
 module.exports = router;

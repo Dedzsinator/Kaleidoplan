@@ -29,6 +29,22 @@ const eventSchema = new mongoose.Schema(
       type: String,
       default: '#3357FF',
     },
+    coverImageUrl: {
+      type: String,
+      trim: true,
+    },
+    coverImagePublicId: {
+      type: String,
+      trim: true,
+    },
+    slideshowImages: {
+      type: [String],
+      default: [],
+    },
+    slideshowImagePublicIds: {
+      type: [String],
+      default: [],
+    },
     coverImageUrl: String,
     slideshowImages: [String],
     performers: [

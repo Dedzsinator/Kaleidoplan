@@ -167,7 +167,7 @@ const EventDetailScreen: React.FC = () => {
                 return;
               }
             }
-          } catch (adminError) {}
+          } catch (adminError) { }
         }
 
         // For non-admin users or if admin endpoint fails
@@ -183,12 +183,12 @@ const EventDetailScreen: React.FC = () => {
   // CSS variables based on event color
   const colorStyles = event?.color
     ? ({
-        '--event-color': event.color,
-        '--event-color-light': `${event.color}33`, // 20% opacity
-        '--event-color-medium': `${event.color}99`, // 60% opacity
-        '--text-on-color': getContrastColor(event.color),
-        '--border-color': `${event.color}66`, // 40% opacity
-      } as React.CSSProperties)
+      '--event-color': event.color,
+      '--event-color-light': `${event.color}33`, // 20% opacity
+      '--event-color-medium': `${event.color}99`, // 60% opacity
+      '--text-on-color': getContrastColor(event.color),
+      '--border-color': `${event.color}66`, // 40% opacity
+    } as React.CSSProperties)
     : {};
 
   const fetchEventData = useCallback(async () => {
@@ -315,7 +315,6 @@ const EventDetailScreen: React.FC = () => {
     setSpotifyExpanded(!spotifyExpanded);
   };
 
-  // Handle image upload functionality
   const collectImageAfterUpload = (imageUrl: string, imageType: 'cover' | 'slideshow') => {
     if (imageType === 'slideshow') {
       setPendingUploads((prev) => [...prev, imageUrl]);
@@ -682,12 +681,13 @@ const EventDetailScreen: React.FC = () => {
                   <EventImageUploader
                     eventId={eventId || ''}
                     imageType="slideshow"
-                    buttonLabel="Add Gallery Images"
                     allowMultiple={true}
+                    buttonLabel="Select Gallery Images"
+                    batchUpload={true}
                     onImageUploaded={(imageUrl) => collectImageAfterUpload(imageUrl, 'slideshow')}
-                    onMultipleImagesUploaded={(imageUrls) => {
-                      imageUrls.forEach((url) => collectImageAfterUpload(url, 'slideshow'));
-                    }}
+                    onMultipleImagesUploaded={(imageUrls) =>
+                      imageUrls.forEach((url) => collectImageAfterUpload(url, 'slideshow'))
+                    }
                   />
                 </div>
               </div>
