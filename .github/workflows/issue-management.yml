@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Auto-label issues
-        uses: github/issue-labeler@v3.3
+        uses: github/issue-labeler@v3.4
         if: github.event_name == 'issues' && github.event.action == 'opened'
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
