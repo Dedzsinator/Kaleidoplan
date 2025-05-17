@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: kaleidoplan
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: ${REGISTRY}/${IMAGE_NAME_BACKEND}:latest
+        ports:
+        - containerPort: 3001
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3001"
+        - name: MONGODB_URI
+          value: "mongodb://mongo:27017/kaleidoplan"
+        - name: MONGODB_DB_NAME
+          value: "kaleidoplan"
+        # Firebase environment variables from Secret
+        - name: FIREBASE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: api-key
+        - name: FIREBASE_AUTH_DOMAIN
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: auth-domain
+        - name: FIREBASE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: project-id
+        - name: FIREBASE_STORAGE_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: storage-bucket
+        - name: FIREBASE_MESSAGING_SENDER_ID
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: messaging-sender-id
+        - name: FIREBASE_APP_ID
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: app-id
+        - name: FIREBASE_MEASUREMENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: firebase-credentials
+              key: measurement-id
+        volumeMounts:
+        - name: uploads
+          mountPath: /app/uploads
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "150m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: uploads-pvc

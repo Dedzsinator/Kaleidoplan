@@ -1,6 +1,6 @@
 # Kaleidoplan Documentation and Usage Guide
 
-[![Lines of Code](https://img.shields.io/tokei/lines/github/Dedzsinator/Kaleidoplan)](https://github.com/Dedzsinator/Kaleidoplan)
+[![Lines of Code](https://tokei.rs/b1/github/Dedzsinator/Kaleidoplan?category=code)](https://github.com/Dedzsinator/Kaleidoplan/)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/Dedzsinator/Kaleidoplan/ci.yml?branch=main)](https://github.com/Dedzsinator/Kaleidoplan/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-5.0.0-brightgreen)](package.json)
@@ -166,6 +166,111 @@ Kaleidoplan employs a modern web application architecture with distinct frontend
    ```bash
    npm start
    ```
+
+## Kubernetes Deployment
+
+Kaleidoplan supports deployment to Kubernetes clusters for production environments. The repository includes Kubernetes manifests in the `kubernetes/` directory.
+
+### Prerequisites
+
+- A Kubernetes cluster (local like Minikube or cloud-based like GKE, EKS, AKS)
+- `kubectl` CLI configured to connect to your cluster
+- Container Registry access (GitHub Container Registry is used by default)
+
+### Manual Deployment
+
+1. **Configure Firebase Secrets**:
+
+   Create a Kubernetes secret for Firebase credentials:
+
+   ```bash
+   # First, create the namespace
+   kubectl apply -f kubernetes/namespace.yaml
+   
+   # Create the secrets manually - replace with your values
+   kubectl create secret generic firebase-credentials -n kaleidoplan \
+     --from-literal=api-key="your-api-key" \
+     --from-literal=auth-domain="your-project.firebaseapp.com" \
+     --from-literal=project-id="your-project-id" \
+     --from-literal=storage-bucket="your-project.appspot.com" \
+     --from-literal=messaging-sender-id="your-sender-id" \
+     --from-literal=app-id="your-app-id" \
+     --from-literal=measurement-id="your-measurement-id"
+
+2. **Create Persistent Volumes:**:
+
+   ```bash
+   kubectl apply -f kubernetes/persistent-volumes.yaml
+   ```
+
+3. **Deploy MongoDB:**
+
+   ```bash
+   kubectl apply -f kubernetes/mongo-deployment.yaml
+   kubectl apply -f kubernetes/mongo-service.yaml
+   ```
+
+4. **Deploy Backend Services:**:
+
+   Update the image name in kubernetes/backend-deployment.yaml to point to your built backend image, then:
+
+   ```bash
+   kubectl apply -f kubernetes/backend-deployment.yaml
+   kubectl apply -f kubernetes/backend-service.yaml
+   ```
+
+5. **Deploy Frontend Services:**:
+
+   Update the image name in kubernetes/frontend-deployment.yaml to point to your built frontend image, then:
+
+   ```bash
+   kubectl apply -f kubernetes/frontend-deployment.yaml
+   kubectl apply -f kubernetes/frontend-service.yaml
+   ```
+
+6. **Configure Ingress:**
+
+   Update the host in kubernetes/ingress.yaml to match your domain, then:
+
+   ```bash
+   kubectl apply -f kubernetes/ingress.yaml
+   ```
+
+7. **Verify Deployment:**
+
+   ```bash
+   kubectl get pods -n kaleidoplan
+   kubectl get services -n kaleidoplan
+   kubectl get ingress -n kaleidoplan
+   ```
+
+### Using the Helper Script
+
+For convenience, you can use the provided helper script:
+
+   ```bash
+   # Make the script executable
+   chmod +x .github/scripts/k8s-deploy.sh
+
+   # Run the script
+   ./.github/scripts/k8s-deploy.sh
+   ```
+
+### Automated Deployment with GitHub Actions
+
+The repository includes a GitHub Actions workflow that automates the build and deployment process:
+
+1. **Set up Required Secrets in GitHub:**
+
+   - KUBE_CONFIG: Your Kubernetes config file content (base64 encoded)
+   - Firebase credentials (FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, etc.)
+   - REACT_APP_API_URL: URL where your API will be accessible
+   - Spotify credentials (if needed)
+
+2. **Trigger the Workflow:**
+
+   - Push to main branch
+   -Or manually trigger the workflow from the Actions tab
 
 ## Configuration
 

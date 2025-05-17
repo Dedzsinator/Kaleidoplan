@@ -1,0 +1,145 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_FRONTEND: ${{ github.repository }}-frontend
+  IMAGE_NAME_BACKEND: ${{ github.repository }}-backend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Frontend Image Build & Push
+      - name: Extract metadata for Frontend
+        id: meta_frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./frontend.dockerfile
+          push: true
+          tags: ${{ steps.meta_frontend.outputs.tags }}
+          labels: ${{ steps.meta_frontend.outputs.labels }}
+          build-args: |
+            REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL }}
+            REACT_APP_SPOTIFY_CLIENT_ID=${{ secrets.REACT_APP_SPOTIFY_CLIENT_ID }}
+            REACT_APP_SPOTIFY_CLIENT_SECRET=${{ secrets.REACT_APP_SPOTIFY_CLIENT_SECRET }}
+
+      # Backend Image Build & Push
+      - name: Extract metadata for Backend
+        id: meta_backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./backend.dockerfile
+          push: true
+          tags: ${{ steps.meta_backend.outputs.tags }}
+          labels: ${{ steps.meta_backend.outputs.labels }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Set Kubernetes context
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Create namespace if not exists
+        run: kubectl apply -f kubernetes/namespace.yaml
+
+      - name: Create Firebase secret
+        run: |
+          cat <<EOF > kubernetes/firebase-secret-rendered.yaml
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: firebase-credentials
+            namespace: kaleidoplan
+          type: Opaque
+          data:
+            api-key: $(echo -n "${{ secrets.FIREBASE_API_KEY }}" | base64)
+            auth-domain: $(echo -n "${{ secrets.FIREBASE_AUTH_DOMAIN }}" | base64)
+            project-id: $(echo -n "${{ secrets.FIREBASE_PROJECT_ID }}" | base64)
+            storage-bucket: $(echo -n "${{ secrets.FIREBASE_STORAGE_BUCKET }}" | base64)
+            messaging-sender-id: $(echo -n "${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" | base64)
+            app-id: $(echo -n "${{ secrets.FIREBASE_APP_ID }}" | base64)
+            measurement-id: $(echo -n "${{ secrets.FIREBASE_MEASUREMENT_ID }}" | base64)
+          EOF
+          kubectl apply -f kubernetes/firebase-secret-rendered.yaml
+          rm kubernetes/firebase-secret-rendered.yaml
+
+      - name: Create persistent volume claims
+        run: kubectl apply -f kubernetes/persistent-volumes.yaml
+
+      - name: Update deployment files with image tags
+        run: |
+          sed -i 's|${REGISTRY}/${IMAGE_NAME_BACKEND}|${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}|g' kubernetes/backend-deployment.yaml
+          sed -i 's|${REGISTRY}/${IMAGE_NAME_FRONTEND}|${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}|g' kubernetes/frontend-deployment.yaml
+
+      - name: Deploy MongoDB
+        run: |
+          kubectl apply -f kubernetes/mongo-deployment.yaml
+          kubectl apply -f kubernetes/mongo-service.yaml
+
+      - name: Deploy Backend
+        run: |
+          kubectl apply -f kubernetes/backend-deployment.yaml
+          kubectl apply -f kubernetes/backend-service.yaml
+
+      - name: Deploy Frontend
+        run: |
+          kubectl apply -f kubernetes/frontend-deployment.yaml
+          kubectl apply -f kubernetes/frontend-service.yaml
+
+      - name: Deploy Ingress
+        run: kubectl apply -f kubernetes/ingress.yaml
+
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployments to be ready..."
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n kaleidoplan
+          kubectl wait --for=condition=available --timeout=300s deployment/backend -n kaleidoplan
+          kubectl wait --for=condition=available --timeout=300s deployment/mongo -n kaleidoplan
+          echo "All deployments are ready!"
