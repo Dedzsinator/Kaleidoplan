@@ -49,7 +49,7 @@ const EventImageUploader: React.FC<EventImageUploaderProps> = ({
 
       // Generate preview URLs
       const newPreviews = await Promise.all(
-        newFiles.map(file => {
+        newFiles.map((file) => {
           return new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => {
@@ -57,7 +57,7 @@ const EventImageUploader: React.FC<EventImageUploaderProps> = ({
             };
             reader.readAsDataURL(file);
           });
-        })
+        }),
       );
 
       setFilePreviewUrls((prevUrls) => [...prevUrls, ...newPreviews]);
@@ -158,11 +158,7 @@ const EventImageUploader: React.FC<EventImageUploaderProps> = ({
             {filePreviewUrls.map((url, index) => (
               <div key={index} className="file-preview-item">
                 <img src={url} alt={`Preview ${index + 1}`} className="file-preview-image" />
-                <button
-                  className="remove-preview-button"
-                  onClick={() => removeSelectedFile(index)}
-                  title="Remove"
-                >
+                <button className="remove-preview-button" onClick={() => removeSelectedFile(index)} title="Remove">
                   ×
                 </button>
               </div>
@@ -173,7 +169,9 @@ const EventImageUploader: React.FC<EventImageUploaderProps> = ({
             onClick={handleBatchUpload}
             disabled={isUploading || filePreviewUrls.length === 0}
           >
-            {isUploading ? 'Uploading...' : `Upload ${filePreviewUrls.length} Image${filePreviewUrls.length !== 1 ? 's' : ''}`}
+            {isUploading
+              ? 'Uploading...'
+              : `Upload ${filePreviewUrls.length} Image${filePreviewUrls.length !== 1 ? 's' : ''}`}
           </button>
         </div>
       )}

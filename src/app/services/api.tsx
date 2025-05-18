@@ -270,6 +270,7 @@ const post = async <T, D = Record<string, unknown>>(
   }
 };
 
+// In the put function, add this log:
 const put = async <T, D = Record<string, unknown>>(endpoint: string, data: D, options?: RequestInit): Promise<T> => {
   const headers = new Headers(options?.headers);
   headers.set('Content-Type', 'application/json');
@@ -282,6 +283,10 @@ const put = async <T, D = Record<string, unknown>>(endpoint: string, data: D, op
   });
 
   if (!response.ok) {
+    console.error(`API PUT request failed: ${endpoint}`, {
+      status: response.status,
+      statusText: response.statusText,
+    }); // Add this line
     throw new Error(`API error: ${response.status}`);
   }
 

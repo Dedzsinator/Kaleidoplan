@@ -18,12 +18,6 @@ const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET 
 const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dhbcnx8r2';
 const CLOUDINARY_API_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
-// Log configuration for debugging
-console.log('Cloudinary config:', {
-  preset: CLOUDINARY_UPLOAD_PRESET,
-  cloudName: CLOUDINARY_CLOUD_NAME
-});
-
 export const uploadEventImage = async (
   eventId: string | { _id?: string; id?: string },
   file: File,
@@ -48,12 +42,10 @@ export const uploadEventImage = async (
     const publicId = `event_${eventId}_${imageType}_${timestamp}`;
     formData.append('public_id', publicId);
 
-    console.log(`Uploading to Cloudinary: ${CLOUDINARY_API_URL} with preset: ${CLOUDINARY_UPLOAD_PRESET}`);
-
     // Upload image directly to Cloudinary
     const response = await fetch(CLOUDINARY_API_URL, {
       method: 'POST',
-      body: formData
+      body: formData,
     });
 
     if (!response.ok) {
@@ -63,25 +55,21 @@ export const uploadEventImage = async (
     }
 
     const data = await response.json();
-    console.log('Upload successful:', data.secure_url);
-
     // Extract the MongoDB _id if the eventId is an object
-    const actualEventId = typeof eventId === 'object' ? (eventId._id || eventId.id) : eventId;
-
-    console.log('Storing image reference with eventId:', actualEventId);
+    const actualEventId = typeof eventId === 'object' ? eventId._id || eventId.id : eventId;
 
     // Store the reference in your database through your API
     await api.post('/events/image-reference', {
       eventId: actualEventId,
       imageType: imageType,
       imageUrl: data.secure_url,
-      cloudinaryPublicId: data.public_id
+      cloudinaryPublicId: data.public_id,
     });
 
     return {
       success: true,
       message: 'Image uploaded successfully',
-      imageUrl: data.secure_url
+      imageUrl: data.secure_url,
     };
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -89,10 +77,7 @@ export const uploadEventImage = async (
   }
 };
 
-export const uploadEventSlideshowImages = async (
-  eventId: string,
-  files: File[]
-): Promise<ImageUploadResponse[]> => {
+export const uploadEventSlideshowImages = async (eventId: string, files: File[]): Promise<ImageUploadResponse[]> => {
   try {
     // Upload each file individually and collect the responses
     const uploadPromises = files.map(async (file, index) => {
@@ -117,7 +102,7 @@ export const uploadEventSlideshowImages = async (
       // Upload to Cloudinary
       const response = await fetch(CLOUDINARY_API_URL, {
         method: 'POST',
-        body: formData
+        body: formData,
       });
 
       if (!response.ok) {
@@ -132,21 +117,21 @@ export const uploadEventSlideshowImages = async (
     const results = await Promise.all(uploadPromises);
 
     // Extract the secure URLs from the results
-    const imageUrls = results.map(result => result.secure_url);
+    const imageUrls = results.map((result) => result.secure_url);
 
     // Store the references in your database
     await api.post('/events/image-references', {
       eventId: eventId,
       imageType: 'slideshow',
       imageUrls: imageUrls,
-      cloudinaryPublicIds: results.map(result => result.public_id)
+      cloudinaryPublicIds: results.map((result) => result.public_id),
     });
 
     // Return responses in the expected format
-    return results.map(result => ({
+    return results.map((result) => ({
       success: true,
       message: 'Image uploaded successfully',
-      imageUrl: result.secure_url
+      imageUrl: result.secure_url,
     }));
   } catch (error) {
     console.error('Error uploading multiple images:', error);
@@ -155,9 +140,7 @@ export const uploadEventSlideshowImages = async (
 };
 
 // Optional: Add a function to delete images from Cloudinary
-export const deleteEventImage = async (
-  publicId: string
-): Promise<boolean> => {
+export const deleteEventImage = async (publicId: string): Promise<boolean> => {
   try {
     // Delete through your backend API which should handle Cloudinary API authentication
     await api.delete(`/events/images/${encodeURIComponent(publicId)}`);

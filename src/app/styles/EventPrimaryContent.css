@@ -111,3 +111,44 @@
 .event-button:hover {
   opacity: 0.9;
 }
+
+.event-title {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--text-primary, #fff);
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.event-title:hover {
+  opacity: 0.9;
+  text-decoration: underline;
+}
+
+.event-details-container {
+  border-left: 3px solid rgba(59, 130, 246, 0.5);
+  padding-left: 12px;
+  margin-bottom: 16px;
+  animation: slideDown 0.3s ease-out;
+}
+
+.event-loading {
+  color: #9CA3AF;
+  font-style: italic;
+  padding: 10px 0;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

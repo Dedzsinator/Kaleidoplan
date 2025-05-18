@@ -48,5 +48,6 @@ router.get(
 router.post('/image-reference', authMiddleware.verifyToken, eventsController.storeImageReference);
 router.post('/image-references', authMiddleware.verifyToken, eventsController.storeMultipleImageReferences);
 router.delete('/images/:publicId', authMiddleware.verifyToken, eventsController.deleteEventImage);
+router.post('/delete-image-by-url', authMiddleware.verifyToken, eventsController.deleteEventImageByUrl);
 
 module.exports = router;

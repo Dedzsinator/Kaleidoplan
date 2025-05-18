@@ -836,5 +836,111 @@
   }
 }
 
-/* Ensure EventImageUploader styles are imported or defined */
-/* Ensure ImageSlideshow styles are imported or defined */
+/* Status message for image deletion */
+.delete-status-message {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.delete-status-message.success {
+  background-color: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+.delete-status-message.error {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+/* Admin gallery grid for image management */
+.admin-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.admin-gallery-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+  aspect-ratio: 16/9;
+}
+
+.admin-gallery-item:hover {
+  transform: translateY(-4px);
+}
+
+.admin-gallery-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-delete-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(231, 76, 60, 0.8);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s;
+}
+
+.admin-gallery-item:hover .image-delete-button {
+  opacity: 1;
+}
+
+.image-delete-button:hover {
+  background-color: rgba(231, 76, 60, 1);
+}
+
+.image-delete-button:disabled {
+  background-color: rgba(149, 165, 166, 0.8);
+  cursor: not-allowed;
+}
+
+/* Cover image delete button */
+.cover-image-delete-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background-color: rgba(231, 76, 60, 0.8);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background-color 0.2s;
+}
+
+.cover-image-delete-button:hover {
+  background-color: rgba(231, 76, 60, 1);
+}
+
+.cover-image-delete-button:disabled {
+  background-color: rgba(149, 165, 166, 0.8);
+  cursor: not-allowed;
+}

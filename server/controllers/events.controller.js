@@ -380,54 +380,186 @@ const storeMultipleImageReferences = async (req, res) => {
   }
 };
 
+// New function for deletion by full URL
+const deleteEventImageByUrl = async (req, res) => {
+  try {
+    const { eventId, imageUrl, isCoverImage } = req.body;
+
+    if (!eventId || !imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters: eventId or imageUrl',
+      });
+    }
+
+    // Find the event first
+    const event = await Event.findById(eventId);
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+    }
+
+    // Extract domain parts to find potential publicId
+    let publicId = null;
+
+    if (imageUrl.includes('cloudinary.com')) {
+      // This is a Cloudinary image - try to extract public ID
+      // Format varies but is often like: cloudinary.com/[cloud_name]/image/upload/[version]/[public_id].[ext]
+      const urlParts = imageUrl.split('/');
+      const uploadIndex = urlParts.indexOf('upload');
+
+      if (uploadIndex >= 0 && uploadIndex < urlParts.length - 1) {
+        // Get everything after upload, skip the version (v1234) part if it exists
+        let afterUpload = urlParts.slice(uploadIndex + 1).join('/');
+
+        // Remove version prefix if it exists
+        if (afterUpload.match(/^v\d+\//)) {
+          afterUpload = afterUpload.replace(/^v\d+\//, '');
+        }
+
+        // Remove file extension
+        publicId = afterUpload.replace(/\.[^/.]+$/, '');
+
+        // Try to delete from Cloudinary if we have the config
+        if (process.env.CLOUDINARY_CLOUD_NAME) {
+          try {
+            cloudinary.config({
+              cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+              api_key: process.env.CLOUDINARY_API_KEY,
+              api_secret: process.env.CLOUDINARY_API_SECRET,
+            });
+
+            const result = await cloudinary.uploader.destroy(publicId);
+          } catch (cloudinaryError) {
+            console.error('Error deleting from Cloudinary:', cloudinaryError);
+            // Continue with database update even if Cloudinary fails
+          }
+        }
+      }
+    }
+
+    // Update the event in the database
+    if (isCoverImage) {
+      // Update cover image
+      await Event.updateOne({ _id: eventId }, { $set: { coverImageUrl: '', coverImagePublicId: '' } });
+    } else {
+      // Update slideshow images
+      // For string format
+      if (typeof event.slideshowImages === 'string') {
+        const updatedImages = event.slideshowImages
+          .split(',')
+          .map((url) => url.trim())
+          .filter((url) => url !== imageUrl)
+          .join(',');
+
+        await Event.updateOne({ _id: eventId }, { $set: { slideshowImages: updatedImages } });
+      }
+      // For array format
+      else if (Array.isArray(event.slideshowImages)) {
+        const updatedImages = event.slideshowImages.filter((url) => url !== imageUrl);
+
+        await Event.updateOne({ _id: eventId }, { $set: { slideshowImages: updatedImages } });
+      }
+
+      // Also remove from publicIds array if we found a publicId
+      if (publicId && Array.isArray(event.slideshowImagePublicIds)) {
+        await Event.updateOne({ _id: eventId }, { $pull: { slideshowImagePublicIds: publicId } });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Image deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting image by URL:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error deleting image',
+      error: error.message,
+    });
+  }
+};
+
 // Delete an image from Cloudinary
 const deleteEventImage = async (req, res) => {
   try {
     const { publicId } = req.params;
 
-    // Set up Cloudinary configuration
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+    // Set up Cloudinary configuration if using Cloudinary
+    if (process.env.CLOUDINARY_CLOUD_NAME) {
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      // Try to delete from Cloudinary - catch errors but continue with database update
+      try {
+        const result = await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryError) {
+        console.error('Error deleting from Cloudinary:', cloudinaryError);
+        // Continue with database update even if Cloudinary fails
+      }
+    }
+
+    // Find all events that might have this image
+    const events = await Event.find({
+      $or: [
+        { coverImagePublicId: publicId },
+        { coverImageUrl: { $regex: publicId } },
+        { slideshowImages: { $elemMatch: { $regex: publicId } } },
+        { slideshowImagePublicIds: publicId },
+      ],
     });
 
-    // Delete the image from Cloudinary
-    const result = await cloudinary.uploader.destroy(publicId);
-
-    // If successful, update the event (remove the reference)
-    if (result.result === 'ok') {
-      // Find event with this public ID either as cover or in slideshow
-      await Event.updateOne(
-        { coverImagePublicId: publicId },
-        { $unset: { coverImageUrl: '', coverImagePublicId: '' } },
-      );
-
-      await Event.updateOne(
-        { slideshowImagePublicIds: publicId },
-        {
-          $pull: {
-            slideshowImages: { $elemMatch: { $eq: publicId } },
-            slideshowImagePublicIds: publicId,
-          },
-        },
-      );
-
-      return res.status(200).json({
-        success: true,
-        message: 'Image deleted successfully',
-      });
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Failed to delete image from Cloudinary',
-      });
+    if (!events || events.length === 0) {
+      console.warn(`No events found with publicId: ${publicId}`);
     }
+
+    // Update cover images
+    const coverUpdateResult = await Event.updateMany(
+      { $or: [{ coverImagePublicId: publicId }, { coverImageUrl: { $regex: publicId } }] },
+      { $set: { coverImageUrl: '', coverImagePublicId: '' } },
+    );
+
+    // Update slideshow images - more complex operation as we need to filter arrays
+    for (const event of events) {
+      // Handle string slideshowImages (for backward compatibility)
+      if (typeof event.slideshowImages === 'string') {
+        const updatedImages = event.slideshowImages
+          .split(',')
+          .map((url) => url.trim())
+          .filter((url) => !url.includes(publicId))
+          .join(',');
+
+        await Event.updateOne({ _id: event._id }, { $set: { slideshowImages: updatedImages } });
+      }
+      // Handle array slideshowImages
+      else if (Array.isArray(event.slideshowImages)) {
+        const updatedImages = event.slideshowImages.filter((url) => !url.includes(publicId));
+
+        await Event.updateOne({ _id: event._id }, { $set: { slideshowImages: updatedImages } });
+      }
+
+      // Also update the publicIds array if it exists
+      if (Array.isArray(event.slideshowImagePublicIds)) {
+        await Event.updateOne({ _id: event._id }, { $pull: { slideshowImagePublicIds: publicId } });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Image deleted successfully',
+    });
   } catch (error) {
     console.error('Error deleting image:', error);
     return res.status(500).json({
       success: false,
       message: 'Server error deleting image',
+      error: error.message,
     });
   }
 };
@@ -1006,4 +1138,5 @@ module.exports = {
   storeImageReference,
   storeMultipleImageReferences,
   deleteEventImage,
+  deleteEventImageByUrl,
 };

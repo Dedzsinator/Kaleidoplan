@@ -186,7 +186,7 @@ Kaleidoplan supports deployment to Kubernetes clusters for production environmen
    ```bash
    # First, create the namespace
    kubectl apply -f kubernetes/namespace.yaml
-   
+
    # Create the secrets manually - replace with your values
    kubectl create secret generic firebase-credentials -n kaleidoplan \
      --from-literal=api-key="your-api-key" \
@@ -196,6 +196,8 @@ Kaleidoplan supports deployment to Kubernetes clusters for production environmen
      --from-literal=messaging-sender-id="your-sender-id" \
      --from-literal=app-id="your-app-id" \
      --from-literal=measurement-id="your-measurement-id"
+
+   ```
 
 2. **Create Persistent Volumes:**:
 
@@ -248,13 +250,13 @@ Kaleidoplan supports deployment to Kubernetes clusters for production environmen
 
 For convenience, you can use the provided helper script:
 
-   ```bash
-   # Make the script executable
-   chmod +x .github/scripts/k8s-deploy.sh
+```bash
+# Make the script executable
+chmod +x .github/scripts/k8s-deploy.sh
 
-   # Run the script
-   ./.github/scripts/k8s-deploy.sh
-   ```
+# Run the script
+./.github/scripts/k8s-deploy.sh
+```
 
 ### Automated Deployment with GitHub Actions
 
@@ -270,7 +272,7 @@ The repository includes a GitHub Actions workflow that automates the build and d
 2. **Trigger the Workflow:**
 
    - Push to main branch
-   -Or manually trigger the workflow from the Actions tab
+     -Or manually trigger the workflow from the Actions tab
 
 ## Configuration
 

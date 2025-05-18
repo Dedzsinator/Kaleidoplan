@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, isValid } from 'date-fns';
 import InterestButton from './InterestButton';
+import axios from 'axios';
 import '../../styles/EventPrimaryContent.css';
 
 interface EventPrimaryContentProps {
@@ -60,6 +61,30 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
   const hasImage = !!event.coverImageUrl;
   const themeColor = event.themeColor || '#3B82F6';
   const statusColor = getStatusColor(event.status);
+  
+  // Add state to track if details are expanded and the event details
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [eventDetails, setEventDetails] = useState<any>(null);
+  
+  const handleTitleClick = async () => {
+    setIsExpanded(!isExpanded);
+    
+    // Only fetch details if expanding and we don't already have them
+    if (!isExpanded && !eventDetails) {
+      setIsLoading(true);
+      try {
+        const response = await axios.get(`/api/events/${event.id}`);
+        setEventDetails(response.data);
+      } catch (error) {
+        console.error('Error fetching event details:', error);
+        // Use the data we already have as fallback
+        setEventDetails(event);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   return (
     <div className="event-primary-container">
@@ -84,45 +109,63 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
       </div>
 
       <div className="event-content-container">
-        <h1 className="event-title">{event.name}</h1>
+        <h1 className="event-title" onClick={handleTitleClick} style={{ cursor: 'pointer' }}>
+          {event.name} {isExpanded ? '▲' : '▼'}
+        </h1>
+        
         <div className="event-actions">
           <InterestButton eventId={event.id} size="medium" />
         </div>
-
-        <div className="event-meta-row">
-          <i className="event-icon fas fa-calendar"></i>
-          <span className="event-meta-text">{formatEventDate(event.startDate)}</span>
-        </div>
-
-        <div className="event-meta-row">
-          <i className="event-icon fas fa-map-marker-alt"></i>
-          <span className="event-meta-text">{event.location || 'Location unavailable'}</span>
-        </div>
-
-        <div className="event-status-container">
-          <div
-            className="event-status-dot"
-            style={{
-              backgroundColor: statusColor.dot.includes('blue')
-                ? '#3B82F6'
-                : statusColor.dot.includes('green')
-                  ? '#10B981'
-                  : '#9CA3AF',
-            }}
-          ></div>
-          <span
-            className="event-status-text"
-            style={{
-              color: statusColor.text.includes('blue')
-                ? '#3B82F6'
-                : statusColor.text.includes('green')
-                  ? '#10B981'
-                  : '#9CA3AF',
-            }}
-          >
-            {(event.status || 'UPCOMING').toUpperCase()}
-          </span>
-        </div>
+        
+        {/* Only show details when expanded */}
+        {isExpanded && (
+          <div className="event-details-container">
+            {isLoading ? (
+              <div className="event-loading">Loading details...</div>
+            ) : (
+              <>
+                <div className="event-meta-row">
+                  <i className="event-icon fas fa-calendar"></i>
+                  <span className="event-meta-text">
+                    {formatEventDate(eventDetails?.startDate || event.startDate)}
+                  </span>
+                </div>
+                
+                <div className="event-meta-row">
+                  <i className="event-icon fas fa-map-marker-alt"></i>
+                  <span className="event-meta-text">
+                    {eventDetails?.location || event.location || 'Location unavailable'}
+                  </span>
+                </div>
+                
+                <div className="event-status-container">
+                  <div
+                    className="event-status-dot"
+                    style={{
+                      backgroundColor: statusColor.dot.includes('blue')
+                        ? '#3B82F6'
+                        : statusColor.dot.includes('green')
+                          ? '#10B981'
+                          : '#9CA3AF',
+                    }}
+                  ></div>
+                  <span
+                    className="event-status-text"
+                    style={{
+                      color: statusColor.text.includes('blue')
+                        ? '#3B82F6'
+                        : statusColor.text.includes('green')
+                          ? '#10B981'
+                          : '#9CA3AF',
+                    }}
+                  >
+                    {(eventDetails?.status || event.status || 'UPCOMING').toUpperCase()}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {event.description && <p className="event-description">{event.description}</p>}
 
