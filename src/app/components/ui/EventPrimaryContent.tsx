@@ -61,15 +61,15 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
   const hasImage = !!event.coverImageUrl;
   const themeColor = event.themeColor || '#3B82F6';
   const statusColor = getStatusColor(event.status);
-  
+
   // Add state to track if details are expanded and the event details
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [eventDetails, setEventDetails] = useState<any>(null);
-  
+  const [eventDetails, setEventDetails] = useState<EventPrimaryContentProps['event'] | null>(null);
+
   const handleTitleClick = async () => {
     setIsExpanded(!isExpanded);
-    
+
     // Only fetch details if expanding and we don't already have them
     if (!isExpanded && !eventDetails) {
       setIsLoading(true);
@@ -112,11 +112,11 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
         <h1 className="event-title" onClick={handleTitleClick} style={{ cursor: 'pointer' }}>
           {event.name} {isExpanded ? '▲' : '▼'}
         </h1>
-        
+
         <div className="event-actions">
           <InterestButton eventId={event.id} size="medium" />
         </div>
-        
+
         {/* Only show details when expanded */}
         {isExpanded && (
           <div className="event-details-container">
@@ -126,18 +126,16 @@ const EventPrimaryContent = ({ event, onImageError, onClick }: EventPrimaryConte
               <>
                 <div className="event-meta-row">
                   <i className="event-icon fas fa-calendar"></i>
-                  <span className="event-meta-text">
-                    {formatEventDate(eventDetails?.startDate || event.startDate)}
-                  </span>
+                  <span className="event-meta-text">{formatEventDate(eventDetails?.startDate || event.startDate)}</span>
                 </div>
-                
+
                 <div className="event-meta-row">
                   <i className="event-icon fas fa-map-marker-alt"></i>
                   <span className="event-meta-text">
                     {eventDetails?.location || event.location || 'Location unavailable'}
                   </span>
                 </div>
-                
+
                 <div className="event-status-container">
                   <div
                     className="event-status-dot"
