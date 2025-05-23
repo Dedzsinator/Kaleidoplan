@@ -60,18 +60,17 @@ export const getAuthToken = async (): Promise<string | null> => {
 
 export const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
   try {
-    const token = await getAuthToken();
+    const token = await getAuthToken(); // Keep for backward compatibility
 
     // Create headers object first to check content type
     const headers = new Headers(options.headers || {});
 
-    // Add authorization header
+    // Add authorization header if token exists (for backward compatibility)
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
 
-    // IMPORTANT CHANGE: Don't set Content-Type for /images/upload
-    // AND don't set it for any requests where body is FormData
+    // Don't set Content-Type for FormData
     const isFormDataRequest = options.body instanceof FormData;
     if (!headers.has('Content-Type') && !isFormDataRequest && !endpoint.includes('/images/upload')) {
       headers.set('Content-Type', 'application/json');
@@ -80,9 +79,54 @@ export const fetchWithAuth = async (endpoint: string, options: RequestInit = {})
     const requestOptions: RequestInit = {
       ...options,
       headers,
+      credentials: 'include', // Important! This enables sending/receiving cookies
     };
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
+
+    // Handle 401 Unauthorized errors more intelligently
+    if (response.status === 401 && !endpoint.includes('auth/refresh')) {
+      // Try to refresh the token silently in the background
+      try {
+        const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include', // Important for cookies
+          cache: 'no-store', // Prevent caching of refresh requests
+        });
+
+        if (refreshResponse.ok) {
+          // Token refreshed successfully, retry the original request with same options
+          return fetch(`${API_BASE_URL}${endpoint}`, requestOptions);
+        } else {
+          // If refresh fails, try to get a fresh token from Firebase
+          const auth = getAuth();
+          const currentUser = auth.currentUser;
+
+          if (currentUser) {
+            try {
+              // Force token refresh from Firebase
+              const newToken = await currentUser.getIdToken(true);
+
+              // Update the Authorization header with the new token
+              const headers = new Headers(requestOptions.headers);
+              headers.set('Authorization', `Bearer ${newToken}`);
+
+              // Retry the original request with the new token
+              return fetch(`${API_BASE_URL}${endpoint}`, {
+                ...requestOptions,
+                headers,
+              });
+            } catch (firebaseError) {
+              // Silently fail and continue with the original response
+              console.warn('Silent token refresh failed');
+            }
+          }
+        }
+      } catch (refreshError) {
+        // Silently fail the refresh attempt
+        console.warn('Silent token refresh attempt failed');
+      }
+    }
 
     if (!response.ok) {
       console.error(`API request failed: ${endpoint}`, {

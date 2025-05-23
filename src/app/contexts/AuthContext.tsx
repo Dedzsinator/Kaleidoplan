@@ -8,6 +8,7 @@ import {
   updateProfile,
   signInWithPopup,
   GoogleAuthProvider,
+  GithubAuthProvider,
   User as FirebaseUser,
 } from 'firebase/auth';
 // Import the Firebase app instance
@@ -34,15 +35,16 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isOrganizer: boolean;
-  firebaseUser: FirebaseUser | null; // Add this to expose the raw Firebase user
+  firebaseUser: FirebaseUser | null;
 
   // Add missing methods used in components
   login: (email: string, password: string) => Promise<User>;
   loginWithGoogle: () => Promise<User>;
+  loginWithGithub: () => Promise<User>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<User | null>;
-  refreshUserToken: () => Promise<void>; // Add this method to force token refresh
+  refreshUserToken: () => Promise<boolean>; // Add this method to force token refresh
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,101 +57,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOrganizer, setIsOrganizer] = useState(false);
 
-  const refreshUserToken = async () => {
-    if (firebaseUser) {
-      const idTokenResult = await firebaseUser.getIdTokenResult(true);
-      const role = idTokenResult.claims.role || 'user';
-
-      // Update user data with refreshed role
-      if (currentUser) {
-        const updatedUser = { ...currentUser, role: role as UserRole };
-        setCurrentUser(updatedUser);
-        setIsAdmin(role === 'admin');
-        setIsOrganizer(role === 'admin' || role === 'organizer');
-      }
-    }
-  };
-
-  // Authentication methods - use the imported auth instance
-  const login = async (email: string, password: string): Promise<User> => {
-    try {
-      setLoading(true);
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setFirebaseUser(userCredential.user); // Store Firebase user
-
-      // Force token refresh to get updated custom claims
-      const idTokenResult = await userCredential.user.getIdTokenResult(true);
-
-      const token = await userCredential.user.getIdToken();
-
-      TokenStorage.setToken(token);
-
-      // Extract role from Firebase claims
-      const role = idTokenResult.claims.role || 'user';
-
-      // Create user object with role
-      const userData = {
-        uid: userCredential.user.uid,
-        email: userCredential.user.email || '',
-        displayName: userCredential.user.displayName || undefined,
-        photoURL: userCredential.user.photoURL || undefined,
-        role: role as UserRole,
-      };
-
-      // Update state
-      setCurrentUser(userData);
-      setIsAuthenticated(true);
-      setIsAdmin(role === 'admin');
-      setIsOrganizer(role === 'admin' || role === 'organizer');
-
-      return userData;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loginWithGoogle = async (): Promise<User> => {
-    try {
-      setLoading(true);
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      setFirebaseUser(result.user);
-
-      // Force token refresh to get updated custom claims
-      const idTokenResult = await result.user.getIdTokenResult(true);
-
-      const token = await result.user.getIdToken();
-      TokenStorage.setToken(token);
-
-      // Extract role from Firebase claims
-      const role = idTokenResult.claims.role || 'user';
-
-      // Create user object with role
-      const userData: User = {
-        uid: result.user.uid,
-        email: result.user.email || '',
-        displayName: result.user.displayName || undefined,
-        photoURL: result.user.photoURL || undefined,
-        role: role as UserRole,
-      };
-
-      setCurrentUser(userData);
-      setIsAuthenticated(true);
-      setIsAdmin(role === 'admin');
-      setIsOrganizer(role === 'admin' || role === 'organizer');
-
-      return userData; // Return the user data
-    } catch (error) {
-      console.error('Google login error:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const register = async (email: string, password: string, displayName: string): Promise<void> => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
@@ -157,14 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await updateProfile(userCredential.user, {
       displayName: displayName,
     });
-
-    // User data will be set by the auth state listener
-  };
-
-  const logout = async (): Promise<void> => {
-    await signOut(auth);
-    TokenStorage.removeToken();
-    setCurrentUser(null);
   };
 
   const refreshUserData = async (): Promise<User | null> => {
@@ -183,32 +82,253 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // In your login method in AuthContext.tsx
+  const login = async (email: string, password: string): Promise<User> => {
+    try {
+      setLoading(true);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      setFirebaseUser(userCredential.user);
+
+      // Get ID token from Firebase
+      const token = await userCredential.user.getIdToken();
+
+      // Send token to backend to set up JWT cookies
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken: token }),
+        credentials: 'include', // Important for cookies
+      });
+
+      if (!response.ok) {
+        let errorMessage = 'Server authentication failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+
+      // Update state with user data from server
+      const userData = data.user;
+      setCurrentUser(userData);
+      setIsAuthenticated(true);
+      setIsAdmin(userData.role === 'admin');
+      setIsOrganizer(userData.role === 'admin' || userData.role === 'organizer');
+
+      return userData;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Similarly update other auth methods like loginWithGoogle:
+  const loginWithGoogle = async (): Promise<User> => {
+    try {
+      setLoading(true);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      setFirebaseUser(result.user);
+
+      // Get token to send to backend
+      const token = await result.user.getIdToken();
+
+      // Send to backend to set up JWT cookies
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/google-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken: token }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Server authentication failed');
+      }
+
+      const data = await response.json();
+
+      // Update state with user data from server
+      const userData = data.user;
+      setCurrentUser(userData);
+      setIsAuthenticated(true);
+      setIsAdmin(userData.role === 'admin');
+      setIsOrganizer(userData.role === 'admin' || userData.role === 'organizer');
+
+      return userData;
+    } catch (error) {
+      console.error('Google login error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGithub = async (): Promise<User> => {
+    try {
+      setLoading(true);
+      const provider = new GithubAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      setFirebaseUser(result.user);
+
+      // Get token to send to backend
+      const token = await result.user.getIdToken();
+
+      // Send to backend to set up JWT cookies
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/github-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken: token }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Server authentication failed');
+      }
+
+      const data = await response.json();
+
+      // Update state with user data from server
+      const userData = data.user;
+      setCurrentUser(userData);
+      setIsAuthenticated(true);
+      setIsAdmin(userData.role === 'admin');
+      setIsOrganizer(userData.role === 'admin' || userData.role === 'organizer');
+
+      return userData;
+    } catch (error) {
+      console.error('GitHub login error:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update logout to clear cookies
+  const logout = async (): Promise<void> => {
+    try {
+      // Sign out from Firebase
+      await signOut(auth);
+
+      // Clear server-side cookies
+      await fetch(`${process.env.REACT_APP_API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Clear local state
+      setCurrentUser(null);
+      setFirebaseUser(null);
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+      setIsOrganizer(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
+  };
+
+  // Update refreshUserToken to handle JWT and silently fail during initial load
+  const refreshUserToken = async (suppressErrors = false): Promise<boolean> => {
+    try {
+      // Call the refresh endpoint directly
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        if (!suppressErrors) {
+          console.error(`Failed to refresh token: ${response.status} ${response.statusText}`);
+        }
+        throw new Error('Failed to refresh token');
+      }
+
+      const data = await response.json();
+
+      // Update user data with refreshed role
+      if (data && data.user) {
+        setCurrentUser(data.user);
+        setIsAdmin(data.user.role === 'admin');
+        setIsOrganizer(data.user.role === 'admin' || data.user.role === 'organizer');
+        setIsAuthenticated(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      if (!suppressErrors) {
+        console.error('Error refreshing token:', error);
+      }
+      setIsAuthenticated(false);
+      return false;
+    }
+  };
+
+  // Update auth state change handler to suppress initial errors
   useEffect(() => {
-    const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       try {
         if (fbUser) {
-          // Store the Firebase user
           setFirebaseUser(fbUser);
 
-          // Force token refresh to get latest claims
-          const idTokenResult = await fbUser.getIdTokenResult(true);
+          // Try to get user data from server (using cookies)
+          try {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/auth/profile`, {
+              credentials: 'include',
+            });
 
-          // Get role from Firebase custom claims
-          const role = idTokenResult.claims.role || 'user';
+            if (response.ok) {
+              // We have valid cookies
+              const userData = await response.json();
+              setCurrentUser(userData);
+              setIsAdmin(userData.role === 'admin');
+              setIsOrganizer(userData.role === 'admin' || userData.role === 'organizer');
+              setIsAuthenticated(true);
+            } else if (response.status === 401) {
+              // Silently try to refresh token on initial load
+              const refreshed = await refreshUserToken(true); // Pass true to suppress errors
 
-          // Set user data with role from Firebase claims
-          setCurrentUser({
-            uid: fbUser.uid,
-            email: fbUser.email || '',
-            displayName: fbUser.displayName || undefined,
-            photoURL: fbUser.photoURL || undefined,
-            role: role as UserRole,
-          });
+              if (!refreshed) {
+                // If refresh failed, silently get a new token from Firebase
+                try {
+                  const token = await fbUser.getIdToken(true);
+                  const loginResponse = await fetch(`${process.env.REACT_APP_API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ idToken: token }),
+                    credentials: 'include',
+                  });
 
-          setIsAuthenticated(true);
-          setIsAdmin(role === 'admin');
-          setIsOrganizer(role === 'admin' || role === 'organizer');
+                  if (loginResponse.ok) {
+                    const data = await loginResponse.json();
+                    setCurrentUser(data.user);
+                    setIsAdmin(data.user.role === 'admin');
+                    setIsOrganizer(data.user.role === 'admin' || data.user.role === 'organizer');
+                    setIsAuthenticated(true);
+                  }
+                } catch (tokenError) {
+                  console.warn('Silent authentication attempt failed during initialization');
+                }
+              }
+            }
+          } catch (error) {
+            // Silently handle profile fetch errors during initialization
+            console.warn('Initializing user data silently');
+          }
         } else {
           setFirebaseUser(null);
           setCurrentUser(null);
@@ -218,11 +338,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error processing authentication:', error);
-        setFirebaseUser(null);
-        setCurrentUser(null);
-        setIsAuthenticated(false);
-        setIsAdmin(false);
-        setIsOrganizer(false);
       } finally {
         setLoading(false);
       }
@@ -234,7 +349,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextType = {
     currentUser,
     user: currentUser,
-    firebaseUser, // Expose the Firebase user
+    firebaseUser,
     loading,
     isAuthenticated,
     isAdmin,
@@ -244,7 +359,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     refreshUserData,
-    refreshUserToken, // Add the new method
+    refreshUserToken,
+    loginWithGithub,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

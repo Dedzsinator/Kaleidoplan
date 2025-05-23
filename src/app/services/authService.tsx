@@ -3,6 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
+  GithubAuthProvider,
   signInWithPopup,
   User,
   updateProfile as firebaseUpdateProfile,
@@ -38,6 +39,29 @@ export const signIn = async (email: string, password: string): Promise<User> => 
     return userCredential.user;
   } catch (error) {
     console.error('Error signing in:', error);
+    throw error;
+  }
+};
+
+export const signInWithGithub = async (): Promise<User> => {
+  try {
+    const provider = new GithubAuthProvider();
+
+    // Add scopes if needed
+    provider.addScope('read:user');
+    provider.addScope('user:email');
+
+    const result = await signInWithPopup(auth, provider);
+
+    // Get the token
+    const token = await result.user.getIdToken();
+
+    // Send to backend to validate and set cookies
+    await api.post('/auth/github-auth', { token });
+
+    return result.user;
+  } catch (error) {
+    console.error('GitHub sign in error:', error);
     throw error;
   }
 };

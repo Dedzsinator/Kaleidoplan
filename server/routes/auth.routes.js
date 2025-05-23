@@ -5,20 +5,9 @@ const authMiddleware = require('../middleware/auth');
 const authenticateFirebaseToken = authMiddleware.verifyToken;
 
 // Public routes
-// Check if these controller methods exist before using them
-if (typeof authController.login !== 'function') {
-  console.error('Warning: authController.login is not defined');
-}
+// Add refresh token route - no auth required
+router.post('/refresh', authController.refresh);
 
-if (typeof authController.logout !== 'function') {
-  console.error('Warning: authController.logout is not defined');
-}
-
-if (typeof authController.googleCallback !== 'function') {
-  console.error('Warning: authController.googleCallback is not defined');
-}
-
-// The issue is with one of these routes - implement missing controller methods
 router.post(
   '/login',
   typeof authController.login === 'function'
@@ -40,13 +29,20 @@ router.post(
     : (req, res) => res.status(501).json({ error: 'Not implemented' }),
 );
 
-// This is already correct
+router.post(
+  '/github-auth',
+  typeof authController.githubCallback === 'function'
+    ? authController.githubCallback
+    : (req, res) => res.status(501).json({ error: 'Not implemented' }),
+);
+
 router.post('/verify-token', authenticateFirebaseToken, (req, res) => {
   res.status(200).json({
     valid: true,
     user: {
       uid: req.user.uid,
       email: req.user.email,
+      role: req.user.role,
     },
   });
 });
@@ -54,7 +50,7 @@ router.post('/verify-token', authenticateFirebaseToken, (req, res) => {
 // Protected routes - require authentication
 router.use(authenticateFirebaseToken);
 
-// User profile management - check if these methods exist too
+// User profile management
 router.post(
   '/profile',
   typeof authController.createUserProfile === 'function'

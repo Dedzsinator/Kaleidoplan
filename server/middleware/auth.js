@@ -1,6 +1,53 @@
 const admin = require('../config/firebase');
 const User = require('../models/user.model');
 const OrganizerEvent = require('../models/organizer-event.model');
+const jwt = require('jsonwebtoken');
+const { ACCESS_TOKEN_SECRET } = require('./token');
+
+// Updated verify token middleware to check cookies first, then header
+exports.verifyToken = async (req, res, next) => {
+  try {
+    // First check for JWT in cookies (preferred method)
+    const token = req.cookies.access_token;
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+        req.user = decoded;
+        req.uid = decoded.uid;
+        return next();
+      } catch (jwtError) {
+        if (jwtError.name !== 'TokenExpiredError') {
+          console.error('JWT verification failed:', jwtError);
+          // For other errors, we'll try the Authorization header as fallback
+        }
+      }
+    }
+
+    // Fallback to Authorization header for backwards compatibility
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No authentication token provided' });
+    }
+
+    const bearerToken = authHeader.split(' ')[1];
+
+    // Try to verify as Firebase token
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(bearerToken);
+      req.user = decodedToken;
+      req.uid = decodedToken.uid;
+      next();
+    } catch (firebaseError) {
+      console.error('Token verification failed:', firebaseError);
+      return res.status(401).json({ error: 'Invalid authentication token' });
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return res.status(500).json({ error: 'Authentication failed' });
+  }
+};
 
 exports.requireAdmin = (req, res, next) => {
   // Check for admin role in Firebase custom claims
@@ -23,29 +70,52 @@ exports.requireAdmin = (req, res, next) => {
   });
 };
 
+// Updated verify token middleware with less verbose error logging
 exports.verifyToken = async (req, res, next) => {
   try {
-    // Get token from header
+    // First check for JWT in cookies (preferred method)
+    const token = req.cookies.access_token;
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+        req.user = decoded;
+        req.uid = decoded.uid;
+        return next();
+      } catch (jwtError) {
+        // Don't log token expiration errors, these are normal
+        if (jwtError.name !== 'TokenExpiredError') {
+          console.error('JWT verification failed:', jwtError);
+        }
+        // Fall through to try Authorization header
+      }
+    }
+
+    // Fallback to Authorization header for backwards compatibility
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'No authentication token provided' });
     }
 
-    const token = authHeader.split(' ')[1];
+    const bearerToken = authHeader.split(' ')[1];
 
-    // Verify token with Firebase
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken;
-    req.uid = decodedToken.uid; // Ensure this is set correctly
-
-    next();
+    // Try to verify as Firebase token
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(bearerToken);
+      req.user = decodedToken;
+      req.uid = decodedToken.uid;
+      next();
+    } catch (firebaseError) {
+      return res.status(401).json({ error: 'Invalid authentication token' });
+    }
   } catch (error) {
-    console.error('Error verifying token:', error);
-    return res.status(401).json({ error: 'Invalid authentication token' });
+    console.error('Authentication error:', error);
+    return res.status(500).json({ error: 'Authentication failed' });
   }
 };
 
+// In the attachUserData function
 exports.attachUserData = async (req, res, next) => {
   try {
     if (!req.user) {
@@ -54,10 +124,13 @@ exports.attachUserData = async (req, res, next) => {
 
     // Make sure we set uid properly from the token
     if (!req.user.uid && req.uid) {
-      req.user.uid = req.uid; // Make sure this line exists
+      req.user.uid = req.uid;
     }
 
-    const user = await User.findOne({ uid: req.uid });
+    // Try both uid and userId for backward compatibility
+    const user = await User.findOne({
+      $or: [{ uid: req.uid }, { userId: req.uid }],
+    });
 
     if (user) {
       // When attaching MongoDB user data, preserve the original uid!

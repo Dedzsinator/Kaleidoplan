@@ -327,3 +327,17 @@
     font-size: 16px;
   }
 }
+
+.github-button {
+  background-color: #24292e;
+  color: white;
+  margin-top: 10px;
+}
+
+.github-button:hover {
+  background-color: #2f363d;
+}
+
+.github-icon {
+  margin-right: 8px;
+}
