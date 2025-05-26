@@ -17,7 +17,7 @@
     "crypto": "^1.0.1",
     "crypto-browserify": "^3.12.1",
     "date-fns": "^2.30.0",
-    "firebase": "^10.14.1",
+    "firebase": "^11.8.1",
     "firebase-admin": "^13.3.0",
     "husky": "^9.1.7",
     "leaflet": "^1.9.4",
