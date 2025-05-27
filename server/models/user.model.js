@@ -1,6 +1,5 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-// Updated schema to include authProvider field
 const userSchema = new mongoose.Schema({
   uid: {
     type: String,

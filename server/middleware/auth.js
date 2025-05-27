@@ -1,10 +1,11 @@
-const admin = require('../config/firebase');
-const User = require('../models/user.model');
-const OrganizerEvent = require('../models/organizer-event.model');
-const jwt = require('jsonwebtoken');
-const { ACCESS_TOKEN_SECRET } = require('./token');
+import jwt from 'jsonwebtoken';
 
-// Updated verify token middleware to check cookies first, then header
+import admin from '../config/firebase';
+import User from '../models/user.model';
+import OrganizerEvent from '../models/organizer-event.model';
+
+import { ACCESS_TOKEN_SECRET } from './token';
+
 exports.verifyToken = async (req, res, next) => {
   try {
     // First check for JWT in cookies (preferred method)
@@ -70,7 +71,6 @@ exports.requireAdmin = (req, res, next) => {
   });
 };
 
-// Updated verify token middleware with less verbose error logging
 exports.verifyToken = async (req, res, next) => {
   try {
     // First check for JWT in cookies (preferred method)
@@ -107,7 +107,7 @@ exports.verifyToken = async (req, res, next) => {
       req.uid = decodedToken.uid;
       next();
     } catch (firebaseError) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
+      return res.status(401).json({ error: 'Invalid authentication token ${}', firebaseError });
     }
   } catch (error) {
     console.error('Authentication error:', error);
@@ -200,21 +200,16 @@ exports.requireOrganizerOrAdmin = async (req, res, next) => {
       return next();
     }
 
-    // For organizers, check both in Firebase token claims and MongoDB
-    if (req.user && req.user.role === 'organizer') {
-      return next();
-    }
+    const isOrganizerRole =
+      (req.user && req.user.role === 'organizer') || (await User.findOne({ uid: req.user.uid, role: 'organizer' }));
 
-    // Also check MongoDB user record
-    const user = await User.findOne({ uid: req.user.uid });
-    if (user && user.role === 'organizer') {
-      return next();
-    }
+    // If user has organizer role, check if they actually have events
+    if (isOrganizerRole) {
+      const hasEvents = await OrganizerEvent.exists({ userId: req.user.uid });
 
-    // Final check - see if they have any event assignments
-    const hasEvents = await OrganizerEvent.exists({ userId: req.user.uid });
-    if (hasEvents) {
-      return next();
+      if (hasEvents) {
+        return next();
+      }
     }
 
     return res.status(403).json({ error: 'Forbidden: Requires organizer or admin role' });
@@ -224,7 +219,6 @@ exports.requireOrganizerOrAdmin = async (req, res, next) => {
   }
 };
 
-// Update checkEventOwnership middleware
 exports.checkEventOwnership = async (req, res, next) => {
   try {
     // Admin can access any event

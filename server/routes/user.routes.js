@@ -1,74 +1,27 @@
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
-const userController = require('../controllers/user.controller');
-const authMiddleware = require('../middleware/auth');
+import userController from '../controllers/user.controller';
+import authMiddleware from '../middleware/auth';
 
-// Get current user (authenticated users only)
-router.get('/me', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.getCurrentUser);
+// Create middleware combinations for common patterns
+const authenticatedUser = [authMiddleware.verifyToken, authMiddleware.attachUserData];
 
-// Update user details (authenticated users only)
-router.put('/me', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.updateCurrentUser);
+const adminOnly = [authMiddleware.verifyToken, authMiddleware.attachUserData, authMiddleware.requireAdmin];
 
-// === ADMIN ROUTES ===
+// === USER ROUTES (Authenticated users only) ===
 
-// Get all users (admin only)
-router.get(
-  '/',
-  authMiddleware.verifyToken,
-  authMiddleware.attachUserData,
-  authMiddleware.requireAdmin,
-  userController.getAllUsers,
-);
+// Get current user
+router.get('/me', authenticatedUser, userController.getCurrentUser);
 
-// Update user role (admin only)
-router.patch(
-  '/:userId/role',
-  authMiddleware.verifyToken,
-  authMiddleware.attachUserData,
-  authMiddleware.requireAdmin,
-  userController.updateUserRole,
-);
+// Update user details
+router.put('/me', authenticatedUser, userController.updateCurrentUser);
 
-// Delete user (admin only)
-router.delete(
-  '/:userId',
-  authMiddleware.verifyToken,
-  authMiddleware.attachUserData,
-  authMiddleware.requireAdmin,
-  userController.deleteUser,
-);
+// Get user events (for current user)
+router.get('/events', authenticatedUser, userController.getUserEvents);
 
-// Make user an organizer for specific events (admin only)
-router.post(
-  '/:userId/events/:eventId',
-  authMiddleware.verifyToken,
-  authMiddleware.attachUserData,
-  authMiddleware.requireAdmin,
-  userController.assignEventToOrganizer,
-);
-
-// Remove event from organizer (admin only)
-router.delete(
-  '/:userId/events/:eventId',
-  authMiddleware.verifyToken,
-  authMiddleware.attachUserData,
-  authMiddleware.requireAdmin,
-  userController.removeEventFromOrganizer,
-);
-
-router.post('/set-admin-role', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.setAdminRole);
-
-router.get(
-  '/:userId/events',
-  authMiddleware.verifyToken,
-  authMiddleware.attachUserData,
-  authMiddleware.requireAdmin,
-  userController.getUserEvents,
-);
-
-router.get('/events', authMiddleware.verifyToken, authMiddleware.attachUserData, userController.getUserEvents);
-
-router.get('/verify-admin', authMiddleware.verifyToken, authMiddleware.attachUserData, (req, res) => {
+// Verify admin status
+router.get('/verify-admin', authenticatedUser, (req, res) => {
   res.json({
     isAdmin: !!(req.userData?.role === 'admin' || req.user?.role === 'admin'),
     userData: {
@@ -79,5 +32,28 @@ router.get('/verify-admin', authMiddleware.verifyToken, authMiddleware.attachUse
     },
   });
 });
+
+// Set admin role (special case - authenticated user only, not admin required)
+router.post('/set-admin-role', authenticatedUser, userController.setAdminRole);
+
+// === ADMIN ROUTES ===
+
+// Get all users
+router.get('/', adminOnly, userController.getAllUsers);
+
+// Update user role
+router.patch('/:userId/role', adminOnly, userController.updateUserRole);
+
+// Delete user
+router.delete('/:userId', adminOnly, userController.deleteUser);
+
+// Make user an organizer for specific events
+router.post('/:userId/events/:eventId', adminOnly, userController.assignEventToOrganizer);
+
+// Remove event from organizer
+router.delete('/:userId/events/:eventId', adminOnly, userController.removeEventFromOrganizer);
+
+// Get events for a specific user (admin viewing other users)
+router.get('/:userId/events', adminOnly, userController.getUserEvents);
 
 module.exports = router;

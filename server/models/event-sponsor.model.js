@@ -1,5 +1,5 @@
 // Event-Sponsor relationship model
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const eventSponsorSchema = new mongoose.Schema(
   {

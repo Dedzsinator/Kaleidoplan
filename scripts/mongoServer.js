@@ -1,13 +1,12 @@
-const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
-const cors = require('cors');
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccountKey.json');
-const fs = require('fs');
-const path = require('path');
-const nodemailer = require('nodemailer');
-const cron = require('node-cron');
-const mongoose = require('mongoose');
+import admin from 'firebase-admin';
+import cors from 'cors';
+import express from 'express';
+import nodemailer from 'nodemailer';
+import cron from 'node-cron';
+import mongoose from 'mongoose';
+
+import serviceAccount from '../serviceAccountKey.json';
+
 require('dotenv').config();
 
 // Setup MongoDB connection with Mongoose
@@ -147,7 +146,7 @@ const authenticate = async (req, res, next) => {
 };
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   console.error('Unhandled error in server:', err);
   res.status(500).json({
     error: 'Server error',
@@ -216,6 +215,7 @@ app.get('/api/public/events/:id', async (req, res) => {
     try {
       eventId = new mongoose.Types.ObjectId(req.params.id);
     } catch (e) {
+      console.warn('Invalid ObjectId format for event ID: ', e, req.params.id);
       // If ID is not valid ObjectId, try as string ID
       eventId = req.params.id;
     }
@@ -288,6 +288,7 @@ app.get('/api/events/:id', authenticate, async (req, res) => {
     try {
       eventId = new mongoose.Types.ObjectId(req.params.id);
     } catch (e) {
+      console.warn('Invalid ObjectId format for event ID: ', e, req.params.id);
       eventId = req.params.id;
     }
 
@@ -349,6 +350,7 @@ app.get('/api/tasks/:id', authenticate, async (req, res) => {
     try {
       taskId = new mongoose.Types.ObjectId(req.params.id);
     } catch (e) {
+      console.warn('Invalid ObjectId format for task ID: ', e, req.params.id);
       taskId = req.params.id;
     }
 
@@ -375,6 +377,7 @@ app.patch('/api/tasks/:id', authenticate, async (req, res) => {
     try {
       taskId = new mongoose.Types.ObjectId(req.params.id);
     } catch (e) {
+      console.warn('Invalid ObjectId format for task ID: ', e, req.params.id);
       taskId = req.params.id;
     }
 
@@ -386,8 +389,6 @@ app.patch('/api/tasks/:id', authenticate, async (req, res) => {
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
-
-    const oldStatus = task.status;
 
     // Update the task
     await Task.updateOne(
@@ -428,6 +429,7 @@ app.get('/api/taskLogs', authenticate, async (req, res) => {
       try {
         query.taskId = new mongoose.Types.ObjectId(taskId);
       } catch (e) {
+        console.warn('Invalid ObjectId format for task ID: ', e, taskId);
         query.taskId = taskId;
       }
     }
@@ -452,6 +454,7 @@ app.post('/api/events/:eventId/subscribe', async (req, res) => {
     try {
       eventObjectId = new mongoose.Types.ObjectId(eventId);
     } catch (e) {
+      console.warn('Invalid ObjectId format for event ID: ', e, eventId);
       return res.status(400).json({ message: 'Invalid event ID format' });
     }
 
@@ -491,6 +494,7 @@ app.post('/api/events/:eventId/unsubscribe', async (req, res) => {
     try {
       eventObjectId = new mongoose.Types.ObjectId(eventId);
     } catch (e) {
+      console.warn('Invalid ObjectId format for event ID: ', e, eventId);
       return res.status(400).json({ message: 'Invalid event ID format' });
     }
 
@@ -516,6 +520,7 @@ app.get('/api/events/:eventId/check-interest', async (req, res) => {
     try {
       eventObjectId = new mongoose.Types.ObjectId(eventId);
     } catch (e) {
+      console.warn('Invalid ObjectId format for event ID: ', e, eventId);
       return res.status(400).json({ message: 'Invalid event ID format' });
     }
 
@@ -545,6 +550,7 @@ app.get('/api/performers/:id', authenticate, async (req, res) => {
     try {
       performerId = new mongoose.Types.ObjectId(req.params.id);
     } catch (e) {
+      console.warn('Invalid ObjectId format for performer ID: ', e, req.params.id);
       return res.status(400).json({ message: 'Invalid performer ID format' });
     }
 
@@ -578,6 +584,7 @@ app.get('/api/sponsors/:id', authenticate, async (req, res) => {
     try {
       sponsorId = new mongoose.Types.ObjectId(req.params.id);
     } catch (e) {
+      console.warn('Invalid ObjectId format for sponsor ID: ', e, req.params.id);
       return res.status(400).json({ message: 'Invalid sponsor ID format' });
     }
 

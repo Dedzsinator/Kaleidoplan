@@ -1,5 +1,6 @@
+import crypto from 'crypto';
+
 const { MongoClient } = require('mongodb');
-const crypto = require('crypto');
 require('dotenv').config();
 
 // Get the MongoDB connection string from environment variables

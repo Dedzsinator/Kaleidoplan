@@ -1,7 +1,9 @@
-const express = require('express');
+import express from 'express';
+
+import adminController from '../controllers/admin.controller';
+import authMiddleware from '../middleware/auth';
+
 const router = express.Router();
-const adminController = require('../controllers/admin.controller');
-const authMiddleware = require('../middleware/auth');
 
 // All routes require admin privileges
 router.use(authMiddleware.verifyToken);

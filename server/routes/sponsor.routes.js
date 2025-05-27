@@ -1,9 +1,10 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const mongoose = require('mongoose');
-const authMiddleware = require('../middleware/auth');
-const Sponsor = require('../models/sponsor.model');
-const EventSponsor = require('../models/event-sponsor.model');
+// import mongoose from 'mongoose';
+
+import authMiddleware from '../middleware/auth';
+import Sponsor from '../models/sponsor.model';
+import EventSponsor from '../models/event-sponsor.model';
 
 // All sponsor routes require authentication
 router.use(authMiddleware.verifyToken);

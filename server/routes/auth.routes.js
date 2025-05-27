@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
-const authController = require('../controllers/auth.controller');
-const authMiddleware = require('../middleware/auth');
+import authController from '../controllers/auth.controller';
+import authMiddleware from '../middleware/auth';
 const authenticateFirebaseToken = authMiddleware.verifyToken;
 
 // Public routes

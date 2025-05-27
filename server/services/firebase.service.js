@@ -1,6 +1,7 @@
 // Firebase service for interacting with Firebase Auth
+import User from '../models/user.model';
+
 const { admin } = require('../config/firebase');
-const User = require('../models/user.model');
 
 /**
  * Get user details from Firebase

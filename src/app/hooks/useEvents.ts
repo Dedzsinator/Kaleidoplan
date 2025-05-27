@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getEventById, getEvents, createEvent, updateEvent, deleteEvent } from '@services/eventService';
+
 import { Event } from '../models/types';
 
 // Get a single event by ID

@@ -1,9 +1,10 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import SpotifyService from '@services/spotify-web-api';
+import spotifyService from '@services/spotify-web-api';
+
 import { Track } from '../models/types';
 
 // Create a singleton instance
-import spotifyService from '@services/spotify-web-api';
 
 // Hook for getting a track
 export function useSpotifyTrack(trackId?: string) {

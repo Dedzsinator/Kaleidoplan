@@ -1,9 +1,10 @@
-const User = require('../models/user.model');
-const Event = require('../models/event.model');
-const OrganizerEvent = require('../models/organizer-event.model');
-const admin = require('../config/firebase');
-const moment = require('moment');
-const mongoose = require('mongoose');
+import moment from 'moment';
+// import mongoose from 'mongoose';
+
+import User from '../models/user.model';
+import Event from '../models/event.model';
+import OrganizerEvent from '../models/organizer-event.model';
+import admin from '../config/firebase';
 
 // Get overall system statistics
 exports.getStats = async (req, res) => {

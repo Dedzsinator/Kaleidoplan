@@ -1,7 +1,8 @@
 require('dotenv').config();
-const admin = require('../server/config/firebase');
-const mongoose = require('mongoose');
-const User = require('../server/models/user.model');
+import mongoose from 'mongoose';
+
+import admin from '../server/config/firebase';
+import User from '../server/models/user.model';
 
 async function createAdminUser() {
   try {
@@ -15,8 +16,8 @@ async function createAdminUser() {
     let userRecord;
     try {
       userRecord = await admin.auth().getUserByEmail(adminEmail);
-    } catch (error) {
-      // Create user if not exists
+    } catch (e) {
+      console.warn('ID could not be converted to ObjectId, using as string:', e);
       userRecord = await admin.auth().createUser({
         email: adminEmail,
         password: adminPassword,
@@ -42,7 +43,6 @@ async function createAdminUser() {
       });
       await user.save();
     } else {
-      // Update role to admin if not already
       if (user.role !== 'admin') {
         user.role = 'admin';
         await user.save();

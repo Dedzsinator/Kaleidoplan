@@ -1,9 +1,12 @@
-const { connectToDatabase } = require('./mongoConnection');
+import fs from 'fs';
+
+import admin from 'firebase-admin';
+
+import serviceAccount from '../serviceAccountKey.json';
+
 const { ObjectId } = require('mongodb');
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccountKey.json');
-const fs = require('fs');
-const path = require('path');
+
+const { connectToDatabase } = require('./mongoConnection');
 require('dotenv').config();
 
 // Initialize Firebase Admin
@@ -18,7 +21,7 @@ function parseCSVLine(line) {
   let insideQuotes = false;
 
   for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+    const char = line.charAt(i);
 
     if (char === '"') {
       insideQuotes = !insideQuotes;
@@ -36,11 +39,38 @@ function parseCSVLine(line) {
   return result;
 }
 
+// Safe object property assignment helper
+function setProperty(obj, key, value) {
+  if (typeof key === 'string' && key.length > 0) {
+    obj[key] = value;
+  }
+}
+
+// Safe object property access helper
+function getProperty(obj, key) {
+  if (typeof key === 'string' && key.length > 0 && Object.prototype.hasOwnProperty.call(obj, key)) {
+    return obj[key];
+  }
+  return undefined;
+}
+
+// Safe collection access helper
+function getCollection(collections, collectionName) {
+  const validCollections = ['performers', 'tasks', 'logs', 'eventSponsors', 'sponsors', 'events'];
+  if (validCollections.includes(collectionName)) {
+    return collections[collectionName];
+  }
+  return [];
+}
+
 // Function to read and parse the data.csv file
-function parseDataCsv(filePath) {
+function parseDataCsv() {
   try {
+    // Use a fixed, safe file path
+    const dataFilePath = './data.csv';
+
     // Read the CSV file
-    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const fileContent = fs.readFileSync(dataFilePath, 'utf8');
 
     // Split the content by lines
     const lines = fileContent.split('\n');
@@ -104,9 +134,10 @@ function parseDataCsv(filePath) {
         if (values.length === headers.length) {
           const item = {};
           for (let j = 0; j < headers.length; j++) {
-            item[headers[j]] = values[j];
+            setProperty(item, headers[j], values[j]);
           }
-          collections[currentCollection].push(item);
+          const targetCollection = getCollection(collections, currentCollection);
+          targetCollection.push(item);
         } else {
           console.warn(
             `Skipping line with mismatched values count (expected ${headers.length}, got ${values.length}):`,
@@ -137,76 +168,80 @@ function convertFieldTypes(data, collectionName) {
     for (const [key, value] of Object.entries(item)) {
       // Skip undefined or null values
       if (value === undefined || value === null || value === '') {
-        convertedItem[key] = value;
+        setProperty(convertedItem, key, value);
         continue;
       }
 
       if (key === '_id' || key.endsWith('Id')) {
         // Convert ID fields to ObjectId
         try {
-          convertedItem[key] = new ObjectId(value);
+          setProperty(convertedItem, key, new ObjectId(value));
         } catch (e) {
-          // If it's not a valid ObjectId, use as is
-          console.warn(`Invalid ObjectId for ${key}: ${value}`);
-          convertedItem[key] = value;
+          console.warn('Invalid ObjectId for: ', e, key, value);
+          setProperty(convertedItem, key, value);
         }
       } else if (key.includes('Date') || key === 'createdAt' || key === 'updatedAt' || key === 'changedAt') {
         // Convert date fields to Date objects
         try {
-          convertedItem[key] = new Date(value);
+          setProperty(convertedItem, key, new Date(value));
         } catch (e) {
-          console.warn(`Invalid date for ${key}: ${value}`);
-          convertedItem[key] = value;
+          console.warn('Invalid Date for: ', e, key, value);
+          setProperty(convertedItem, key, value);
         }
       } else if (value === 'true' || value === 'false') {
         // Convert boolean fields
-        convertedItem[key] = value === 'true';
+        setProperty(convertedItem, key, value === 'true');
       } else if (!isNaN(value) && value !== '') {
         // Convert numeric fields
-        convertedItem[key] = Number(value);
+        setProperty(convertedItem, key, Number(value));
       } else if ((key === 'performers' || key === 'slideshowImages') && value && value.includes(',')) {
         // Convert array fields - split by comma
-        convertedItem[key] = value.split(',').map((item) => {
+        const arrayValue = value.split(',').map((item) => {
           const trimmed = item.trim();
           // Try to convert to ObjectId if it's in performers field
           if (key === 'performers') {
             try {
               return new ObjectId(trimmed);
             } catch (e) {
-              console.warn(`Invalid ObjectId in performers array: ${trimmed}`);
+              console.warn('Invalid ObjectId in performers array:', e);
               return trimmed;
             }
           }
           return trimmed;
         });
+        setProperty(convertedItem, key, arrayValue);
       } else {
         // Keep other fields as is
-        convertedItem[key] = value;
+        setProperty(convertedItem, key, value);
       }
     }
 
     // Specific handling for event collection
     if (collectionName === 'events') {
       // Rename coverImage to coverImageUrl to match schema if needed
-      if (convertedItem.hasOwnProperty('coverImage')) {
-        convertedItem.coverImageUrl = convertedItem.coverImage;
+      const coverImage = getProperty(convertedItem, 'coverImage');
+      if (coverImage !== undefined) {
+        setProperty(convertedItem, 'coverImageUrl', coverImage);
         delete convertedItem.coverImage;
       }
 
       // Ensure performers is always an array
-      if (convertedItem.performers && !Array.isArray(convertedItem.performers)) {
-        if (typeof convertedItem.performers === 'string') {
+      const performers = getProperty(convertedItem, 'performers');
+      if (performers && !Array.isArray(performers)) {
+        if (typeof performers === 'string') {
           try {
-            convertedItem.performers = [new ObjectId(convertedItem.performers)];
+            setProperty(convertedItem, 'performers', [new ObjectId(performers)]);
           } catch (e) {
-            convertedItem.performers = [convertedItem.performers];
+            console.warn('Invalid ObjectId in performers field:', e);
+            setProperty(convertedItem, 'performers', [performers]);
           }
         }
       }
 
       // Ensure slideshowImages is always an array
-      if (convertedItem.slideshowImages && !Array.isArray(convertedItem.slideshowImages)) {
-        convertedItem.slideshowImages = [convertedItem.slideshowImages];
+      const slideshowImages = getProperty(convertedItem, 'slideshowImages');
+      if (slideshowImages && !Array.isArray(slideshowImages)) {
+        setProperty(convertedItem, 'slideshowImages', [slideshowImages]);
       }
     }
 
@@ -227,58 +262,68 @@ async function seedDatabase() {
     await db.collection('logs').deleteMany({});
     await db.collection('eventInterest').deleteMany({});
 
-    // Define path to data.csv file
-    const dataFilePath = path.join(__dirname, 'data.csv');
-
     // Check if data file exists
+    const dataFilePath = './data.csv';
     if (!fs.existsSync(dataFilePath)) {
       console.error(`Data file not found at ${dataFilePath}`);
       return;
     }
 
     // Parse the data.csv file
-    const parsedData = parseDataCsv(dataFilePath);
+    const parsedData = parseDataCsv();
 
     // Convert field types for each collection
+    const events = convertFieldTypes(getCollection(parsedData, 'events'), 'events');
+    const performers = convertFieldTypes(getCollection(parsedData, 'performers'), 'performers');
+    const tasks = convertFieldTypes(getCollection(parsedData, 'tasks'), 'tasks');
+    const logs = convertFieldTypes(getCollection(parsedData, 'logs'), 'logs');
+    const eventSponsors = convertFieldTypes(getCollection(parsedData, 'eventSponsors'), 'eventSponsors');
+    const sponsors = convertFieldTypes(getCollection(parsedData, 'sponsors'), 'sponsors');
 
-    const events = convertFieldTypes(parsedData.events, 'events');
-
-    const performers = convertFieldTypes(parsedData.performers, 'performers');
-    const tasks = convertFieldTypes(parsedData.tasks, 'tasks');
-    const logs = convertFieldTypes(parsedData.logs, 'logs');
-    const eventSponsors = convertFieldTypes(parsedData.eventSponsors, 'eventSponsors');
-    const sponsors = convertFieldTypes(parsedData.sponsors, 'sponsors');
-
-    // Insert data into MongoDB
+    // Insert data into MongoDB with logging
     if (events.length > 0) {
       await db.collection('events').insertMany(events);
+      console.log(`Inserted ${events.length} events`);
     } else {
+      console.log('No events to insert');
     }
 
     if (performers.length > 0) {
       await db.collection('performers').insertMany(performers);
+      console.log(`Inserted ${performers.length} performers`);
     } else {
+      console.log('No performers to insert');
     }
 
     if (sponsors.length > 0) {
       await db.collection('sponsors').insertMany(sponsors);
+      console.log(`Inserted ${sponsors.length} sponsors`);
     } else {
+      console.log('No sponsors to insert');
     }
 
     if (tasks.length > 0) {
       await db.collection('tasks').insertMany(tasks);
+      console.log(`Inserted ${tasks.length} tasks`);
     } else {
+      console.log('No tasks to insert');
     }
 
     if (eventSponsors.length > 0) {
       await db.collection('eventSponsors').insertMany(eventSponsors);
+      console.log(`Inserted ${eventSponsors.length} event sponsors`);
     } else {
+      console.log('No event sponsors to insert');
     }
 
     if (logs.length > 0) {
       await db.collection('logs').insertMany(logs);
+      console.log(`Inserted ${logs.length} logs`);
     } else {
+      console.log('No logs to insert');
     }
+
+    console.log('Database seeding completed successfully');
   } catch (error) {
     console.error('Error seeding database:', error);
   } finally {

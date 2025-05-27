@@ -3,6 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getEventById } from '@services/eventService';
 import { getSponsors } from '@services/sponsorService';
 import { getUserById } from '@services/userService';
+import api from '@services/api';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import axios from 'axios';
+
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import Map from '../components/Map';
@@ -10,10 +14,8 @@ import ImageSlideshow from '../components/ui/SlideShow';
 import EventImageUploader from '../components/ui/EventImageUploader';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import { useAuth } from '../contexts/AuthContext';
-import api from '@services/api';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import WeatherForecast from '../components/ui/WeatherForecast';
-import axios from 'axios';
+
 import '../styles/EventDetailScreen.css';
 
 // Types
@@ -89,14 +91,11 @@ const EventDetailScreen: React.FC = () => {
   const [deleteStatus, setDeleteStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   // Earlier in your component, make these changes to fix the circular reference:
 
-  // 1. First, add this state variable if not already present
   const [currentGalleryImages, setCurrentGalleryImages] = useState<string[]>([]);
 
-  // 2. Now define getCoverImage first (it doesn't depend on processSlideshowImages)
   const getCoverImage = useCallback(() => {
     if (!event) return DEFAULT_IMAGE;
 
-    // Try coverImageUrl first
     if (event.coverImageUrl && typeof event.coverImageUrl === 'string' && event.coverImageUrl.trim() !== '') {
       return event.coverImageUrl;
     }
@@ -122,31 +121,23 @@ const EventDetailScreen: React.FC = () => {
     return DEFAULT_IMAGE;
   }, [event]);
 
-  // 3. Get the cover image value
   const coverImage = getCoverImage();
 
-  // 4. Now define processSlideshowImages which can use coverImage
-  // Update processSlideshowImages to always include cover image
   const processSlideshowImages = useCallback(() => {
     if (!event) return [];
 
-    // Start with an array that includes the cover image (if it exists)
     const result = [];
 
-    // Add cover image first (if it exists and isn't DEFAULT_IMAGE)
     if (coverImage && coverImage !== DEFAULT_IMAGE) {
       result.push(coverImage);
     }
 
-    // If no slideshowImages, return just the cover image (if we added one)
     if (!event.slideshowImages) {
       return result;
     }
 
-    // Process slideshowImages based on its type
     let processedSlideshow: string[] = [];
 
-    // If it's an array with one comma-separated string
     if (
       Array.isArray(event.slideshowImages) &&
       event.slideshowImages.length === 1 &&
@@ -157,13 +148,9 @@ const EventDetailScreen: React.FC = () => {
         .split(',')
         .map((url) => url.trim())
         .filter((url) => url.length > 0);
-    }
-    // If it's already a proper array
-    else if (Array.isArray(event.slideshowImages) && event.slideshowImages.length > 0) {
+    } else if (Array.isArray(event.slideshowImages) && event.slideshowImages.length > 0) {
       processedSlideshow = event.slideshowImages;
-    }
-    // If it's a direct string
-    else if (typeof event.slideshowImages === 'string') {
+    } else if (typeof event.slideshowImages === 'string') {
       if (event.slideshowImages.includes(',')) {
         processedSlideshow = event.slideshowImages
           .split(',')
@@ -174,7 +161,6 @@ const EventDetailScreen: React.FC = () => {
       }
     }
 
-    // Add all slideshow images that aren't duplicates of the cover image
     for (const img of processedSlideshow) {
       if (img !== coverImage) {
         result.push(img);
@@ -184,8 +170,6 @@ const EventDetailScreen: React.FC = () => {
     return result;
   }, [event, coverImage]);
 
-  // 5. Don't redeclare slideshowImages here, just use processSlideshowImages directly
-  // in your useEffect
   useEffect(() => {
     if (event) {
       const processedImages = processSlideshowImages();
@@ -200,24 +184,19 @@ const EventDetailScreen: React.FC = () => {
     setDeleteStatus(null);
 
     try {
-      // The direct approach: update the event object correctly
       const updatePayload: Partial<Event> = {};
 
       if (isCover) {
         updatePayload.coverImageUrl = '';
         updatePayload.coverImagePublicId = '';
       } else {
-        // For slideshow images, remove the image from the array properly
         if (event) {
-          // First, handle different possible formats of slideshow images
           let currentImages: string[] = [];
 
           if (Array.isArray(event.slideshowImages)) {
-            // Process array format - check if any elements contain commas
             for (const item of event.slideshowImages) {
               if (typeof item === 'string') {
                 if (item.includes(',')) {
-                  // Split comma-separated URLs into separate items
                   const splitItems = item
                     .split(',')
                     .map((url) => url.trim())
@@ -229,21 +208,18 @@ const EventDetailScreen: React.FC = () => {
               }
             }
           } else if (typeof event.slideshowImages === 'string') {
-            // Process string format
             currentImages = event.slideshowImages
               .split(',')
               .map((url) => url.trim())
               .filter((url) => url.length > 0);
           }
 
-          // Filter out the image to be deleted
           const updatedImages = currentImages.filter((img) => img !== imageUrl);
 
           updatePayload.slideshowImages = updatedImages;
         }
       }
 
-      // Send update directly to the server with PUT
       await api.put(`/events/${eventId}`, updatePayload);
 
       // Update the UI immediately
@@ -265,7 +241,6 @@ const EventDetailScreen: React.FC = () => {
         type: 'success',
       });
 
-      // Refresh the event data to keep UI and server in sync
       await fetchEventData();
     } catch (error) {
       console.error('Error deleting image:', error);
@@ -276,27 +251,21 @@ const EventDetailScreen: React.FC = () => {
     } finally {
       setIsDeletingImage(false);
 
-      // Clear the status message after 3 seconds
       setTimeout(() => {
         setDeleteStatus(null);
       }, 3000);
     }
   };
 
-  // Calculate contrast color (black or white) based on event color
   const getContrastColor = (hexColor: string): string => {
-    // Remove # if present
     hexColor = hexColor.replace('#', '');
 
-    // Convert to RGB
     const r = parseInt(hexColor.substr(0, 2), 16);
     const g = parseInt(hexColor.substr(2, 2), 16);
     const b = parseInt(hexColor.substr(4, 2), 16);
 
-    // Calculate luminance
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
-    // Return black for light colors, white for dark colors
     return luminance > 0.5 ? '#000000' : '#ffffff';
   };
 
@@ -380,7 +349,6 @@ const EventDetailScreen: React.FC = () => {
     [eventId], // handleEventOrganizersArray is now inside the callback, so we remove it from dependencies
   );
 
-  // CSS variables based on event color
   const colorStyles = event?.color
     ? ({
         '--event-color': event.color,

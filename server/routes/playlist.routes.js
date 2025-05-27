@@ -1,9 +1,10 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
-const Playlist = require('../models/playlist.model');
-const Event = require('../models/event.model');
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+
+import authMiddleware from '../middleware/auth';
+import Playlist from '../models/playlist.model';
+import Event from '../models/event.model';
 
 /**
  * Get all playlists
@@ -119,7 +120,7 @@ router.post('/', authMiddleware.requireOrganizerOrAdmin, async (req, res, next) 
     }
 
     // Check if playlist with this playlistId already exists
-    let existingPlaylist = await Playlist.findOne({ playlistId });
+    const existingPlaylist = await Playlist.findOne({ playlistId });
     if (existingPlaylist) {
       return res.status(400).json({ error: `Playlist with playlistId '${playlistId}' already exists.` });
     }

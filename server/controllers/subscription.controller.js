@@ -1,13 +1,15 @@
-const mongoose = require('mongoose');
-const Subscription = require('../models/subscription.model');
-const Event = require('../models/event.model');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+import crypto from 'crypto';
+
+import mongoose from 'mongoose';
+import nodemailer from 'nodemailer';
+
+import Subscription from '../models/subscription.model';
+import Event from '../models/event.model';
 
 /**
  * Subscribe to event notifications
  */
-const subscribe = async (req, res, next) => {
+const subscribe = async (req, res) => {
   try {
     const { email, eventId } = req.body;
 

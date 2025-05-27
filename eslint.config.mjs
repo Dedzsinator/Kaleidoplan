@@ -9,15 +9,16 @@ import importPlugin from 'eslint-plugin-import';
 import promisePlugin from 'eslint-plugin-promise';
 
 export default [
+  // Frontend configuration (TypeScript/React)
   {
-    // Define global variables
+    files: ['src/**/*.{js,jsx,ts,tsx}', '**/*.{js,jsx,ts,tsx}'],
+    ignores: ['server/**/*', 'node_modules/**/*', 'build/**/*', 'dist/**/*'],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: 'module',
       globals: {
         ...globals.browser,
         ...globals.es2021,
-        ...globals.node,
         ...globals.jest,
       },
       parser: tsParser,
@@ -27,7 +28,6 @@ export default [
         },
       },
     },
-    // Configure plugins
     plugins: {
       '@typescript-eslint': tseslint,
       react: reactPlugin,
@@ -37,7 +37,6 @@ export default [
       import: importPlugin,
       promise: promisePlugin,
     },
-    // Define your rules
     rules: {
       'react/prop-types': 'off',
       'react/display-name': 'off',
@@ -49,8 +48,13 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'prettier/prettier': 'error',
+      'security/detect-object-injection': 'off',
+      'import/order': ['error', { 
+        'newlines-between': 'always',
+        'warnOnUnassignedImports': false
+      }],
+      'promise/catch-or-return': 'error',
     },
-    // Settings configurations
     settings: {
       react: {
         version: 'detect',
@@ -61,5 +65,64 @@ export default [
         },
       },
     },
+  },
+  // Backend/Server configuration (Node.js)
+  {
+    files: ['server/**/*.js', 'scripts/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2021,
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+        ...globals.es2021,
+        ...globals.jest,
+      },
+    },
+    plugins: {
+      prettier: prettierPlugin,
+      security: securityPlugin,
+      import: importPlugin,
+      promise: promisePlugin,
+    },
+    rules: {
+      'no-console': 'off', // Allow console in backend
+      'prettier/prettier': 'error',
+      'security/detect-object-injection': 'off',
+      'security/detect-non-literal-fs-filename': 'warn',
+      'security/detect-unsafe-regex': 'error',
+      'import/order': ['error', { 
+        'newlines-between': 'always',
+        'warnOnUnassignedImports': false
+      }],
+      'promise/catch-or-return': 'error',
+      'promise/no-nesting': 'warn',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-var': 'error',
+      'prefer-const': 'error',
+      'eqeqeq': 'error',
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+    },
+    settings: {
+      'import/resolver': {
+        node: {
+          extensions: ['.js', '.mjs', '.cjs'],
+        },
+      },
+    },
+  },
+  // Global ignores
+  {
+    ignores: [
+      'node_modules/**/*',
+      'build/**/*',
+      'dist/**/*',
+      'coverage/**/*',
+      '*.config.js',
+      '*.config.mjs',
+      '*.config.cjs',
+      'serviceAccountKey.json',
+      '.env*',
+    ],
   },
 ];

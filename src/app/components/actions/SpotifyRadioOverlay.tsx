@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Event, Track } from '@models/types';
+import spotifyService from '@services/spotify-web-api';
+
 import { usePlaylist } from '../../hooks/usePlaylists';
 import { useSpotifyTracks, useSpotifyAuthStatus, usePlaySpotifyTrack } from '../../hooks/useSpotify';
-import spotifyService from '@services/spotify-web-api';
 import '../../styles/SpotifyRadioOverlay.css';
 
 // Add SVG icons as components for better appearance

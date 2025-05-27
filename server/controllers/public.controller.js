@@ -1,12 +1,9 @@
-const Event = require('../models/event.model');
+import Event from '../models/event.model';
 
 // Get public events - RETURNS ALL FIELDS
 // Get all public events
 exports.getPublicEvents = async (req, res, next) => {
   try {
-    // First, check total events count
-    const totalEvents = await Event.countDocuments({});
-
     // Just get all events without filtering
     const events = await Event.find({}).sort({ startDate: 1 }).limit(15);
 

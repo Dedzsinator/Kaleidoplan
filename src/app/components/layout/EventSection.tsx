@@ -1,11 +1,13 @@
 import React, { useRef, useEffect, useState, memo } from 'react';
+import { Event } from '@models/types';
+
 import AnimatedSection from '../ui/AnimatedSection';
 import EventPrimaryContent from '../ui/EventPrimaryContent';
 import EventSecondaryContent from '../ui/EventSecondaryContent';
 import Map from '../Map';
 import ImageSlideshow from '../ui/SlideShow';
+
 import '../../styles/EventSection.css';
-import { Event } from '@models/types';
 import '../../styles/animations.css';
 
 // Helper to ensure we always have a string ID

@@ -476,13 +476,20 @@ class SpotifyService {
             this.isPlayerConnected = false;
           });
 
-          // Connect to Spotify
-          this.player.connect().then((success: boolean) => {
-            if (!success) {
-              console.error('Failed to connect to Spotify player');
+          this.player
+            .connect()
+            .then((success: boolean) => {
+              if (!success) {
+                console.error('Failed to connect to Spotify player');
+                resolve(false);
+              } else {
+                resolve(true);
+              }
+            })
+            .catch((error) => {
+              console.error('Error connecting to Spotify player:', error);
               resolve(false);
-            }
-          });
+            });
         };
 
         // Load the Spotify SDK script

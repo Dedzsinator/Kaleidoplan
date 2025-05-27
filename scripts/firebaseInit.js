@@ -1,5 +1,6 @@
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccountKey.json');
+import admin from 'firebase-admin';
+
+import serviceAccount from '../serviceAccountKey.json';
 
 // Initialize Firebase Admin
 if (!admin.apps.length) {
@@ -43,7 +44,6 @@ async function createUsers() {
     const auth = admin.auth();
     const createdUsers = [];
 
-    // 1. Create Admin user
     const adminUser = {
       email: 'admin@kaleidoplan.com',
       password: 'Admin123!',
@@ -52,13 +52,12 @@ async function createUsers() {
     };
 
     try {
-      let adminRecord = await createOrGetUser(auth, adminUser);
+      const adminRecord = await createOrGetUser(auth, adminUser);
       createdUsers.push({ ...adminUser, uid: adminRecord.uid });
     } catch (error) {
       console.error('Error creating admin user:', error);
     }
 
-    // 2. Create Organizer user
     const organizerUser = {
       email: 'organizer@kaleidoplan.com',
       password: 'Organizer123!',
@@ -67,17 +66,16 @@ async function createUsers() {
     };
 
     try {
-      let organizerRecord = await createOrGetUser(auth, organizerUser);
+      const organizerRecord = await createOrGetUser(auth, organizerUser);
       createdUsers.push({ ...organizerUser, uid: organizerRecord.uid });
     } catch (error) {
       console.error('Error creating organizer user:', error);
     }
 
-    // 3. Create random users (5 by default)
     const randomUserCount = 5;
     for (let i = 0; i < randomUserCount; i++) {
       try {
-        const { firstName, lastName, email, displayName } = generateRandomData();
+        const { email, displayName } = generateRandomData();
         const randomUser = {
           email: email,
           password: `Password${i + 1}!`,
@@ -85,15 +83,12 @@ async function createUsers() {
           role: Math.random() > 0.5 ? 'user' : 'organizer',
         };
 
-        let userRecord = await createOrGetUser(auth, randomUser);
+        const userRecord = await createOrGetUser(auth, randomUser);
         createdUsers.push({ ...randomUser, uid: userRecord.uid });
       } catch (error) {
         console.error(`Error creating random user ${i + 1}:`, error);
       }
     }
-
-    // Print created users
-    createdUsers.forEach((user) => {});
 
     // Return the user ID of the admin and organizer for reference
     return {
@@ -108,7 +103,6 @@ async function createUsers() {
   }
 }
 
-// Helper function to create a user or get existing user
 async function createOrGetUser(auth, userData) {
   try {
     // Check if user exists

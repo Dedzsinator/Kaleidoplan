@@ -1,5 +1,5 @@
 // filepath: /home/deginandor/Documents/Programming/Kaleidoplan/config-overrides.cjs
-const path = require('path');
+import path from 'path';
 
 // In CommonJS, __dirname is readily available and refers to the directory of the current module.
 // No need for fileURLToPath or import.meta.url here.

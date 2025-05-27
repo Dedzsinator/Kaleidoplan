@@ -1,6 +1,8 @@
 // Spotify service for interacting with Spotify API
-const axios = require('axios');
+import axios from 'axios';
+
 const { encode: base64Encode } = require('base-64');
+
 const { SPOTIFY_CONFIG, SPOTIFY_ENDPOINTS } = require('../config/spotify');
 
 /**

@@ -1,5 +1,5 @@
 // Sponsor model for organizations sponsoring events
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const sponsorSchema = new mongoose.Schema(
   {

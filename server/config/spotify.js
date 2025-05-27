@@ -1,5 +1,6 @@
 // Spotify API configuration
-const axios = require('axios');
+import axios from 'axios';
+
 const { encode: base64encode } = require('base-64');
 require('dotenv').config();
 

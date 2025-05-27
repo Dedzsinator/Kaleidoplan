@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { trieService } from '@services/trieService';
+
 import { Event } from '../models/types';
 
 export function useTrieSearch() {

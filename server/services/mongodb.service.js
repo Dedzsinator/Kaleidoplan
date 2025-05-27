@@ -1,12 +1,13 @@
 // MongoDB service for common database operations
-const mongoose = require('mongoose');
-const Event = require('../models/event.model');
-const Task = require('../models/task.model');
-const User = require('../models/user.model');
-const Sponsor = require('../models/sponsor.model');
-const EventSponsor = require('../models/event-sponsor.model');
-const Log = require('../models/log.model');
-const Playlist = require('../models/playlist.model');
+// import mongoose from 'mongoose';
+
+import Event from '../models/event.model';
+import Task from '../models/task.model';
+import User from '../models/user.model';
+import Sponsor from '../models/sponsor.model';
+import EventSponsor from '../models/event-sponsor.model';
+import Log from '../models/log.model';
+import Playlist from '../models/playlist.model';
 
 /**
  * Get statistics for admin dashboard

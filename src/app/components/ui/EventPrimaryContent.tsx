@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, isValid } from 'date-fns';
-import InterestButton from './InterestButton';
 import axios from 'axios';
+
+import InterestButton from './InterestButton';
 import '../../styles/EventPrimaryContent.css';
 
 interface EventPrimaryContentProps {

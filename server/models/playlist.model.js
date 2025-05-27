@@ -1,16 +1,5 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
-
-// spotifyTrackSchema remains the same
-const spotifyTrackSchema = new mongoose.Schema({
-  id: String,
-  name: String,
-  artist: String,
-  album: String,
-  duration: Number,
-  imageUrl: String,
-  previewUrl: String,
-});
 
 const spotifyPlaylistSchema = new Schema(
   {

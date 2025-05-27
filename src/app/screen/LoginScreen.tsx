@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { signInWithGoogle, signInWithGithub } from '@services/authService';
+
 import { useAuth } from '../contexts/AuthContext';
 import AnimatedWaves from '../components/ui/AnimatedWaves';
-import { signInWithGoogle, signInWithGithub } from '@services/authService';
 import '../styles/Auth.css';
 
 const LoginScreen = () => {

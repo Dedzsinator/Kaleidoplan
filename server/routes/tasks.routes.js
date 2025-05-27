@@ -1,8 +1,9 @@
 // Task management routes
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
-const tasksController = require('../controllers/tasks.controller');
+import authMiddleware from '../middleware/auth';
+import tasksController from '../controllers/tasks.controller';
 
 // All task routes require authentication
 router.use(authMiddleware.verifyToken);

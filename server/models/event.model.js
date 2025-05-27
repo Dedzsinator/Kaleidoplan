@@ -1,5 +1,5 @@
 // Event model schema following the data structure from data.csv
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const eventSchema = new mongoose.Schema(
   {

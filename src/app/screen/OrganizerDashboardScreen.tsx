@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '@services/api';
+import { uploadEventImage, uploadEventSlideshowImages } from '@services/imageUpload';
+
 import { ManagedEvent, Task, TaskStatus } from '../models/types';
 import { useAuth } from '../contexts/AuthContext';
-import api from '@services/api';
 import EventImageUploader from '../components/ui/EventImageUploader';
 import EventImageGallery from '../components/ui/EventImageGallery';
-import { uploadEventImage, uploadEventSlideshowImages } from '@services/imageUpload';
 import { Event, ImageUploadResponse, EventImageGallery as EventImageGalleryType } from '../models/types';
 import '../styles/DashboardScreen.css';
 
@@ -754,7 +755,6 @@ const OrganizerDashboard: React.FC = () => {
                                   <span className="deadline">Due: {new Date(task.deadline).toLocaleDateString()}</span>
                                 </div>
 
-                                {/* Add Complete button if task is not already completed */}
                                 {task.status !== 'completed' && (
                                   <button
                                     className="complete-button"

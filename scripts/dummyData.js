@@ -1,8 +1,9 @@
-const mongoose = require('mongoose');
-const User = require('../server/models/user.model');
-const Event = require('../server/models/event.model');
-const Task = require('../server/models/task.model');
-const admin = require('../server/config/firebase');
+import mongoose from 'mongoose';
+
+import User from '../server/models/user.model';
+import Event from '../server/models/event.model';
+// import Task from '../server/models/task.model';
+// import admin from '../server/config/firebase';
 require('dotenv').config();
 
 async function generateDummyData() {

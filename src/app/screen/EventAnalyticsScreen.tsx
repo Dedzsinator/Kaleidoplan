@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { fetchWithAuth } from '@services/api';
 import Chart from 'chart.js/auto';
+
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/AnalyticsScreen.css';
 
 interface EventData {

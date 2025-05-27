@@ -1,6 +1,8 @@
-const admin = require('../config/firebase');
-const User = require('../models/user.model');
-const jwt = require('jsonwebtoken');
+import jwt from 'jsonwebtoken';
+
+import admin from '../config/firebase';
+import User from '../models/user.model';
+
 const { generateTokens, setAuthCookies, clearAuthCookies } = require('../middleware/token');
 
 // In your login handler
@@ -20,7 +22,6 @@ exports.login = async (req, res) => {
         return res.status(401).json({ error: 'Invalid token: missing uid' });
       }
 
-      // Try all possible ID fields for backward compatibility
       let user = await User.findOne({
         $or: [{ uid: uid }, { userId: uid }, { firebaseUid: uid }],
       });
@@ -33,7 +34,7 @@ exports.login = async (req, res) => {
           user = new User({
             uid: userRecord.uid,
             userId: userRecord.uid,
-            firebaseUid: userRecord.uid, // Set all ID fields to the same value
+            firebaseUid: userRecord.uid,
             email: userRecord.email,
             displayName: userRecord.displayName || userRecord.email.split('@')[0],
             photoURL: userRecord.photoURL || null,

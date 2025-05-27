@@ -1,18 +1,21 @@
-const express = require('express');
-const cors = require('cors');
-const http = require('http');
-const { Server } = require('socket.io');
-const morgan = require('morgan');
-const dotenv = require('dotenv');
-const bodyParser = require('body-parser');
-const cookieParser = require('cookie-parser');
-const fs = require('fs');
-const path = require('path');
-const { initFirebaseAdmin } = require('./config/firebase');
-const { connectToMongoDB } = require('./config/mongodb');
-const errorHandler = require('./middleware/errorHandler');
-const { scheduleWeeklyEmails } = require('./services/subscription.service');
-const notificationService = require('./services/notification.service');
+import http from 'http';
+// const { initFirebaseAdmin } = require('./config/firebase');
+import fs from 'fs';
+import path from 'path';
+
+import { Server } from 'socket.io';
+import cookieParser from 'cookie-parser';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import morgan from 'morgan';
+import cors from 'cors';
+import express from 'express';
+
+import notificationService from './services/notification.service';
+import { scheduleWeeklyEmails } from './services/subscription.service';
+import errorHandler from './middleware/errorHandler';
+import admin from './config/firebase';
+import { connectToMongoDB } from './config/mongodb';
 
 // Load environment variables
 dotenv.config();
@@ -91,10 +94,6 @@ io.on('connection', (socket) => {
 // Make io accessible to routes
 app.set('io', io);
 
-// Initialize Firebase Admin SDK
-const admin = require('./config/firebase');
-// Firebase is already initialized when we require the module
-
 // Connect to MongoDB
 connectToMongoDB();
 
@@ -142,16 +141,16 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Import routes
-const authRoutes = require('./routes/auth.routes');
-const eventsRoutes = require('./routes/events.routes');
-const tasksRoutes = require('./routes/tasks.routes');
-const spotifyRoutes = require('./routes/spotify.routes');
-const sponsorRoutes = require('./routes/sponsor.routes');
-const playlistRoutes = require('./routes/playlist.routes');
-const userRoutes = require('./routes/user.routes');
-const publicRoutes = require('./routes/public.routes');
-const adminRoutes = require('./routes/admin.routes');
-const subscriptionRoutes = require('./routes/subscription.routes');
+import authRoutes from './routes/auth.routes';
+import eventsRoutes from './routes/events.routes';
+import tasksRoutes from './routes/tasks.routes';
+import spotifyRoutes from './routes/spotify.routes';
+import sponsorRoutes from './routes/sponsor.routes';
+import playlistRoutes from './routes/playlist.routes';
+import userRoutes from './routes/user.routes';
+import publicRoutes from './routes/public.routes';
+import adminRoutes from './routes/admin.routes';
+import subscriptionRoutes from './routes/subscription.routes';
 
 // Import models - they should be loaded before routes that use them
 require('./models/performer.model');

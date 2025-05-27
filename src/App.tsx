@@ -1,9 +1,9 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
 import { AuthProvider } from './app/contexts/AuthContext';
 import { NotificationProvider } from './app/contexts/NotificationContext';
 import { QueryProvider } from './app/contexts/QueryContext';
 import ProtectedRoute from './app/components/user/ProtectedRoute';
-
 import Home from './app/screen/HomeScreen';
 import GuestScreen from './app/screen/GuestScreen';
 import Login from './app/screen/LoginScreen';

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchWithAuth } from '@services/api';
-import { useAuth } from '../contexts/AuthContext';
 import { format, isAfter, isBefore, parseISO } from 'date-fns';
+
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/OrganizerTaskScreen.css';
 
 // Define interfaces for our data types

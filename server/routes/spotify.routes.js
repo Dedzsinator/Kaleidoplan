@@ -1,10 +1,13 @@
-const express = require('express');
+import http from 'http';
+import https from 'https';
+
+import axios from 'axios';
+import express from 'express';
+
+import spotifyController from '../controllers/spotify.controller';
+import authMiddleware from '../middleware/auth';
+
 const router = express.Router();
-const axios = require('axios');
-const http = require('http');
-const https = require('https');
-const spotifyController = require('../controllers/spotify.controller');
-const authMiddleware = require('../middleware/auth');
 
 router.get('/preview/:previewId', async (req, res) => {
   try {
@@ -26,24 +29,18 @@ router.get('/preview/:previewId', async (req, res) => {
       maxRedirects: 5,
     });
 
-    // Set more extensive CORS headers
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
-
-    // Set audio content type explicitly
     res.set('Content-Type', 'audio/mpeg');
 
-    // If we have content length, set it
     if (response.headers['content-length']) {
       res.set('Content-Length', response.headers['content-length']);
     }
 
-    // Set caching headers to improve performance
-    res.set('Cache-Control', 'public, max-age=86400'); // Cache for a day
+    res.set('Cache-Control', 'public, max-age=86400');
     res.set('Accept-Ranges', 'bytes');
 
-    // Send the buffer
     return res.send(response.data);
   } catch (error) {
     console.error(`Error proxying Spotify preview:`, error);
@@ -55,5 +52,9 @@ router.get('/preview/:previewId', async (req, res) => {
   }
 });
 
-// Existing routes...
+router.get('/search', spotifyController.searchTracks);
+router.get('/playlists', authMiddleware.requireAuth, spotifyController.getUserPlaylists);
+router.post('/playlists', authMiddleware.requireAuth, spotifyController.createPlaylist);
+router.get('/tracks/:id', spotifyController.getTrackDetails);
+
 module.exports = router;

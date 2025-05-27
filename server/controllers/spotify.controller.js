@@ -1,6 +1,7 @@
-const axios = require('axios');
-const User = require('../models/user.model');
-const SpotifyPlaylist = require('../models/playlist.model'); // Create this model if needed
+import axios from 'axios';
+
+// import User from '../models/user.model';
+import SpotifyPlaylist from '../models/playlist.model'; // Create this model if needed
 
 // Spotify API configuration
 const spotifyApi = axios.create({

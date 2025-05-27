@@ -22,7 +22,6 @@
     "husky": "^9.1.7",
     "leaflet": "^1.9.4",
     "lodash.debounce": "^4.0.8",
-    "mongoose": "^8.13.2",
     "process": "^0.11.10",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
@@ -83,6 +82,7 @@
     "validate:js": "eslint --config eslint.config.mjs --fix \"**/*.{js,jsx,ts,tsx}\"",
     "validate:html": "html-validate \"**/*.html\"",
     "validate": "npm run lint && npm run validate:html && npm run typecheck",
+    "lint:fix": "eslint --no-error-on-unmatched-pattern --max-warnings=0 --ext .js,.mjs,.cjs,.jsx,.ts,.tsx --fix .",
     "typecheck": "tsc --noEmit"
   },
   "browserslist": {

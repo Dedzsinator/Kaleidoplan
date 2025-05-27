@@ -136,7 +136,6 @@ export const EventOrganizersTab: React.FC = () => {
       assignments: { success: 0, failure: 0, alreadyAssigned: 0, messages: [] as string[] },
     };
 
-    // 1. Update roles for selected users who are not already organizers
     const usersToUpdateRole = selectedUserIds
       .map((uid) => users.find((u) => getUserId(u) === uid))
       .filter((user): user is User => !!(user && user.role !== 'organizer'));
@@ -168,7 +167,6 @@ export const EventOrganizersTab: React.FC = () => {
       }
     }
 
-    // 2. Assign users to events
     for (const eventId of selectedEventIds) {
       const eventName = events.find((e) => getEventId(e) === eventId)?.name || eventId;
       for (const userId of selectedUserIds) {

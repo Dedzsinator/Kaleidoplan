@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
 require('dotenv').config();
 
 // Get service account from environment variable or JSON file

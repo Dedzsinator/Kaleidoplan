@@ -1,5 +1,4 @@
-// Enhanced error handler to provide more detailed errors
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, req, res) => {
   console.error('API Error:', err);
 
   // MongoDB Validation Error

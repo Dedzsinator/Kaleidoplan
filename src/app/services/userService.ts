@@ -1,5 +1,6 @@
-import api from './api';
 import { User, ApiResponse } from '@models/types';
+
+import api from './api';
 
 export const getUserById = async (userId: string): Promise<User | null> => {
   try {

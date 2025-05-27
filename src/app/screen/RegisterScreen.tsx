@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as Yup from 'yup';
+
 import { useAuth } from '../contexts/AuthContext';
 import AnimatedWaves from '../components/ui/AnimatedWaves';
-import * as Yup from 'yup';
 import '../styles/Auth.css';
 
 // Define error types for strongly typed form handling

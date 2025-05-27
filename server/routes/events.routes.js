@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
-const eventsController = require('../controllers/events.controller');
-const authMiddleware = require('../middleware/auth');
+import eventsController from '../controllers/events.controller';
+import authMiddleware from '../middleware/auth';
 
 // Make sure these image upload routes are BEFORE any JSON-parsing middleware
 router.post('/images/upload', authMiddleware.verifyToken, eventsController.uploadEventImage);

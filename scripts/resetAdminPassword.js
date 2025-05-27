@@ -1,5 +1,5 @@
 require('dotenv').config();
-const admin = require('../server/config/firebase');
+import admin from '../server/config/firebase';
 
 async function resetAdminPassword() {
   try {

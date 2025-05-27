@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { useEvents } from '../../hooks/useEvents';
 import socketService from '@services/socketService';
+
+import { useEvents } from '../../hooks/useEvents';
 
 interface EventSubscriptionProviderProps {
   children: React.ReactNode;

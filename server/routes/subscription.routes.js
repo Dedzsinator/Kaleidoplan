@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
-const subscriptionController = require('../controllers/subscription.controller');
+import subscriptionController from '../controllers/subscription.controller';
 
 // Subscribe to notifications
 router.post('/', subscriptionController.subscribe);

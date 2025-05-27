@@ -2,10 +2,11 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getEvents } from '@services/eventService';
 import { filterEventsByProximity, getCurrentLocation, Coordinates } from '@services/filterService';
+import spotifyService from '@services/spotify-web-api';
+
 import NavBar from '../components/layout/NavBar';
 import Footer from '../components/layout/Footer';
 import EventSection from '../components/layout/EventSection';
-import spotifyService from '@services/spotify-web-api';
 import SpotifyRadioOverlay from '../components/actions/SpotifyRadioOverlay';
 import Pagination from '../components/layout/Pagination';
 import '../styles/Guest.css';
@@ -586,7 +587,6 @@ const GuestScreen = () => {
         const allEventsStr = sessionStorage.getItem('all-events') || '[]';
         const allEvents = JSON.parse(allEventsStr);
 
-        // If event is not already in storage, add it
         if (!allEvents.find((e: Partial<Event>) => e.id === randomEvent.id)) {
           allEvents.push(randomEvent);
           sessionStorage.setItem('all-events', JSON.stringify(allEvents));

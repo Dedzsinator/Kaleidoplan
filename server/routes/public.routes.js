@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+
 const router = express.Router();
-const Event = require('../models/event.model');
+import Event from '../models/event.model';
 
 // Default image URLs for events without images
 const DEFAULT_IMAGES = [
@@ -73,6 +74,7 @@ router.get('/events/:id', async (req, res, next) => {
       // First try with the ID as is (might be a valid ObjectId)
       event = await Event.findById(id);
     } catch (error) {
+      console.error('Error finding event by ID:', error);
       // If ObjectId casting fails, try finding by string ID field
       event = await Event.findOne({ id: id });
     }

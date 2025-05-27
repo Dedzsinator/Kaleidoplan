@@ -1,10 +1,12 @@
 // Task management controller
+import mongoose from 'mongoose';
+
+import Task from '../models/task.model';
+import Log from '../models/log.model';
+import User from '../models/user.model';
+import Event from '../models/event.model';
+
 const { admin } = require('../config/firebase');
-const Task = require('../models/task.model');
-const Log = require('../models/log.model');
-const User = require('../models/user.model');
-const Event = require('../models/event.model');
-const mongoose = require('mongoose');
 
 const getAllTasks = async (req, res, next) => {
   try {
@@ -34,13 +36,6 @@ const getAllTasks = async (req, res, next) => {
     if (priority) {
       filter.priority = priority;
     }
-
-    // Restrict access based on role - temporarily comment this out for testing
-    /*
-    if (req.user.role !== 'admin') {
-      filter.$or = [{ assignedTo: req.user.uid }, { createdBy: req.user.uid }];
-    }
-    */
 
     // Execute query with pagination
     const tasks = await Task.find(filter)
@@ -343,6 +338,7 @@ const getTaskLogsByTaskId = async (req, res, next) => {
             };
           } catch (firebaseErr) {
             // Fall back to MongoDB
+            console.warn('Firebase user not found for UID falling back to MongoDB', log.changedBy, firebaseErr);
             const user = await User.findOne({ firebaseUid: log.changedBy });
             if (user) {
               userData = {
@@ -357,6 +353,7 @@ const getTaskLogsByTaskId = async (req, res, next) => {
             user: userData || { displayName: 'Unknown User' },
           };
         } catch (err) {
+          console.error('Error enriching log with user data:', err);
           return {
             ...logObj,
             user: { displayName: 'Unknown User' },

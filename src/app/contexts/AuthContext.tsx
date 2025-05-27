@@ -12,9 +12,10 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 // Import the Firebase app instance
-import { auth } from '../config/firebase'; // Import the pre-initialized auth
 import { fetchWithAuth } from '@services/api';
 import TokenStorage from '@services/tokenStorage';
+
+import { auth } from '../config/firebase'; // Import the pre-initialized auth
 
 // Define user types
 export type UserRole = 'user' | 'organizer' | 'admin';

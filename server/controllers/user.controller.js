@@ -1,9 +1,10 @@
-const mongoose = require('mongoose');
-const Event = require('../models/event.model');
-const OrganizerEvent = require('../models/organizer-event.model');
-const EventInterest = require('../models/event-interest.model');
-const User = require('../models/user.model');
-const admin = require('../config/firebase');
+import mongoose from 'mongoose';
+
+import Event from '../models/event.model';
+import OrganizerEvent from '../models/organizer-event.model';
+import EventInterest from '../models/event-interest.model';
+import User from '../models/user.model';
+import admin from '../config/firebase';
 
 // Get current user profile
 exports.getCurrentUser = async (req, res) => {
@@ -192,7 +193,6 @@ exports.assignEventToOrganizer = async (req, res) => {
       return res.status(404).json({ error: 'User not found in Firebase' });
     }
 
-    // Set custom claims to make user an organizer if not already
     try {
       const customClaims = userRecord.customClaims || {};
       if (customClaims.role !== 'organizer' && customClaims.role !== 'admin') {
@@ -207,7 +207,7 @@ exports.assignEventToOrganizer = async (req, res) => {
     }
 
     // Ensure user exists in MongoDB
-    let user = await User.findOne({ uid: userId });
+    const user = await User.findOne({ uid: userId });
 
     if (!user) {
       // Create user in MongoDB if not exists

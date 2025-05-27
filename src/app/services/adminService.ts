@@ -1,5 +1,6 @@
-import api from './api';
 import { Event, ApiResponse } from '@models/types';
+
+import api from './api';
 
 export const assignOrganizerToEvent = async (
   eventId: string,

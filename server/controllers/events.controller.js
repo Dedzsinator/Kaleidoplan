@@ -1,14 +1,30 @@
-const Event = require('../models/event.model');
-const EventSponsor = require('../models/event-sponsor.model');
-const EventInterest = require('../models/event-interest.model');
-const OrganizerEvent = require('../models/organizer-event.model');
-const mongoose = require('mongoose');
-const { admin } = require('../config/firebase');
-const multer = require('multer');
+import path from 'path';
+import fs from 'fs';
+
+import mongoose from 'mongoose';
+import multer from 'multer';
+
+import Event from '../models/event.model';
+import EventSponsor from '../models/event-sponsor.model';
+import EventInterest from '../models/event-interest.model';
+import OrganizerEvent from '../models/organizer-event.model';
+import notificationService from '../services/notification.service';
+
+// const { admin } = require('../config/firebase');
+
 const cloudinary = require('cloudinary').v2;
-const path = require('path');
-const fs = require('fs');
-const notificationService = require('../services/notification.service');
+
+const configureCloudinary = () => {
+  if (process.env.CLOUDINARY_CLOUD_NAME && !cloudinary.config().cloud_name) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
+};
+
+configureCloudinary();
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -239,19 +255,13 @@ const storeImageReference = async (req, res) => {
         message: 'Cover image reference stored successfully',
       });
     } else if (imageType === 'slideshow') {
-      // UPDATING APPROACH: Don't try to read and update, just use MongoDB atomic operations
-      // First initialize the field as an array if it doesn't exist, then push the new image
-
-      // Step 1: Initialize slideshowImages as an empty array if it doesn't exist
       await Event.updateOne({ _id: event._id, slideshowImages: { $exists: false } }, { $set: { slideshowImages: [] } });
 
-      // Step 2: Initialize slideshowImagePublicIds as an empty array if it doesn't exist
       await Event.updateOne(
         { _id: event._id, slideshowImagePublicIds: { $exists: false } },
         { $set: { slideshowImagePublicIds: [] } },
       );
 
-      // Step 3: Convert string to array if needed
       await Event.updateOne(
         { _id: event._id, $expr: { $eq: [{ $type: '$slideshowImages' }, 'string'] } },
         {
@@ -262,7 +272,6 @@ const storeImageReference = async (req, res) => {
         },
       );
 
-      // Step 4: Now push the new image
       await Event.updateOne(
         { _id: event._id },
         {
@@ -279,7 +288,6 @@ const storeImageReference = async (req, res) => {
       });
     }
 
-    // If we get here, the imageType was not recognized
     return res.status(400).json({
       success: false,
       message: 'Invalid image type',
@@ -425,12 +433,7 @@ const deleteEventImageByUrl = async (req, res) => {
         // Try to delete from Cloudinary if we have the config
         if (process.env.CLOUDINARY_CLOUD_NAME) {
           try {
-            cloudinary.config({
-              cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-              api_key: process.env.CLOUDINARY_API_KEY,
-              api_secret: process.env.CLOUDINARY_API_SECRET,
-            });
-
+            configureCloudinary();
             const result = await cloudinary.uploader.destroy(publicId);
           } catch (cloudinaryError) {
             console.error('Error deleting from Cloudinary:', cloudinaryError);
@@ -490,13 +493,7 @@ const deleteEventImage = async (req, res) => {
 
     // Set up Cloudinary configuration if using Cloudinary
     if (process.env.CLOUDINARY_CLOUD_NAME) {
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
-
-      // Try to delete from Cloudinary - catch errors but continue with database update
+      configureCloudinary();
       try {
         const result = await cloudinary.uploader.destroy(publicId);
       } catch (cloudinaryError) {
@@ -516,7 +513,7 @@ const deleteEventImage = async (req, res) => {
     });
 
     if (!events || events.length === 0) {
-      console.warn(`No events found with publicId: ${publicId}`);
+      console.warn('No events found with publicId:', publicId);
     }
 
     // Update cover images
@@ -631,6 +628,7 @@ const getEventById = async (req, res, next) => {
     try {
       eventId = mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id;
     } catch (e) {
+      console.warn('ID could not be converted to ObjectId, using as string:', e);
       eventId = id;
     }
 
@@ -662,6 +660,7 @@ const getEventById = async (req, res, next) => {
       const eventSponsors = await EventSponsor.find({ eventId: event._id });
       eventObj.sponsors = eventSponsors.map((es) => es.sponsorId);
     } catch (sponsorError) {
+      console.error('Error fetching sponsors for event:', sponsorError);
       eventObj.sponsors = [];
     }
 
@@ -764,6 +763,7 @@ const updateEvent = async (req, res, next) => {
     try {
       eventId = mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id;
     } catch (e) {
+      console.warn('ID could not be converted to ObjectId, using as string:', e);
       eventId = id;
     }
 
@@ -861,6 +861,7 @@ const deleteEvent = async (req, res, next) => {
     try {
       eventId = mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id;
     } catch (e) {
+      console.warn('ID could not be converted to ObjectId, using as string:', e);
       eventId = id;
     }
 
@@ -902,6 +903,7 @@ const getEventInterests = async (req, res, next) => {
     try {
       eventId = mongoose.Types.ObjectId.isValid(id) ? mongoose.Types.ObjectId(id) : id;
     } catch (e) {
+      console.warn('ID could not be converted to ObjectId, using as string:', e);
       eventId = id;
     }
 

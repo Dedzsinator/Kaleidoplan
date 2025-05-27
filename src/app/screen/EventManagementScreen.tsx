@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import { fetchWithAuth } from '@services/api';
+
+import { useAuth } from '../contexts/AuthContext';
 import '../styles/EventManagementScreen.css';
 
 interface ManagedEvent {

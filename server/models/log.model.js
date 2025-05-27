@@ -1,5 +1,5 @@
 // Log model for task status changes
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const logSchema = new mongoose.Schema(
   {

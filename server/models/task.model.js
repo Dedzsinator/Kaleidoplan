@@ -1,5 +1,5 @@
 // Task model for event-related tasks
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const taskSchema = new mongoose.Schema(
   {
