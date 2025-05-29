@@ -574,4 +574,6 @@ Contributions are welcome!
 
 This project is licensed under the MIT License. See the LICENSE file for details.
 
+Im in pain
+
 fix task (competing and editing) and login-register also with 3rd party auth;
