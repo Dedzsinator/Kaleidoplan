@@ -70,12 +70,10 @@ exports.updateCurrentUser = async (req, res) => {
 // Get all users from Firebase
 exports.getAllUsers = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100; // Firebase has different pagination
 
     // Firebase Auth listUsers returns up to 1000 users at a time with pagination
     let users = [];
-    let nextPageToken;
 
     // Get batch of users from Firebase
     const listUsersResult = await admin.auth().listUsers(limit);

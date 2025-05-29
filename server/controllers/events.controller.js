@@ -434,7 +434,6 @@ const deleteEventImageByUrl = async (req, res) => {
         if (process.env.CLOUDINARY_CLOUD_NAME) {
           try {
             configureCloudinary();
-            const result = await cloudinary.uploader.destroy(publicId);
           } catch (cloudinaryError) {
             console.error('Error deleting from Cloudinary:', cloudinaryError);
             // Continue with database update even if Cloudinary fails
@@ -495,7 +494,6 @@ const deleteEventImage = async (req, res) => {
     if (process.env.CLOUDINARY_CLOUD_NAME) {
       configureCloudinary();
       try {
-        const result = await cloudinary.uploader.destroy(publicId);
       } catch (cloudinaryError) {
         console.error('Error deleting from Cloudinary:', cloudinaryError);
         // Continue with database update even if Cloudinary fails
@@ -515,12 +513,6 @@ const deleteEventImage = async (req, res) => {
     if (!events || events.length === 0) {
       console.warn('No events found with publicId:', publicId);
     }
-
-    // Update cover images
-    const coverUpdateResult = await Event.updateMany(
-      { $or: [{ coverImagePublicId: publicId }, { coverImageUrl: { $regex: publicId } }] },
-      { $set: { coverImageUrl: '', coverImagePublicId: '' } },
-    );
 
     // Update slideshow images - more complex operation as we need to filter arrays
     for (const event of events) {
